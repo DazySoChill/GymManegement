@@ -9,21 +9,16 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <PackageReference Include="Microsoft.EntityFrameworkCore" Version="8.0.13" />
-    <PackageReference Include="Microsoft.VisualStudio.Azure.Containers.Tools.Targets" Version="1.22.1" />
-    <PackageReference Include="Swashbuckle.AspNetCore" Version="6.6.2" />
+    <Compile Remove="Gym.API\**" />
+    <Content Remove="Gym.API\**" />
+    <EmbeddedResource Remove="Gym.API\**" />
+    <None Remove="Gym.API\**" />
   </ItemGroup>
 
   <ItemGroup>
-    <Folder Include="Gym.API\DTOs\Member\" />
-    <Folder Include="Gym.API\DTOs\Membership\" />
-    <Folder Include="Gym.API\DTOs\Facility\" />
-    <Folder Include="Gym.API\DTOs\Checkin\" />
-    <Folder Include="Gym.API\DTOs\Invoice\" />
-    <Folder Include="Gym.API\DTOs\Payment\" />
-    <Folder Include="Gym.API\DTOs\Session\" />
-    <Folder Include="Gym.API\DTOs\Schedule\" />
-    <Folder Include="Gym.API\DTOs\Trainer\" />
+    <PackageReference Include="Microsoft.EntityFrameworkCore" Version="8.0.13" />
+    <PackageReference Include="Microsoft.VisualStudio.Azure.Containers.Tools.Targets" Version="1.22.1" />
+    <PackageReference Include="Swashbuckle.AspNetCore" Version="6.6.2" />
   </ItemGroup>
 
 </Project>
