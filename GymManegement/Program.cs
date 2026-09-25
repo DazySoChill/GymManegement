@@ -45,6 +45,11 @@ if (app.Environment.IsDevelopment())
 }
 
 app.UseHttpsRedirection();
+
+// ── Serve frontend từ wwwroot/ ─────────────────────────────────
+app.UseDefaultFiles();   // index.html at root
+app.UseStaticFiles();
+
 app.UseAuthorization();
 app.MapControllers();
 app.Run();
