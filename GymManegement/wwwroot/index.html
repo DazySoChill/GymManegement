@@ -1,0 +1,479 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Gym Management</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="/css/style.css" />
+</head>
+<body>
+
+<!-- ══ SIDEBAR ═══════════════════════════════════════════════ -->
+<aside id="sidebar">
+  <div class="logo">🏋️ GymManager</div>
+  <nav>
+    <a href="#" data-page="dashboard">   <span class="icon">📊</span> Tổng quan</a>
+    <a href="#" data-page="members">     <span class="icon">👤</span> Hội viên</a>
+    <a href="#" data-page="memberships"> <span class="icon">🎫</span> Gói tập</a>
+    <a href="#" data-page="trainers">    <span class="icon">💪</span> Huấn luyện viên</a>
+    <a href="#" data-page="facilities">  <span class="icon">🏠</span> Phòng / Thiết bị</a>
+    <a href="#" data-page="schedules">   <span class="icon">📅</span> Lịch tập</a>
+    <a href="#" data-page="checkins">    <span class="icon">✅</span> Check-in</a>
+    <a href="#" data-page="invoices">    <span class="icon">🧾</span> Hóa đơn</a>
+    <a href="#" data-page="reports">     <span class="icon">📈</span> Báo cáo</a>
+  </nav>
+  <div class="sidebar-footer">Gym Management v1.0</div>
+</aside>
+
+<!-- ══ MAIN ══════════════════════════════════════════════════ -->
+<div id="main">
+  <div id="topbar">
+    <h1 id="topbar-title">Tổng quan</h1>
+    <div class="topbar-right">
+      <span id="clock" style="color:var(--muted);font-size:.85rem"></span>
+    </div>
+  </div>
+
+  <!-- ────────────── DASHBOARD ────────────── -->
+  <div id="page-dashboard" class="page">
+    <div class="page-content">
+      <div class="stats-grid">
+        <div class="stat-card blue">  <div class="stat-icon">👤</div><div class="stat-label">Hội viên đang hoạt động</div><div class="stat-value" id="stat-active">—</div></div>
+        <div class="stat-card warn">  <div class="stat-icon">⚠️</div><div class="stat-label">Sắp hết hạn (7 ngày)</div>    <div class="stat-value" id="stat-expiring">—</div></div>
+        <div class="stat-card red">   <div class="stat-icon">🧾</div><div class="stat-label">Hóa đơn quá hạn</div>         <div class="stat-value" id="stat-overdue">—</div></div>
+        <div class="stat-card green"> <div class="stat-icon">💰</div><div class="stat-label">Doanh thu tháng này</div>      <div class="stat-value" id="stat-revenue">—</div></div>
+      </div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:18px">
+        <div class="card">
+          <div class="card-header"><h2>⚠️ Hội viên sắp hết hạn</h2></div>
+          <div style="padding:0 20px" id="expiring-list"><div class="loading"><span class="spinner"></span></div></div>
+        </div>
+        <div class="card">
+          <div class="card-header"><h2>🧾 Hóa đơn quá hạn</h2></div>
+          <div style="padding:0 20px" id="overdue-list"><div class="loading"><span class="spinner"></span></div></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ────────────── MEMBERS ────────────── -->
+  <div id="page-members" class="page">
+    <div class="page-content">
+      <div class="card">
+        <div class="card-header">
+          <h2>👤 Danh sách hội viên</h2>
+          <div class="card-toolbar">
+            <div class="search-input"><span>🔍</span><input id="member-search" placeholder="Tìm kiếm..." /></div>
+            <button class="btn btn-primary" onclick="openAddMember()">+ Thêm hội viên</button>
+          </div>
+        </div>
+        <div class="tbl-wrap">
+          <table><thead><tr><th>ID</th><th>Họ tên</th><th>SĐT</th><th>Email</th><th>Ngày tham gia</th><th>Trạng thái</th><th>Thao tác</th></tr></thead>
+          <tbody id="members-tbody"><tr><td colspan="7" class="loading"><span class="spinner"></span></td></tr></tbody></table>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ────────────── MEMBERSHIPS ────────────── -->
+  <div id="page-memberships" class="page">
+    <div class="page-content">
+      <div class="card" style="margin-bottom:18px">
+        <div class="card-header">
+          <h2>🎫 Tra cứu gói tập theo hội viên</h2>
+          <div class="card-toolbar">
+            <select id="ms-member-select" style="padding:8px 12px;border:1px solid var(--border);border-radius:7px;min-width:200px">
+              <option value="">-- Chọn hội viên --</option>
+            </select>
+            <button class="btn btn-ghost" onclick="loadMemberMemberships()">Xem</button>
+            <button class="btn btn-primary" onclick="openAddMembership()">+ Đăng ký gói tập</button>
+          </div>
+        </div>
+        <div class="tbl-wrap">
+          <table><thead><tr><th>ID</th><th>Loại gói</th><th>Giá</th><th>Từ ngày</th><th>Đến ngày</th><th>Còn lại</th><th>Trạng thái</th></tr></thead>
+          <tbody id="memberships-tbody"><tr><td colspan="7" style="text-align:center;padding:30px;color:var(--muted)">Chọn hội viên để xem gói tập</td></tr></tbody></table>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ────────────── TRAINERS ────────────── -->
+  <div id="page-trainers" class="page">
+    <div class="page-content">
+      <div class="card">
+        <div class="card-header">
+          <h2>💪 Huấn luyện viên</h2>
+          <div class="card-toolbar">
+            <div class="search-input"><span>🔍</span><input id="trainer-search" placeholder="Tìm kiếm..." /></div>
+            <button class="btn btn-primary" onclick="openAddTrainer()">+ Thêm HLV</button>
+          </div>
+        </div>
+        <div class="tbl-wrap">
+          <table><thead><tr><th>ID</th><th>Họ tên</th><th>SĐT</th><th>Email</th><th>Chuyên môn</th><th>Thao tác</th></tr></thead>
+          <tbody id="trainers-tbody"><tr><td colspan="6" class="loading"><span class="spinner"></span></td></tr></tbody></table>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ────────────── FACILITIES ────────────── -->
+  <div id="page-facilities" class="page">
+    <div class="page-content">
+      <div class="card">
+        <div class="card-header">
+          <h2>🏠 Phòng / Thiết bị</h2>
+          <button class="btn btn-primary" onclick="openAddFacility()">+ Thêm phòng</button>
+        </div>
+        <div class="tbl-wrap">
+          <table><thead><tr><th>ID</th><th>Tên</th><th>Mô tả</th><th>Trạng thái</th><th>Thao tác</th></tr></thead>
+          <tbody id="facilities-tbody"><tr><td colspan="5" class="loading"><span class="spinner"></span></td></tr></tbody></table>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ────────────── SCHEDULES ────────────── -->
+  <div id="page-schedules" class="page">
+    <div class="page-content">
+      <div class="card">
+        <div class="card-header">
+          <h2>📅 Lịch tập</h2>
+          <button class="btn btn-primary" onclick="openAddSchedule()">+ Đặt lịch tập</button>
+        </div>
+        <div class="tbl-wrap">
+          <table><thead><tr><th>ID</th><th>Hội viên</th><th>HLV</th><th>Phòng</th><th>Bắt đầu</th><th>Kết thúc</th><th>Thao tác</th></tr></thead>
+          <tbody id="schedules-tbody"><tr><td colspan="7" class="loading"><span class="spinner"></span></td></tr></tbody></table>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ────────────── CHECKINS ────────────── -->
+  <div id="page-checkins" class="page">
+    <div class="page-content">
+      <div class="card">
+        <div class="card-header">
+          <h2>✅ Lịch sử Check-in</h2>
+          <div class="card-toolbar">
+            <button class="btn btn-primary" onclick="openManualCheckin()">📝 Check-in thủ công</button>
+            <button class="btn btn-success" onclick="openQRCheckin()">📷 Check-in QR</button>
+          </div>
+        </div>
+        <div class="tbl-wrap">
+          <table><thead><tr><th>ID</th><th>Hội viên</th><th>Session</th><th>Thời gian</th><th>Phương thức</th></tr></thead>
+          <tbody id="checkins-tbody"><tr><td colspan="5" class="loading"><span class="spinner"></span></td></tr></tbody></table>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ────────────── INVOICES ────────────── -->
+  <div id="page-invoices" class="page">
+    <div class="page-content">
+      <div class="card">
+        <div class="card-header">
+          <h2>🧾 Hóa đơn</h2>
+          <div class="card-toolbar">
+            <button class="btn btn-ghost inv-filter-btn btn-primary" data-filter="all">Tất cả</button>
+            <button class="btn btn-ghost inv-filter-btn" data-filter="Pending">Chờ TT</button>
+            <button class="btn btn-ghost inv-filter-btn" data-filter="Paid">Đã TT</button>
+            <button class="btn btn-ghost inv-filter-btn" data-filter="Overdue">Quá hạn</button>
+            <button class="btn btn-primary" onclick="openAddInvoice()">+ Tạo hóa đơn</button>
+          </div>
+        </div>
+        <div class="tbl-wrap">
+          <table><thead><tr><th>ID</th><th>Hội viên</th><th>Tổng tiền</th><th>Ngày tạo</th><th>Hạn TT</th><th>Trạng thái</th><th>Thao tác</th></tr></thead>
+          <tbody id="invoices-tbody"><tr><td colspan="7" class="loading"><span class="spinner"></span></td></tr></tbody></table>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ────────────── REPORTS ────────────── -->
+  <div id="page-reports" class="page">
+    <div class="page-content">
+      <div class="card" style="margin-bottom:18px">
+        <div class="card-header">
+          <h2>📈 Báo cáo doanh thu</h2>
+          <div class="card-toolbar">
+            <select id="rep-month" style="padding:8px 12px;border:1px solid var(--border);border-radius:7px">
+              <option value="1">Tháng 1</option><option value="2">Tháng 2</option><option value="3">Tháng 3</option>
+              <option value="4">Tháng 4</option><option value="5">Tháng 5</option><option value="6">Tháng 6</option>
+              <option value="7">Tháng 7</option><option value="8">Tháng 8</option><option value="9">Tháng 9</option>
+              <option value="10">Tháng 10</option><option value="11">Tháng 11</option><option value="12">Tháng 12</option>
+            </select>
+            <input id="rep-year" type="number" min="2020" max="2030" style="padding:8px 12px;border:1px solid var(--border);border-radius:7px;width:90px" />
+            <button id="btn-load-report" class="btn btn-primary">Xem báo cáo</button>
+          </div>
+        </div>
+        <div class="stats-grid" style="padding:20px">
+          <div class="stat-card green"><div class="stat-label">Tổng doanh thu</div><div class="stat-value" id="rep-total" style="font-size:1.3rem">—</div></div>
+          <div class="stat-card blue"><div class="stat-label">Đã thu</div><div class="stat-value" id="rep-paid" style="font-size:1.3rem">—</div></div>
+          <div class="stat-card warn"><div class="stat-label">Chờ thanh toán</div><div class="stat-value" id="rep-pending" style="font-size:1.3rem">—</div></div>
+          <div class="stat-card blue"><div class="stat-label">Số hóa đơn</div><div class="stat-value" id="rep-invoices">—</div></div>
+        </div>
+        <div class="tbl-wrap" style="padding:0 20px 20px">
+          <table><thead><tr><th>Invoice ID</th><th>Hội viên</th><th>Tổng tiền</th><th>Ngày tạo</th><th>Trạng thái</th><th>Đã thanh toán</th></tr></thead>
+          <tbody id="report-detail-tbody"></tbody></table>
+        </div>
+      </div>
+      <div class="card">
+        <div class="card-header"><h2>👤 Hội viên đang hoạt động</h2></div>
+        <div class="tbl-wrap">
+          <table><thead><tr><th>Họ tên</th><th>Loại gói</th><th>Hết hạn</th><th>Còn lại</th><th>Số buổi</th></tr></thead>
+          <tbody id="active-members-tbody"></tbody></table>
+        </div>
+      </div>
+    </div>
+  </div>
+
+</div><!-- /main -->
+
+<!-- ══ TOAST ══════════════════════════════════════════════════ -->
+<div id="toast-container"></div>
+
+<!-- ══ MODALS ═════════════════════════════════════════════════ -->
+
+<!-- Member -->
+<div id="modal-member" class="modal-backdrop">
+  <div class="modal">
+    <div class="modal-header">
+      <h3 id="modal-member-title">Thêm hội viên</h3>
+      <button class="close-btn" onclick="closeModal('modal-member')">×</button>
+    </div>
+    <form id="member-form">
+      <div class="modal-body">
+        <div class="form-grid form-grid-2">
+          <div class="form-group"><label>Họ tên *</label><input id="m-fullname" required /></div>
+          <div class="form-group"><label>SĐT</label><input id="m-phone" /></div>
+          <div class="form-group"><label>Email *</label><input id="m-email" type="email" required /></div>
+          <div class="form-group"><label>Ngày sinh</label><input id="m-dob" type="date" /></div>
+          <div class="form-group"><label>Trạng thái</label>
+            <select id="m-status"><option value="Active">Active</option><option value="Inactive">Inactive</option><option value="Suspended">Suspended</option></select>
+          </div>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-ghost" onclick="closeModal('modal-member')">Hủy</button>
+        <button type="submit" class="btn btn-primary">💾 Lưu</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<!-- Trainer -->
+<div id="modal-trainer" class="modal-backdrop">
+  <div class="modal">
+    <div class="modal-header"><h3 id="modal-trainer-title">Thêm HLV</h3><button class="close-btn" onclick="closeModal('modal-trainer')">×</button></div>
+    <form id="trainer-form">
+      <div class="modal-body">
+        <div class="form-grid form-grid-2">
+          <div class="form-group"><label>Họ tên *</label><input id="t-fullname" required /></div>
+          <div class="form-group"><label>SĐT</label><input id="t-phone" /></div>
+          <div class="form-group"><label>Email *</label><input id="t-email" type="email" required /></div>
+          <div class="form-group"><label>Chuyên môn</label><input id="t-specialization" /></div>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-ghost" onclick="closeModal('modal-trainer')">Hủy</button>
+        <button type="submit" class="btn btn-primary">💾 Lưu</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<!-- Facility -->
+<div id="modal-facility" class="modal-backdrop">
+  <div class="modal">
+    <div class="modal-header"><h3 id="modal-facility-title">Thêm phòng</h3><button class="close-btn" onclick="closeModal('modal-facility')">×</button></div>
+    <form id="facility-form">
+      <div class="modal-body">
+        <div class="form-grid">
+          <div class="form-group"><label>Tên phòng *</label><input id="f-name" required /></div>
+          <div class="form-group"><label>Mô tả</label><textarea id="f-desc" rows="3"></textarea></div>
+          <div class="form-group"><label>Trạng thái</label>
+            <select id="f-active"><option value="true">Hoạt động</option><option value="false">Dừng</option></select>
+          </div>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-ghost" onclick="closeModal('modal-facility')">Hủy</button>
+        <button type="submit" class="btn btn-primary">💾 Lưu</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<!-- Schedule -->
+<div id="modal-schedule" class="modal-backdrop">
+  <div class="modal">
+    <div class="modal-header"><h3>Đặt lịch tập</h3><button class="close-btn" onclick="closeModal('modal-schedule')">×</button></div>
+    <form id="sch-form">
+      <div class="modal-body">
+        <div class="form-grid">
+          <div class="form-group"><label>Hội viên *</label><select id="sch-member"></select></div>
+          <div class="form-group"><label>Huấn luyện viên *</label><select id="sch-trainer"></select></div>
+          <div class="form-group"><label>Phòng *</label><select id="sch-facility"></select></div>
+          <div class="form-grid form-grid-2">
+            <div class="form-group"><label>Bắt đầu *</label><input id="sch-start" type="datetime-local" required /></div>
+            <div class="form-group"><label>Kết thúc *</label><input id="sch-end" type="datetime-local" required /></div>
+          </div>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-ghost" onclick="closeModal('modal-schedule')">Hủy</button>
+        <button type="submit" class="btn btn-primary">💾 Đặt lịch</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<!-- Membership -->
+<div id="modal-membership" class="modal-backdrop">
+  <div class="modal">
+    <div class="modal-header"><h3>Đăng ký gói tập</h3><button class="close-btn" onclick="closeModal('modal-membership')">×</button></div>
+    <form id="membership-form">
+      <div class="modal-body">
+        <div class="form-grid">
+          <div class="form-group"><label>Hội viên *</label><select id="ms-member"></select></div>
+          <div class="form-group"><label>Loại gói *</label>
+            <select id="ms-type"><option value="Monthly">Tháng</option><option value="Quarterly">Quý (3 tháng)</option><option value="Annual">Năm</option></select>
+          </div>
+          <div class="form-grid form-grid-2">
+            <div class="form-group"><label>Giá (VNĐ) *</label><input id="ms-price" type="number" min="0" required /></div>
+            <div class="form-group"><label>Ngày bắt đầu *</label><input id="ms-start" type="date" required /></div>
+          </div>
+          <div class="form-group"><label>Ngày kết thúc *</label><input id="ms-end" type="date" required /></div>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-ghost" onclick="closeModal('modal-membership')">Hủy</button>
+        <button type="submit" class="btn btn-primary">💾 Đăng ký</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<!-- Checkin Manual -->
+<div id="modal-checkin-manual" class="modal-backdrop">
+  <div class="modal">
+    <div class="modal-header"><h3>📝 Check-in thủ công</h3><button class="close-btn" onclick="closeModal('modal-checkin-manual')">×</button></div>
+    <form id="checkin-manual-form">
+      <div class="modal-body">
+        <div class="form-grid">
+          <div class="form-group"><label>Hội viên *</label><select id="ci-member"></select></div>
+          <div class="form-group"><label>Session *</label><select id="ci-session"></select></div>
+          <div class="form-group"><label>Phương thức</label>
+            <select id="ci-method"><option value="Manual">Thủ công</option><option value="Card">Thẻ</option></select>
+          </div>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-ghost" onclick="closeModal('modal-checkin-manual')">Hủy</button>
+        <button type="submit" class="btn btn-primary">✅ Check-in</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<!-- QR Checkin -->
+<div id="modal-qr-checkin" class="modal-backdrop">
+  <div class="modal">
+    <div class="modal-header"><h3>📷 Check-in bằng QR Code</h3><button class="close-btn" onclick="closeModal('modal-qr-checkin')">×</button></div>
+    <form id="qr-form">
+      <div class="modal-body">
+        <div class="form-grid">
+          <div class="form-group"><label>Giá trị QR Code *</label><input id="qr-value" placeholder="Nhập hoặc scan QR..." required /></div>
+          <div class="form-group"><label>Session *</label><select id="qr-session"></select></div>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-ghost" onclick="closeModal('modal-qr-checkin')">Hủy</button>
+        <button type="submit" class="btn btn-success">📷 Check-in</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<!-- Invoice -->
+<div id="modal-invoice" class="modal-backdrop">
+  <div class="modal">
+    <div class="modal-header"><h3>Tạo hóa đơn</h3><button class="close-btn" onclick="closeModal('modal-invoice')">×</button></div>
+    <form id="invoice-form">
+      <div class="modal-body">
+        <div class="form-grid">
+          <div class="form-group"><label>Hội viên *</label><select id="inv-member"></select></div>
+          <div class="form-group"><label>Tổng tiền (VNĐ) *</label><input id="inv-amount" type="number" min="0" required /></div>
+          <div class="form-group"><label>Hạn thanh toán *</label><input id="inv-due" type="date" required /></div>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-ghost" onclick="closeModal('modal-invoice')">Hủy</button>
+        <button type="submit" class="btn btn-primary">💾 Tạo hóa đơn</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<!-- Payments -->
+<div id="modal-payments" class="modal-backdrop">
+  <div class="modal">
+    <div class="modal-header"><h3>💰 Lịch sử thanh toán</h3><button class="close-btn" onclick="closeModal('modal-payments')">×</button></div>
+    <div class="modal-body">
+      <div id="payment-list" style="margin-bottom:20px"></div>
+      <hr style="margin:16px 0;border-color:var(--border)" />
+      <h4 style="margin-bottom:12px">Thêm thanh toán mới</h4>
+      <form id="payment-form">
+        <input type="hidden" id="pay-invoice-id" />
+        <div class="form-grid form-grid-2">
+          <div class="form-group"><label>Số tiền (VNĐ) *</label><input id="pay-amount" type="number" min="0" required /></div>
+          <div class="form-group"><label>Phương thức *</label>
+            <select id="pay-method">
+              <option value="Cash">Tiền mặt</option><option value="BankTransfer">Chuyển khoản</option>
+              <option value="Card">Thẻ</option><option value="MoMo">MoMo</option><option value="ZaloPay">ZaloPay</option>
+            </select>
+          </div>
+        </div>
+        <div style="margin-top:12px;text-align:right">
+          <button type="submit" class="btn btn-success">💰 Thanh toán</button>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+
+<!-- Confirm Delete -->
+<div id="modal-confirm" class="modal-backdrop">
+  <div class="modal" style="max-width:380px">
+    <div class="modal-header"><h3>Xác nhận</h3><button class="close-btn" onclick="closeModal('modal-confirm')">×</button></div>
+    <div class="modal-body"><p id="confirm-msg" style="font-size:.95rem"></p></div>
+    <div class="modal-footer">
+      <button class="btn btn-ghost" onclick="closeModal('modal-confirm')">Hủy</button>
+      <button id="confirm-ok" class="btn btn-danger">🗑️ Xóa</button>
+    </div>
+  </div>
+</div>
+
+<!-- ══ SCRIPTS ════════════════════════════════════════════════ -->
+<script src="/js/api.js"></script>
+<script src="/js/app.js"></script>
+<script src="/js/pages/dashboard.js"></script>
+<script src="/js/pages/members.js"></script>
+<script src="/js/pages/memberships.js"></script>
+<script src="/js/pages/trainers.js"></script>
+<script src="/js/pages/facilities.js"></script>
+<script src="/js/pages/schedules.js"></script>
+<script src="/js/pages/checkins.js"></script>
+<script src="/js/pages/invoices.js"></script>
+<script src="/js/pages/reports.js"></script>
+
+<script>
+  // Clock
+  setInterval(() => {
+    document.getElementById('clock').textContent = new Date().toLocaleTimeString('vi-VN');
+  }, 1000);
+</script>
+</body>
+</html>
