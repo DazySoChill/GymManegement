@@ -1,24 +1,30 @@
 -- ============================================================
 -- FILE: 03_SeedData.sql
--- Mô tả: Dữ liệu mẫu (Seed Data) chuẩn để test toàn bộ chức năng
+-- Mô tả: Dữ liệu mẫu đơn giản (khớp schema đơn giản)
+-- Chạy sau 01_Schema.sql và 04_Users.sql
 -- ============================================================
 
 USE GymDb;
 GO
 
--- Xoá dữ liệu cũ theo thứ tự khoá ngoại
+SET NOCOUNT ON;
+
+-- Xóa dữ liệu cũ theo thứ tự FK (Users trước vì FK đến Members/Trainers)
 DELETE FROM Payments;
 DELETE FROM Invoices;
 DELETE FROM Checkins;
 DELETE FROM Sessions;
 DELETE FROM Schedules;
 DELETE FROM Memberships;
+DELETE FROM Users;
 DELETE FROM Facilities;
 DELETE FROM Trainers;
 DELETE FROM Members;
 GO
 
--- 1. Members
+-- ═══════════════════════════════════════════════════════════
+-- 1. MEMBERS (4 records - khớp User.MemberId = 1,2,3)
+-- ═══════════════════════════════════════════════════════════
 SET IDENTITY_INSERT Members ON;
 INSERT INTO Members (MemberId, FullName, Phone, Email, DateOfBirth, JoinDate, Status, QRCodeValue) VALUES
 (1, N'Nguyễn Văn An',  '0901234567', 'an.nguyen@gmail.com',  '1995-05-15', '2026-01-10', 'Active',   'QR_MEM_001'),
@@ -27,8 +33,12 @@ INSERT INTO Members (MemberId, FullName, Phone, Email, DateOfBirth, JoinDate, St
 (4, N'Phạm Minh Đức',  '0934567890', 'duc.pham@gmail.com',   '2000-02-14', '2026-01-05', 'Inactive', 'QR_MEM_004');
 SET IDENTITY_INSERT Members OFF;
 GO
+DBCC CHECKIDENT ('Members', RESEED, 4);
+GO
 
--- 2. Trainers
+-- ═══════════════════════════════════════════════════════════
+-- 2. TRAINERS (3 records - khớp User.TrainerId = 1,2,3)
+-- ═══════════════════════════════════════════════════════════
 SET IDENTITY_INSERT Trainers ON;
 INSERT INTO Trainers (TrainerId, FullName, Phone, Email, Specialization) VALUES
 (1, N'Đặng Văn Dũng',  '0987654321', 'dung.pt@gym.com', N'Bodybuilding & Fitness'),
@@ -36,8 +46,12 @@ INSERT INTO Trainers (TrainerId, FullName, Phone, Email, Specialization) VALUES
 (3, N'Hoàng Đình Kiên','0965432109', 'kien.pt@gym.com', N'Boxing & Cardio');
 SET IDENTITY_INSERT Trainers OFF;
 GO
+DBCC CHECKIDENT ('Trainers', RESEED, 3);
+GO
 
--- 3. Facilities
+-- ═══════════════════════════════════════════════════════════
+-- 3. FACILITIES (3 records)
+-- ═══════════════════════════════════════════════════════════
 SET IDENTITY_INSERT Facilities ON;
 INSERT INTO Facilities (FacilityId, Name, Description, IsActive) VALUES
 (1, N'Phòng Gym Khu A',        N'Trang thiết bị tạ đơn, giàn tạ khối, máy kéo xô', 1),
@@ -45,27 +59,39 @@ INSERT INTO Facilities (FacilityId, Name, Description, IsActive) VALUES
 (3, N'Sàn Boxing & Cardio',    N'Võ đài đối kháng, bao cát đấm bốc, máy chạy bộ',  1);
 SET IDENTITY_INSERT Facilities OFF;
 GO
+DBCC CHECKIDENT ('Facilities', RESEED, 3);
+GO
 
--- 4. Memberships (Gói tập)
+-- ═══════════════════════════════════════════════════════════
+-- 4. MEMBERSHIPS (4 records)
+-- ═══════════════════════════════════════════════════════════
 SET IDENTITY_INSERT Memberships ON;
 INSERT INTO Memberships (MembershipId, MemberId, MembershipType, Price, StartDate, EndDate, IsActive) VALUES
 (1, 1, 'Annual',    6000000, '2026-01-10', '2027-01-10', 1),
-(2, 2, 'Monthly',    600000, '2026-09-01', DATEADD(DAY, 4, CAST(GETDATE() AS DATE)), 1),
-(3, 3, 'Quarterly', 1600000, '2026-07-01', DATEADD(DAY, 30, CAST(GETDATE() AS DATE)), 1),
+(2, 2, 'Monthly',    600000, '2026-09-01', DATEADD(DAY, 30, CAST(GETDATE() AS DATE)), 1),
+(3, 3, 'Quarterly', 1600000, '2026-07-01', DATEADD(DAY, 60, CAST(GETDATE() AS DATE)), 1),
 (4, 4, 'Monthly',    500000, '2026-01-05', '2026-02-05', 0);
 SET IDENTITY_INSERT Memberships OFF;
 GO
+DBCC CHECKIDENT ('Memberships', RESEED, 4);
+GO
 
--- 5. Schedules (Lịch tập)
+-- ═══════════════════════════════════════════════════════════
+-- 5. SCHEDULES (3 records)
+-- ═══════════════════════════════════════════════════════════
 SET IDENTITY_INSERT Schedules ON;
 INSERT INTO Schedules (ScheduleId, MemberId, TrainerId, FacilityId, StartTime, EndTime) VALUES
-(1, 1, 1, 1, DATEADD(HOUR, 8, CAST(CAST(GETDATE() AS DATE) AS DATETIME2)), DATEADD(MINUTE, 90, DATEADD(HOUR, 8, CAST(CAST(GETDATE() AS DATE) AS DATETIME2)))),
+(1, 1, 1, 1, DATEADD(HOUR, 8,  CAST(CAST(GETDATE() AS DATE) AS DATETIME2)), DATEADD(MINUTE, 90, DATEADD(HOUR, 8,  CAST(CAST(GETDATE() AS DATE) AS DATETIME2)))),
 (2, 2, 2, 2, DATEADD(HOUR, 10, CAST(CAST(GETDATE() AS DATE) AS DATETIME2)), DATEADD(MINUTE, 60, DATEADD(HOUR, 10, CAST(CAST(GETDATE() AS DATE) AS DATETIME2)))),
 (3, 3, 3, 3, DATEADD(DAY, -1, DATEADD(HOUR, 15, CAST(CAST(GETDATE() AS DATE) AS DATETIME2))), DATEADD(DAY, -1, DATEADD(MINUTE, 90, DATEADD(HOUR, 15, CAST(CAST(GETDATE() AS DATE) AS DATETIME2)))));
 SET IDENTITY_INSERT Schedules OFF;
 GO
+DBCC CHECKIDENT ('Schedules', RESEED, 3);
+GO
 
--- 6. Sessions (Buổi tập)
+-- ═══════════════════════════════════════════════════════════
+-- 6. SESSIONS (3 records)
+-- ═══════════════════════════════════════════════════════════
 SET IDENTITY_INSERT Sessions ON;
 INSERT INTO Sessions (SessionId, ScheduleId, SessionDate, Status) VALUES
 (1, 1, CAST(GETDATE() AS DATE), 'Scheduled'),
@@ -73,16 +99,24 @@ INSERT INTO Sessions (SessionId, ScheduleId, SessionDate, Status) VALUES
 (3, 3, DATEADD(DAY, -1, CAST(GETDATE() AS DATE)), 'Completed');
 SET IDENTITY_INSERT Sessions OFF;
 GO
-
--- 7. Checkins
-SET IDENTITY_INSERT Checkins ON;
-INSERT INTO Checkins (CheckinId, MemberId, SessionId, CheckinTime, CheckinMethod) VALUES
-(1, 1, 1, DATEADD(MINUTE, -10, DATEADD(HOUR, 8, CAST(CAST(GETDATE() AS DATE) AS DATETIME2))), 'QRCode'),
-(2, 3, 3, DATEADD(MINUTE, -5, DATEADD(DAY, -1, DATEADD(HOUR, 15, CAST(CAST(GETDATE() AS DATE) AS DATETIME2)))), 'Manual');
-SET IDENTITY_INSERT Checkins OFF;
+DBCC CHECKIDENT ('Sessions', RESEED, 3);
 GO
 
--- 8. Invoices (Hóa đơn)
+-- ═══════════════════════════════════════════════════════════
+-- 7. CHECKINS (2 records)
+-- ═══════════════════════════════════════════════════════════
+SET IDENTITY_INSERT Checkins ON;
+INSERT INTO Checkins (CheckinId, MemberId, SessionId, CheckinTime, CheckinMethod) VALUES
+(1, 1, 1, DATEADD(MINUTE, -10, DATEADD(HOUR, 8,  CAST(CAST(GETDATE() AS DATE) AS DATETIME2))), 'QRCode'),
+(2, 3, 3, DATEADD(MINUTE, -5,  DATEADD(DAY, -1, DATEADD(HOUR, 15, CAST(CAST(GETDATE() AS DATE) AS DATETIME2)))), 'Manual');
+SET IDENTITY_INSERT Checkins OFF;
+GO
+DBCC CHECKIDENT ('Checkins', RESEED, 2);
+GO
+
+-- ═══════════════════════════════════════════════════════════
+-- 8. INVOICES (3 records)
+-- ═══════════════════════════════════════════════════════════
 SET IDENTITY_INSERT Invoices ON;
 INSERT INTO Invoices (InvoiceId, MemberId, TotalAmount, InvoiceDate, DueDate, Status) VALUES
 (1, 1, 6000000, '2026-01-10', '2026-01-17', 'Paid'),
@@ -90,24 +124,21 @@ INSERT INTO Invoices (InvoiceId, MemberId, TotalAmount, InvoiceDate, DueDate, St
 (3, 3, 1600000, DATEADD(DAY, -15, CAST(GETDATE() AS DATE)), DATEADD(DAY, -5, CAST(GETDATE() AS DATE)), 'Overdue');
 SET IDENTITY_INSERT Invoices OFF;
 GO
+DBCC CHECKIDENT ('Invoices', RESEED, 3);
+GO
 
--- 9. Payments
+-- ═══════════════════════════════════════════════════════════
+-- 9. PAYMENTS (1 record)
+-- ═══════════════════════════════════════════════════════════
 SET IDENTITY_INSERT Payments ON;
 INSERT INTO Payments (PaymentId, InvoiceId, Amount, PaymentDate, PaymentMethod, Status) VALUES
 (1, 1, 6000000, '2026-01-10 10:15:00', 'BankTransfer', 'Completed');
 SET IDENTITY_INSERT Payments OFF;
 GO
-
--- Cập nhật IDENTITY lại đúng giá trị max
-DBCC CHECKIDENT ('Members', RESEED, 4);
-DBCC CHECKIDENT ('Trainers', RESEED, 3);
-DBCC CHECKIDENT ('Facilities', RESEED, 3);
-DBCC CHECKIDENT ('Memberships', RESEED, 4);
-DBCC CHECKIDENT ('Schedules', RESEED, 3);
-DBCC CHECKIDENT ('Sessions', RESEED, 3);
-DBCC CHECKIDENT ('Checkins', RESEED, 2);
-DBCC CHECKIDENT ('Invoices', RESEED, 3);
 DBCC CHECKIDENT ('Payments', RESEED, 1);
 GO
 
-PRINT 'All Seed Data inserted perfectly!';
+PRINT '═══════════════════════════════════════════════════════════';
+PRINT '✅ Seed data đơn giản hoàn tất (4 Members, 3 Trainers, 3 Facilities, 4 Memberships, 3 Schedules, 3 Sessions, 2 Checkins, 3 Invoices, 1 Payment)';
+PRINT '═══════════════════════════════════════════════════════════';
+GO
