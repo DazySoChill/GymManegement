@@ -1,67 +1,63 @@
 /* pages/checkins.js */
-async function init_checkins() { loadCheckins(); }
+let checkinsCurrentPage = 1;
+let checkinsPageSize = 10;
+let checkinsTotalPages = 1;
 
-async function loadCheckins() {
+async function loadCheckins(page = 1) {
   loading('checkins-tbody');
+  checkinsCurrentPage = page;
   try {
-    const list = await api.getCheckins();
+    const res = await api.getCheckins({ pageNumber: page, pageSize: checkinsPageSize });
+    const data = res.data ?? [];
+    const total = res.total ?? 0;
+    checkinsTotalPages = Math.ceil(total / checkinsPageSize);
+
     const tbody = document.getElementById('checkins-tbody');
-    if (!list.length) { emptyRow('checkins-tbody', 5); return; }
-    tbody.innerHTML = list.map(c => `
-      <tr>
-        <td>${c.checkinId}</td>
-        <td>${c.memberName || c.memberId}</td>
-        <td>${c.sessionId}</td>
-        <td>${datetimeFmt(c.checkinTime)}</td>
-        <td>${badge(c.checkinMethod, c.checkinMethod === 'QRCode' ? 'blue' : c.checkinMethod === 'Card' ? 'green' : 'gray')}</td>
-      </tr>`).join('');
-  } catch (e) { toast(e.message, 'error'); }
+    if (!data.length) { emptyRow('checkins-tbody', 5); }
+    else {
+      tbody.innerHTML = data.map(c => `
+        <tr>
+          <td>${c.checkinId}</td>
+          <td>${c.memberName || '—'}</td>
+          <td>${c.sessionName || '—'}</td>
+          <td>${datetimeFmt(c.checkinTime)}</td>
+          <td><span class="badge badge-${c.method === 'QR' ? 'purple' : 'blue'}">${c.method || 'Manual'}</span></td>
+        </tr>
+      `).join('');
+    }
+    renderPagination('checkins-pagination', checkinsCurrentPage, checkinsTotalPages, loadCheckins);
+  } catch (e) { console.error(e); emptyRow('checkins-tbody', 5, 'Lỗi tải dữ liệu'); }
 }
 
-async function openManualCheckin() {
-  await populateCheckinDropdowns();
+function openManualCheckin() {
   document.getElementById('checkin-manual-form').reset();
+  Promise.all([
+    api.getMembers({ pageSize: 200 }).then(r => populateSelect('ci-member', r.data ?? [], 'memberId', 'fullName')),
+    api.getSessions({ pageSize: 200 }).then(r => populateSelect('ci-session', r.data ?? [], 'sessionId', 'sessionId'))
+  ]);
   openModal('modal-checkin-manual');
-}
-
-async function openQRCheckin() {
-  await populateCheckinDropdowns();
-  document.getElementById('qr-form').reset();
-  openModal('modal-qr-checkin');
-}
-
-async function populateCheckinDropdowns() {
-  try {
-    const [members, sessions] = await Promise.all([api.getMembers(), api.getSessions()]);
-    const scheduledSessions = sessions.filter(s => s.status === 'Scheduled');
-    const memberOpts = members.map(m => `<option value="${m.memberId}">${m.fullName}</option>`).join('');
-    const sessionOpts = scheduledSessions.map(s => `<option value="${s.sessionId}">Session #${s.sessionId} – ${dateFmt(s.sessionDate)}</option>`).join('');
-    ['ci-member'].forEach(id => { const el = document.getElementById(id); if (el) el.innerHTML = memberOpts; });
-    ['ci-session', 'qr-session'].forEach(id => { const el = document.getElementById(id); if (el) el.innerHTML = sessionOpts; });
-  } catch (e) { console.error(e); }
 }
 
 document.getElementById('checkin-manual-form')?.addEventListener('submit', async e => {
   e.preventDefault();
-  const body = {
-    memberId:      +document.getElementById('ci-member').value,
-    sessionId:     +document.getElementById('ci-session').value,
-    checkinTime:   new Date().toISOString(),
-    checkinMethod: document.getElementById('ci-method').value
-  };
-  try { await api.checkinManual(body); toast('Check-in thành công!', 'success'); closeModal('modal-checkin-manual'); loadCheckins(); }
-  catch (err) { toast(err.message, 'error'); }
+  const body = { memberId: parseInt(document.getElementById('ci-member').value), sessionId: parseInt(document.getElementById('ci-session').value), method: document.getElementById('ci-method').value };
+  if (!body.memberId || !body.sessionId) return toast('Vui lòng chọn hội viên và session', 'warning');
+  try { await api.checkinManual(body); toast('Check-in thành công', 'success'); closeModal('modal-checkin-manual'); loadCheckins(checkinsCurrentPage); }
+  catch (err) { toast(err.message || 'Lỗi check-in', 'error'); }
 });
+
+function openQRCheckin() {
+  document.getElementById('qr-form').reset();
+  api.getSessions({ pageSize: 200 }).then(r => populateSelect('qr-session', r.data ?? [], 'sessionId', 'sessionId'));
+  openModal('modal-qr-checkin');
+}
 
 document.getElementById('qr-form')?.addEventListener('submit', async e => {
   e.preventDefault();
-  const body = {
-    qrCodeValue: document.getElementById('qr-value').value.trim(),
-    sessionId:   +document.getElementById('qr-session').value
-  };
-  try {
-    const res = await api.checkinQR(body);
-    toast(res.message || 'OK', res.checkinId > 0 ? 'success' : 'error');
-    if (res.checkinId > 0) { closeModal('modal-qr-checkin'); loadCheckins(); }
-  } catch (err) { toast(err.message, 'error'); }
+  const body = { qrCodeValue: document.getElementById('qr-value').value.trim(), sessionId: parseInt(document.getElementById('qr-session').value) };
+  if (!body.qrCodeValue || !body.sessionId) return toast('Vui lòng nhập QR và chọn session', 'warning');
+  try { await api.checkinQR(body); toast('Check-in QR thành công', 'success'); closeModal('modal-qr-checkin'); loadCheckins(checkinsCurrentPage); }
+  catch (err) { toast(err.message || 'Lỗi check-in', 'error'); }
 });
+
+function init_checkins() { loadCheckins(1); }

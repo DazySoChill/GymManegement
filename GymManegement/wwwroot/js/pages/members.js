@@ -1,106 +1,95 @@
-/* ============================================================
-   pages/members.js – Hội viên CRUD
-   ============================================================ */
+/* pages/members.js */
+let membersCurrentPage = 1;
+let membersPageSize = 10;
+let membersTotalPages = 1;
 
-let membersList = [];
-
-async function init_members() { loadMembers(); }
-
-async function loadMembers(search = '') {
+async function loadMembers(page = 1) {
   loading('members-tbody');
+  membersCurrentPage = page;
   try {
-    membersList = await api.getMembers();
-    renderMembers(search);
-  } catch (e) { toast(e.message, 'error'); }
+    const res = await api.getMembers({ pageNumber: page, pageSize: membersPageSize });
+    const data = res.data ?? [];
+    const total = res.total ?? 0;
+    membersTotalPages = Math.ceil(total / membersPageSize);
+
+    const tbody = document.getElementById('members-tbody');
+    if (!data.length) { emptyRow('members-tbody', 7); }
+    else {
+      tbody.innerHTML = data.map(m => `
+        <tr>
+          <td>${m.memberId}</td>
+          <td><strong>${m.fullName}</strong></td>
+          <td>${m.phone || '—'}</td>
+          <td>${m.email || '—'}</td>
+          <td>${dateFmt(m.joinDate)}</td>
+          <td>${statusBadge(m.status)}</td>
+          <td>
+            <button class="btn btn-icon btn-sm" onclick="openEditMember(${m.memberId})" data-tip="Sửa"><span>✏️</span></button>
+            <button class="btn btn-icon btn-sm" onclick="confirmDelete('member', ${m.memberId})" data-tip="Xóa"><span>🗑️</span></button>
+          </td>
+        </tr>
+      `).join('');
+    }
+    renderPagination('members-pagination', membersCurrentPage, membersTotalPages, loadMembers);
+  } catch (e) { console.error(e); emptyRow('members-tbody', 7, 'Lỗi tải dữ liệu'); }
 }
-
-function renderMembers(search = '') {
-  const tbody = document.getElementById('members-tbody');
-  let data = membersList;
-  if (search) {
-    const q = search.toLowerCase();
-    data = data.filter(m =>
-      m.fullName?.toLowerCase().includes(q) ||
-      m.email?.toLowerCase().includes(q) ||
-      m.phone?.includes(q));
-  }
-  if (!data.length) { emptyRow('members-tbody', 7); return; }
-  tbody.innerHTML = data.map(m => `
-    <tr>
-      <td>${m.memberId}</td>
-      <td><strong>${m.fullName}</strong></td>
-      <td>${m.phone || '—'}</td>
-      <td>${m.email}</td>
-      <td>${dateFmt(m.joinDate)}</td>
-      <td>${statusBadge(m.status)}</td>
-      <td>
-        <button class="btn btn-ghost btn-sm" onclick="editMember(${m.memberId})">✏️ Sửa</button>
-        <button class="btn btn-danger btn-sm" onclick="confirmDeleteMember(${m.memberId})">🗑️</button>
-      </td>
-    </tr>`).join('');
-}
-
-document.getElementById('member-search')?.addEventListener('input', e => renderMembers(e.target.value));
-
-let editingMemberId = null;
 
 function openAddMember() {
-  editingMemberId = null;
   document.getElementById('member-form').reset();
   document.getElementById('modal-member-title').textContent = 'Thêm hội viên';
+  document.getElementById('member-form').dataset.id = '';
+  document.getElementById('m-join-date').value = new Date().toISOString().split('T')[0];
   openModal('modal-member');
 }
 
-async function editMember(id) {
-  const m = membersList.find(x => x.memberId === id);
-  if (!m) return;
-  editingMemberId = id;
-  document.getElementById('modal-member-title').textContent = 'Sửa hội viên';
-  document.getElementById('m-fullname').value = m.fullName;
-  document.getElementById('m-phone').value    = m.phone || '';
-  document.getElementById('m-email').value    = m.email;
-  document.getElementById('m-dob').value      = m.dateOfBirth?.substring(0, 10) || '';
-  document.getElementById('m-status').value   = m.status;
-  openModal('modal-member');
+async function openEditMember(id) {
+  try {
+    const res = await api.getMember(id);
+    const m = res.data ?? res;
+    document.getElementById('m-fullname').value = m.fullName || '';
+    document.getElementById('m-phone').value = m.phone || '';
+    document.getElementById('m-email').value = m.email || '';
+    document.getElementById('m-dob').value = m.dateOfBirth ? m.dateOfBirth.split('T')[0] : '';
+    document.getElementById('m-join-date').value = m.joinDate ? m.joinDate.split('T')[0] : new Date().toISOString().split('T')[0];
+    document.getElementById('m-status').value = m.status || 'Active';
+    document.getElementById('modal-member-title').textContent = 'Sửa hội viên';
+    document.getElementById('member-form').dataset.id = id;
+    openModal('modal-member');
+  } catch (e) { toast('Không tải được thông tin hội viên', 'error'); }
 }
 
 document.getElementById('member-form')?.addEventListener('submit', async e => {
   e.preventDefault();
+  const id = e.target.dataset.id;
   const body = {
-    fullName:    document.getElementById('m-fullname').value,
-    phone:       document.getElementById('m-phone').value,
-    email:       document.getElementById('m-email').value,
-    dateOfBirth: document.getElementById('m-dob').value,
-    status:      document.getElementById('m-status')?.value || 'Active',
+    fullName: document.getElementById('m-fullname').value.trim(),
+    phone: document.getElementById('m-phone').value.trim() || null,
+    email: document.getElementById('m-email').value.trim(),
+    dateOfBirth: document.getElementById('m-dob').value || null,
+    joinDate: document.getElementById('m-join-date').value,
+    status: document.getElementById('m-status').value
   };
+  if (!body.fullName || !body.email) return toast('Vui lòng nhập đầy đủ họ tên và email', 'warning');
   try {
-    if (editingMemberId) {
-      await api.updateMember(editingMemberId, body);
-      toast('Cập nhật hội viên thành công', 'success');
-    } else {
-      await api.createMember(body);
-      toast('Thêm hội viên thành công', 'success');
-    }
-    closeModal('modal-member');
-    loadMembers();
-  } catch (err) { toast(err.message, 'error'); }
+    if (id) { await api.updateMember(id, body); toast('Cập nhật thành công', 'success'); }
+    else { await api.createMember(body); toast('Thêm thành công', 'success'); }
+    closeModal('modal-member'); loadMembers(membersCurrentPage);
+  } catch (err) { toast(err.message || 'Lỗi lưu dữ liệu', 'error'); }
 });
 
-let deleteMemberId = null;
-
-function confirmDeleteMember(id) {
-  const m = membersList.find(x => x.memberId === id);
-  deleteMemberId = id;
-  document.getElementById('confirm-msg').textContent = `Xoá hội viên "${m?.fullName}"?`;
+function confirmDelete(type, id) {
+  document.getElementById('confirm-msg').textContent = `Bạn có chắc muốn xóa ${type === 'member' ? 'hội viên' : 'mục'} này?`;
+  document.getElementById('confirm-ok').onclick = async () => {
+    try { await api.deleteMember(id); toast('Đã xóa', 'success'); loadMembers(membersCurrentPage); }
+    catch (err) { toast(err.message || 'Lỗi xóa', 'error'); }
+    closeModal('modal-confirm');
+  };
   openModal('modal-confirm');
 }
 
-document.getElementById('confirm-ok')?.addEventListener('click', async () => {
-  if (!deleteMemberId) return;
-  try {
-    await api.deleteMember(deleteMemberId);
-    toast('Đã xoá hội viên', 'success');
-    closeModal('modal-confirm');
-    loadMembers();
-  } catch (e) { toast(e.message, 'error'); }
+document.getElementById('member-search')?.addEventListener('input', (e) => {
+  clearTimeout(window._memberSearchTimer);
+  window._memberSearchTimer = setTimeout(() => loadMembers(1), 300);
 });
+
+function init_members() { loadMembers(1); }

@@ -15,22 +15,30 @@ async function init_dashboard() {
 
     // Expiring soon
     const eData = expiring.data ?? [];
-    document.getElementById('expiring-list').innerHTML = !eData.length
-      ? '<p style="color:var(--muted);padding:16px 0">Không có hội viên sắp hết hạn</p>'
-      : eData.slice(0, 8).map(x => `
-          <div style="display:flex;justify-content:space-between;align-items:center;padding:10px 0;border-bottom:1px solid var(--border)">
-            <div><strong>${x.fullName}</strong><br><small style="color:var(--muted)">${x.email ?? ''}</small></div>
-            <div style="text-align:right"><span class="badge badge-yellow">${x.daysRemaining} ngày</span><br><small style="color:var(--muted)">${dateFmt(x.endDate)}</small></div>
-          </div>`).join('');
+    const expiringEl = document.getElementById('expiring-list');
+    if (!eData.length) {
+      expiringEl.innerHTML = '<div class="table-empty" style="padding:24px"><span class="icon">🎫</span>Không có hội viên sắp hết hạn</div>';
+    } else {
+      expiringEl.innerHTML = eData.slice(0, 8).map(x => `
+        <div style="display:flex;justify-content:space-between;align-items:center;padding:12px 0;border-bottom:1px solid var(--divider)">
+          <div><strong>${x.fullName}</strong><br><small style="color:var(--text-muted)">${x.email ?? ''}</small></div>
+          <div style="text-align:right"><span class="badge badge-yellow">${x.daysRemaining} ngày</span><br><small style="color:var(--text-muted)">${dateFmt(x.endDate)}</small></div>
+        </div>
+      `).join('');
+    }
 
     // Overdue invoices
     const oData = Array.isArray(overdueList) ? overdueList : [];
-    document.getElementById('overdue-list').innerHTML = !oData.length
-      ? '<p style="color:var(--muted);padding:16px 0">Không có hóa đơn quá hạn</p>'
-      : oData.slice(0, 8).map(i => `
-          <div style="display:flex;justify-content:space-between;align-items:center;padding:10px 0;border-bottom:1px solid var(--border)">
-            <div><strong>${i.memberName}</strong></div>
-            <div>${moneyFmt(i.totalAmount)} <span class="badge badge-red">Quá hạn</span></div>
-          </div>`).join('');
-  } catch (e) { console.error('Dashboard error:', e); }
+    const overdueEl = document.getElementById('overdue-list');
+    if (!oData.length) {
+      overdueEl.innerHTML = '<div class="table-empty" style="padding:24px"><span class="icon">🧾</span>Không có hóa đơn quá hạn</div>';
+    } else {
+      overdueEl.innerHTML = oData.slice(0, 8).map(i => `
+        <div style="display:flex;justify-content:space-between;align-items:center;padding:12px 0;border-bottom:1px solid var(--divider)">
+          <div><strong>${i.memberName}</strong></div>
+          <div>${moneyFmt(i.totalAmount)} <span class="badge badge-red">Quá hạn</span></div>
+        </div>
+      `).join('');
+    }
+  } catch (e) { console.error('Dashboard error:', e); toast('Không tải được dữ liệu dashboard', 'error'); }
 }
