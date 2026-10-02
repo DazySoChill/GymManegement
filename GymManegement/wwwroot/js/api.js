@@ -5,11 +5,25 @@
 
 const BASE = window.location.origin;
 
+function getAuthHeaders() {
+  const token = localStorage.getItem('accessToken');
+  return token ? { 'Authorization': `Bearer ${token}` } : {};
+}
+
 async function apiFetch(path, options = {}) {
   const res = await fetch(`${BASE}${path}`, {
-    headers: { 'Content-Type': 'application/json', ...options.headers },
+    headers: { 'Content-Type': 'application/json', ...getAuthHeaders(), ...options.headers },
     ...options,
   });
+  
+  // 401 -> token hết hạn hoặc không hợp lệ -> xóa storage và về login
+  if (res.status === 401) {
+    localStorage.removeItem('accessToken');
+    localStorage.removeItem('user');
+    window.location.href = '/login.html';
+    throw new Error('Phiên đăng nhập hết hạn');
+  }
+  
   if (!res.ok) {
     const text = await res.text();
     throw new Error(text || `HTTP ${res.status}`);

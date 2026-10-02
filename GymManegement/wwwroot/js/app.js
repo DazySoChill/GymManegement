@@ -1,6 +1,53 @@
 /* ============================================================
-   app.js – Core UI: routing, toast, modal utilities
+   app.js – Core UI: routing, toast, modal utilities, auth
    ============================================================ */
+
+// ── Auth ────────────────────────────────────────────────────────
+function getCurrentUser() {
+  try {
+    return JSON.parse(localStorage.getItem('user') || 'null');
+  } catch { return null; }
+}
+
+function isAuthenticated() {
+  return !!localStorage.getItem('accessToken');
+}
+
+function logout() {
+  localStorage.removeItem('accessToken');
+  localStorage.removeItem('user');
+  window.location.href = '/login.html';
+}
+
+function initAuth() {
+  // Nếu ở login.html mà đã có token -> về dashboard
+  if (window.location.pathname.endsWith('login.html')) {
+    if (isAuthenticated()) window.location.href = '/';
+    return;
+  }
+  
+  // Các trang khác: chưa login -> về login
+  if (!isAuthenticated()) {
+    window.location.href = '/login.html';
+    return;
+  }
+  
+  // Hiển thị user info trên topbar
+  const user = getCurrentUser();
+  if (user) {
+    const userInfo = document.createElement('div');
+    userInfo.id = 'user-info';
+    userInfo.style.cssText = 'display:flex;align-items:center;gap:12px;font-size:.85rem;color:var(--muted)';
+    userInfo.innerHTML = `
+      <span>${user.username} (${user.role})</span>
+      <button class="btn btn-ghost" onclick="logout()" style="padding:6px 10px;font-size:.8rem;height:auto">Đăng xuất</button>
+    `;
+    const topbarRight = document.querySelector('.topbar-right');
+    if (topbarRight) {
+      topbarRight.prepend(userInfo);
+    }
+  }
+}
 
 // ── Toast ─────────────────────────────────────────────────────
 function toast(msg, type = 'info', duration = 3000) {
@@ -31,7 +78,6 @@ function navigateTo(pageId) {
     page.classList.add('active');
     document.getElementById('topbar-title').textContent =
       document.querySelector(`[data-page="${pageId}"]`)?.textContent.trim() || '';
-    // Run page initializer
     const init = window[`init_${pageId}`];
     if (typeof init === 'function') init();
   }
@@ -80,6 +126,9 @@ function statusBadge(status) {
 
 // ── Sidebar toggle (mobile) ───────────────────────────────────
 document.addEventListener('DOMContentLoaded', () => {
+  // Khởi tạo auth trước
+  initAuth();
+  
   // Sidebar links
   document.querySelectorAll('#sidebar nav a').forEach(link => {
     link.addEventListener('click', e => {
