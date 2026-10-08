@@ -1,4 +1,5 @@
-﻿using Dapper;
+using Dapper;
+using GymManegement.API.DTOs.Common;
 using GymManegement.API.DTOs.Checkin;
 using GymManegement.DAL.Entities;
 using GymManegement.DAL.Helper;
@@ -21,16 +22,40 @@ namespace GymManegement.Service.BUS.Implementations
             _membershipRepo = membershipRepo; _db = db;
         }
 
-        public async Task<IEnumerable<CheckinResponse>> GetAllAsync()
+        public async Task<PagedResult<CheckinResponse>> GetAllAsync(int pageNumber = 1, int pageSize = 10, string? searchTerm = null, string? sortBy = null, string? sortDir = null)
         {
-            var list = await _repo.GetAllAsync();
-            return list.Select(ToResponse);
+            var result = await _repo.GetAllAsync(pageNumber, pageSize, searchTerm, sortBy, sortDir);
+            return new PagedResult<CheckinResponse>
+            {
+                Data = result.Data.Select(ToResponse).ToList(),
+                Total = result.Total,
+                PageNumber = result.PageNumber,
+                PageSize = result.PageSize
+            };
         }
 
         public async Task<CheckinResponse?> GetByIdAsync(int id)
         {
             var c = await _repo.GetByIdAsync(id);
             return c is null ? null : ToResponse(c);
+        }
+
+        public async Task<IEnumerable<CheckinResponse>> GetByMemberIdAsync(int memberId)
+        {
+            var list = await _repo.GetByMemberIdAsync(memberId);
+            return list.Select(ToResponse);
+        }
+
+        public async Task<IEnumerable<CheckinResponse>> GetBySessionIdAsync(int sessionId)
+        {
+            var list = await _repo.GetBySessionIdAsync(sessionId);
+            return list.Select(ToResponse);
+        }
+
+        public async Task<IEnumerable<CheckinResponse>> GetByDateRangeAsync(DateTime from, DateTime to)
+        {
+            var list = await _repo.GetByDateRangeAsync(from, to);
+            return list.Select(ToResponse);
         }
 
         public async Task<CheckinResponse> CreateManualAsync(CreateCheckinRequest request)

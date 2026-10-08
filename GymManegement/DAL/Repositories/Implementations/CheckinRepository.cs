@@ -1,4 +1,5 @@
-﻿using Dapper;
+using Dapper;
+using GymManegement.API.DTOs.Common;
 using GymManegement.DAL.Entities;
 using GymManegement.DAL.Helper;
 using GymManegement.DAL.Repositories.Interfaces;
@@ -14,6 +15,34 @@ namespace GymManegement.DAL.Repositories.Implementations
         {
             using var conn = _db.CreateConnection();
             return await conn.QueryAsync<Checkin>("sp_Checkin_GetAll", commandType: System.Data.CommandType.StoredProcedure);
+        }
+
+        public async Task<PagedResult<Checkin>> GetAllAsync(int pageNumber, int pageSize, string? searchTerm = null, string? sortBy = null, string? sortDir = null)
+        {
+            using var conn = _db.CreateConnection();
+            var parameters = new
+            {
+                PageNumber = pageNumber,
+                PageSize = pageSize,
+                SearchTerm = searchTerm,
+                SortBy = sortBy ?? "CheckinId",
+                SortDir = sortDir ?? "ASC"
+            };
+            var result = await conn.QueryMultipleAsync(
+                "sp_Checkin_GetPaged",
+                parameters,
+                commandType: System.Data.CommandType.StoredProcedure);
+
+            var data = (await result.ReadAsync<Checkin>()).ToList();
+            var total = await result.ReadSingleAsync<int>();
+
+            return new PagedResult<Checkin>
+            {
+                Data = data,
+                Total = total,
+                PageNumber = pageNumber,
+                PageSize = pageSize
+            };
         }
         public async Task<Checkin?> GetByIdAsync(int id)
         {
