@@ -23,30 +23,10 @@ DELETE FROM Trainers;
 DELETE FROM Members;
 DELETE FROM AuditLogs;
 DELETE FROM RefreshTokens;
+DELETE FROM RolePermissions;
+DELETE FROM Permissions;
+DELETE FROM Roles;
 GO
-
-
-
-
-
---- !!! DROP DATABASE !!!
-USE master;
-GO
-IF EXISTS (SELECT * FROM sys.databases WHERE name = N'GymDb')
-BEGIN
-    ALTER DATABASE GymDb SET SINGLE_USER WITH ROLLBACK IMMEDIATE;
-    DROP DATABASE GymDb;
-    PRINT 'GymDb dropped successfully.';
-END
-ELSE
-BEGIN
-    PRINT 'GymDb does not exist.';
-END
-GO
---- !!! DROP DATABASE !!!
-
-
-
 
 
 

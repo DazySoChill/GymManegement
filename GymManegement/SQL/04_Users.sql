@@ -32,7 +32,7 @@ DECLARE @MemberRoleId INT = (SELECT RoleId FROM Roles WHERE RoleName = 'Member')
 IF NOT EXISTS (SELECT 1 FROM Users WHERE Username = 'admin')
 INSERT INTO Users (Username, PasswordHash, PasswordSalt, RoleId, MemberId, TrainerId, IsActive, CreatedBy)
 VALUES ('admin', 
-    '$2a$11$8K1p/a0dHRxAm7QiTRqNa.SU2ZqJ8zY9xVwL3mN4bP5cR6dE7fG8h', 
+    '$2a$11$k9d.p7zUiJ5Q7q.6SeUGV..V1AMPRQ0qCYvD9Go5SKZXQqq3EwhxS', 
     'U2FsdGVkX1+AdminSalt12345678901234==', 
     @AdminRoleId, NULL, NULL, 1, NULL);
 
@@ -40,7 +40,7 @@ VALUES ('admin',
 IF NOT EXISTS (SELECT 1 FROM Users WHERE Username = 'trainer1')
 INSERT INTO Users (Username, PasswordHash, PasswordSalt, RoleId, MemberId, TrainerId, IsActive, CreatedBy)
 VALUES ('trainer1', 
-    '$2a$11$8K1p/a0dHRxAm7QiTRqNa.SU2ZqJ8zY9xVwL3mN4bP5cR6dE7fG8h', 
+    '$2a$11$k9d.p7zUiJ5Q7q.6SeUGV..V1AMPRQ0qCYvD9Go5SKZXQqq3EwhxS', 
     'U2FsdGVkX1+TrainerSalt123456789012==', 
     @TrainerRoleId, NULL, 1, 1, NULL);
 
@@ -48,7 +48,7 @@ VALUES ('trainer1',
 IF NOT EXISTS (SELECT 1 FROM Users WHERE Username = 'member1')
 INSERT INTO Users (Username, PasswordHash, PasswordSalt, RoleId, MemberId, TrainerId, IsActive, CreatedBy)
 VALUES ('member1', 
-    '$2a$11$8K1p/a0dHRxAm7QiTRqNa.SU2ZqJ8zY9xVwL3mN4bP5cR6dE7fG8h', 
+    '$2a$11$k9d.p7zUiJ5Q7q.6SeUGV..V1AMPRQ0qCYvD9Go5SKZXQqq3EwhxS', 
     'U2FsdGVkX1+MemberSalt1234567890123==', 
     @MemberRoleId, 1, NULL, 1, NULL);
 
@@ -57,7 +57,7 @@ VALUES ('member1',
 IF NOT EXISTS (SELECT 1 FROM Users WHERE Username = 'trainer2')
 INSERT INTO Users (Username, PasswordHash, PasswordSalt, RoleId, MemberId, TrainerId, IsActive, CreatedBy)
 VALUES ('trainer2', 
-    '$2a$11$8K1p/a0dHRxAm7QiTRqNa.SU2ZqJ8zY9xVwL3mN4bP5cR6dE7fG8h', 
+    '$2a$11$k9d.p7zUiJ5Q7q.6SeUGV..V1AMPRQ0qCYvD9Go5SKZXQqq3EwhxS', 
     'U2FsdGVkX1+Trainer2Salt12345678901==', 
     @TrainerRoleId, NULL, 2, 1, NULL);
 
@@ -65,7 +65,7 @@ VALUES ('trainer2',
 IF NOT EXISTS (SELECT 1 FROM Users WHERE Username = 'member2')
 INSERT INTO Users (Username, PasswordHash, PasswordSalt, RoleId, MemberId, TrainerId, IsActive, CreatedBy)
 VALUES ('member2', 
-    '$2a$11$8K1p/a0dHRxAm7QiTRqNa.SU2ZqJ8zY9xVwL3mN4bP5cR6dE7fG8h', 
+    '$2a$11$k9d.p7zUiJ5Q7q.6SeUGV..V1AMPRQ0qCYvD9Go5SKZXQqq3EwhxS', 
     'U2FsdGVkX1+Member2Salt123456789012==', 
     @MemberRoleId, 2, NULL, 1, NULL);
 
@@ -73,12 +73,14 @@ VALUES ('member2',
 IF NOT EXISTS (SELECT 1 FROM Users WHERE Username = 'member3')
 INSERT INTO Users (Username, PasswordHash, PasswordSalt, RoleId, MemberId, TrainerId, IsActive, CreatedBy)
 VALUES ('member3', 
-    '$2a$11$8K1p/a0dHRxAm7QiTRqNa.SU2ZqJ8zY9xVwL3mN4bP5cR6dE7fG8h', 
+    '$2a$11$k9d.p7zUiJ5Q7q.6SeUGV..V1AMPRQ0qCYvD9Go5SKZXQqq3EwhxS', 
     'U2FsdGVkX1+Member3Salt123456789012==', 
     @MemberRoleId, 3, NULL, 1, NULL);
 
 DBCC CHECKIDENT ('Users', RESEED, 6);
 GO
 
+-- Hash đúng cho gym@2026 được xác nhận bởi BCrypt workFactor=11
+-- Tham khảo: fix-all-user-hashes.sql (đã deprecated)
 PRINT 'Default users seeded: admin / trainer1 / trainer2 / member1 / member2 / member3 (pass: gym@2026)';
 GO

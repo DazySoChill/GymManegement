@@ -1257,5 +1257,156 @@ BEGIN
 END;
 GO
 
-PRINT 'Programmability created successfully with pagination, search, filter, sort, and soft delete support.';
+-- ============================================================
+-- ── USER MANAGEMENT STORED PROCEDURES ───────────────────────
+-- ============================================================
+
+CREATE OR ALTER PROCEDURE dbo.sp_User_GetById
+    @UserId INT
+AS
+BEGIN
+    SET NOCOUNT ON;
+    SET QUOTED_IDENTIFIER ON;
+    SELECT
+        u.UserId, u.Username, u.PasswordHash, u.PasswordSalt,
+        u.RoleId, r.RoleName,
+        u.MemberId, u.TrainerId,
+        u.IsActive, u.FailedLoginCount, u.LockedUntil, u.LastLoginAt,
+        u.RefreshToken, u.RefreshTokenExpiry,
+        u.CreatedAt, u.CreatedBy, u.UpdatedAt, u.UpdatedBy,
+        u.IsDeleted, u.DeletedAt, u.DeletedBy, u.RowVersion
+    FROM Users u
+    INNER JOIN Roles r ON r.RoleId = u.RoleId
+    WHERE u.UserId = @UserId AND u.IsDeleted = 0;
+END;
+GO
+
+CREATE OR ALTER PROCEDURE dbo.sp_User_GetAll
+    @PageNumber INT = 1,
+    @PageSize   INT = 20,
+    @SearchTerm NVARCHAR(100) = NULL,
+    @RoleName   NVARCHAR(50)  = NULL,
+    @IsActive   BIT           = NULL,
+    @SortBy     NVARCHAR(50)  = 'Username',
+    @SortDir    NVARCHAR(4)   = 'ASC',
+    @TotalCount INT OUTPUT
+AS
+BEGIN
+    SET NOCOUNT ON;
+    DECLARE @Sql   NVARCHAR(MAX);
+    DECLARE @Where NVARCHAR(MAX) = 'WHERE u.IsDeleted = 0';
+    DECLARE @Offset INT = (@PageNumber - 1) * @PageSize;
+    IF @SearchTerm IS NOT NULL AND @SearchTerm <> ''
+        SET @Where += ' AND u.Username LIKE ''%' + @SearchTerm + '%''';
+    IF @RoleName IS NOT NULL AND @RoleName <> ''
+        SET @Where += ' AND r.RoleName = ''' + @RoleName + '''';
+    IF @IsActive IS NOT NULL
+        SET @Where += ' AND u.IsActive = ' + CAST(@IsActive AS NVARCHAR(1));
+    IF @SortBy NOT IN ('UserId','Username','RoleName','MemberId','TrainerId','IsActive','CreatedAt','LastLoginAt')
+        SET @SortBy = 'Username';
+    IF @SortDir NOT IN ('ASC','DESC')
+        SET @SortDir = 'ASC';
+    SET @Sql = 'SELECT @Total = COUNT(*) FROM Users u INNER JOIN Roles r ON r.RoleId = u.RoleId ' + @Where;
+    EXEC sp_executesql @Sql, N'@Total INT OUTPUT', @TotalCount OUTPUT;
+    SET @Sql = 'SELECT u.UserId, u.Username, u.RoleId, r.RoleName,
+                       u.MemberId, u.TrainerId, u.IsActive,
+                       u.FailedLoginCount, u.LockedUntil, u.LastLoginAt,
+                       u.CreatedAt, u.CreatedBy, u.UpdatedAt, u.UpdatedBy,
+                       u.IsDeleted, u.DeletedAt, u.DeletedBy, u.RowVersion
+                FROM Users u INNER JOIN Roles r ON r.RoleId = u.RoleId '
+                + @Where + ' ORDER BY ' + @SortBy + ' ' + @SortDir
+                + ' OFFSET @Offset ROWS FETCH NEXT @PageSize ROWS ONLY';
+    EXEC sp_executesql @Sql, N'@Offset INT, @PageSize INT', @Offset, @PageSize;
+END;
+GO
+
+CREATE OR ALTER PROCEDURE dbo.sp_User_Create
+    @Username     NVARCHAR(50),
+    @PasswordHash NVARCHAR(256),
+    @PasswordSalt NVARCHAR(64),
+    @RoleId       INT,
+    @MemberId     INT = NULL,
+    @TrainerId    INT = NULL,
+    @CreatedBy    INT = NULL
+AS
+BEGIN
+    SET NOCOUNT ON;
+    SET QUOTED_IDENTIFIER ON;
+    INSERT INTO Users (Username, PasswordHash, PasswordSalt, RoleId, MemberId, TrainerId, IsActive, FailedLoginCount, CreatedBy)
+    VALUES (@Username, @PasswordHash, @PasswordSalt, @RoleId, @MemberId, @TrainerId, 1, 0, @CreatedBy);
+    SELECT SCOPE_IDENTITY() AS UserId;
+END;
+GO
+
+CREATE OR ALTER PROCEDURE dbo.sp_User_UpdatePassword
+    @UserId       INT,
+    @PasswordHash NVARCHAR(256),
+    @PasswordSalt NVARCHAR(64),
+    @UpdatedBy    INT = NULL
+AS
+BEGIN
+    SET NOCOUNT ON;
+    SET QUOTED_IDENTIFIER ON;
+    UPDATE Users
+    SET PasswordHash = @PasswordHash,
+        PasswordSalt = @PasswordSalt,
+        UpdatedAt    = GETDATE(),
+        UpdatedBy    = @UpdatedBy
+    WHERE UserId = @UserId AND IsDeleted = 0;
+END;
+GO
+
+CREATE OR ALTER PROCEDURE dbo.sp_User_SetActive
+    @UserId    INT,
+    @IsActive  BIT,
+    @UpdatedBy INT = NULL
+AS
+BEGIN
+    SET NOCOUNT ON;
+    SET QUOTED_IDENTIFIER ON;
+    UPDATE Users
+    SET IsActive  = @IsActive,
+        UpdatedAt = GETDATE(),
+        UpdatedBy = @UpdatedBy
+    WHERE UserId = @UserId AND IsDeleted = 0;
+END;
+GO
+
+CREATE OR ALTER PROCEDURE dbo.sp_User_UpdateFailedLogin
+    @UserId           INT,
+    @FailedLoginCount INT,
+    @LockedUntil      DATETIME2 = NULL
+AS
+BEGIN
+    SET NOCOUNT ON;
+    SET QUOTED_IDENTIFIER ON;
+    UPDATE Users
+    SET FailedLoginCount = @FailedLoginCount,
+        LockedUntil      = @LockedUntil,
+        UpdatedAt        = GETDATE()
+    WHERE UserId = @UserId AND IsDeleted = 0;
+END;
+GO
+
+CREATE OR ALTER PROCEDURE dbo.sp_User_UpdateLastLogin
+    @UserId             INT,
+    @LastLoginAt        DATETIME2,
+    @RefreshToken       NVARCHAR(512) = NULL,
+    @RefreshTokenExpiry DATETIME2     = NULL
+AS
+BEGIN
+    SET NOCOUNT ON;
+    SET QUOTED_IDENTIFIER ON;
+    UPDATE Users
+    SET LastLoginAt        = @LastLoginAt,
+        RefreshToken       = @RefreshToken,
+        RefreshTokenExpiry = @RefreshTokenExpiry,
+        FailedLoginCount   = 0,
+        LockedUntil        = NULL,
+        UpdatedAt          = GETDATE()
+    WHERE UserId = @UserId AND IsDeleted = 0;
+END;
+GO
+
+PRINT 'Programmability created successfully: all SPs, Functions, Views, User management.';
 GO
