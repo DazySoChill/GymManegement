@@ -6,6 +6,7 @@ let checkinsCurrentPage = 1;
 let checkinsPageSize = 10;
 
 // Member name cache to avoid duplicate API calls
+// Cache stores { status: 'success' | 'error', value: string, timestamp: number }
 const checkinMemberNameCache = {};
 
 // Cache for full checkin dataset and calculated counts
@@ -13,19 +14,29 @@ let fullCheckinsCache = null;
 let checkinsCountsCache = null;
 
 async function fetchCheckinMemberName(memberId) {
-    if (checkinMemberNameCache[memberId]) {
-        return checkinMemberNameCache[memberId];
+    const cached = checkinMemberNameCache[memberId];
+    
+    // Return cached success immediately
+    if (cached && cached.status === 'success') {
+        return cached.value;
+    }
+    
+    // Retry transient failures after 30 seconds
+    if (cached && cached.status === 'error' && (Date.now() - cached.timestamp) < 30000) {
+        return cached.value;
     }
     
     try {
         const member = await apiFetch(`/api/Member/${memberId}`);
         const name = member?.fullName || member?.name || `Member ${memberId}`;
-        checkinMemberNameCache[memberId] = name;
+        checkinMemberNameCache[memberId] = { status: 'success', value: name, timestamp: Date.now() };
         return name;
     } catch (error) {
         console.error(`Error fetching member ${memberId}:`, error);
-        checkinMemberNameCache[memberId] = `Member ${memberId}`;
-        return checkinMemberNameCache[memberId];
+        const fallback = `Member ${memberId}`;
+        // Cache error with timestamp to allow retry after delay
+        checkinMemberNameCache[memberId] = { status: 'error', value: fallback, timestamp: Date.now() };
+        return fallback;
     }
 }
 

@@ -6,31 +6,51 @@ let sessionsCurrentPage = 1;
 let sessionsPageSize = 10;
 
 // Member name cache to avoid duplicate API calls
+// Cache stores { status: 'success' | 'error', value: string, timestamp: number }
 const memberNameCache = {};
 
 async function fetchMemberName(memberId) {
-    if (memberNameCache[memberId]) {
-        return memberNameCache[memberId];
+    const cached = memberNameCache[memberId];
+    
+    // Return cached success immediately
+    if (cached && cached.status === 'success') {
+        return cached.value;
+    }
+    
+    // Retry transient failures after 30 seconds
+    if (cached && cached.status === 'error' && (Date.now() - cached.timestamp) < 30000) {
+        return cached.value;
     }
     
     try {
         const member = await apiFetch(`/api/Member/${memberId}`);
         const name = member?.fullName || member?.name || `Member ${memberId}`;
-        memberNameCache[memberId] = name;
+        memberNameCache[memberId] = { status: 'success', value: name, timestamp: Date.now() };
         return name;
     } catch (error) {
         console.error(`Error fetching member ${memberId}:`, error);
-        memberNameCache[memberId] = `Member ${memberId}`;
-        return memberNameCache[memberId];
+        const fallback = `Member ${memberId}`;
+        // Cache error with timestamp to allow retry after delay
+        memberNameCache[memberId] = { status: 'error', value: fallback, timestamp: Date.now() };
+        return fallback;
     }
 }
 
 // Schedule details cache
+// Cache stores { status: 'success' | 'error', value: object, timestamp: number }
 const scheduleDetailsCache = {};
 
 async function fetchScheduleDetails(scheduleId) {
-    if (scheduleDetailsCache[scheduleId]) {
-        return scheduleDetailsCache[scheduleId];
+    const cached = scheduleDetailsCache[scheduleId];
+    
+    // Return cached success immediately
+    if (cached && cached.status === 'success') {
+        return cached.value;
+    }
+    
+    // Retry transient failures after 30 seconds
+    if (cached && cached.status === 'error' && (Date.now() - cached.timestamp) < 30000) {
+        return cached.value;
     }
     
     try {
@@ -42,12 +62,13 @@ async function fetchScheduleDetails(scheduleId) {
             startTime: schedule?.startTime || null,
             endTime: schedule?.endTime || null
         };
-        scheduleDetailsCache[scheduleId] = details;
+        scheduleDetailsCache[scheduleId] = { status: 'success', value: details, timestamp: Date.now() };
         return details;
     } catch (error) {
         console.error(`Error fetching schedule ${scheduleId}:`, error);
         const fallback = { className: '-', trainerName: '-', facilityName: '-', startTime: null, endTime: null };
-        scheduleDetailsCache[scheduleId] = fallback;
+        // Cache error with timestamp to allow retry after delay
+        scheduleDetailsCache[scheduleId] = { status: 'error', value: fallback, timestamp: Date.now() };
         return fallback;
     }
 }
@@ -159,12 +180,24 @@ function filterByCustomWeek() {
     }
     
     // input.value format: "YYYY-Www" (e.g., "2024-W15")
-    const [year, week] = input.value.split('-W');
-    const firstDayOfYear = new Date(parseInt(year), 0, 1);
-    const daysOffset = (parseInt(week) - 1) * 7;
-    const targetDate = new Date(firstDayOfYear.setDate(firstDayOfYear.getDate() + daysOffset));
+    const [yearStr, weekStr] = input.value.split('-W');
+    const year = parseInt(yearStr);
+    const week = parseInt(weekStr);
     
-    currentWeekFilter = getWeekBounds(targetDate);
+    // ISO 8601: Week 1 is the week with the first Thursday of the year
+    // Find January 4th (always in week 1) and go back to Monday
+    const jan4 = new Date(year, 0, 4); // January 4th
+    const jan4Day = jan4.getDay(); // 0=Sunday, 1=Monday, ...
+    const jan4ToMonday = jan4Day === 0 ? -6 : 1 - jan4Day; // Days back to Monday
+    
+    // Get Monday of week 1
+    const week1Monday = new Date(year, 0, 4 + jan4ToMonday);
+    
+    // Add (week - 1) weeks to get target week's Monday
+    const targetMonday = new Date(week1Monday);
+    targetMonday.setDate(week1Monday.getDate() + (week - 1) * 7);
+    
+    currentWeekFilter = getWeekBounds(targetMonday);
     
     const display = document.getElementById('weekFilterDisplay');
     if (display) {
