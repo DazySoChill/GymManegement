@@ -53,7 +53,7 @@ namespace GymManegement.Controllers
             if (userRole == "Member")
             {
                 // Verify memberId matches current user
-                var userMemberIdStr = User.FindFirst("MemberId")?.Value;
+                var userMemberIdStr = User.FindFirst("memberId")?.Value;
                 if (int.TryParse(userMemberIdStr, out int userMemberId) && userMemberId != request.MemberId)
                 {
                     return Forbid(); // Member can only buy for themselves
@@ -126,7 +126,7 @@ namespace GymManegement.Controllers
             // Member can only cancel own membership - check ownership
             if (userRole == "Member")
             {
-                var userMemberIdStr = User.FindFirst("MemberId")?.Value;
+                var userMemberIdStr = User.FindFirst("memberId")?.Value;
                 if (!int.TryParse(userMemberIdStr, out int userMemberId))
                     return Forbid();
                 

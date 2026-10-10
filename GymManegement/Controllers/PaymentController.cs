@@ -41,7 +41,7 @@ namespace GymManegement.Controllers
             var userRole = User.FindFirst(System.Security.Claims.ClaimTypes.Role)?.Value;
             if (userRole == "Member")
             {
-                var userMemberIdStr = User.FindFirst("MemberId")?.Value;
+                var userMemberIdStr = User.FindFirst("memberId")?.Value;
                 if (int.TryParse(userMemberIdStr, out int userMemberId) && userMemberId != request.MemberId)
                 {
                     return Forbid();

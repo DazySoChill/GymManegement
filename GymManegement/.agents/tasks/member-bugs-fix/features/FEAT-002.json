@@ -1,0 +1,31 @@
+{
+  "id": "FEAT-002",
+  "type": "fix",
+  "description": "Fix memberships.js cancel membership 403 Forbidden error. The confirmation modal exists but executeCancelMembership() function does not include Authorization header. Backend POST /api/Membership/{id}/cancel requires JWT auth and validates member can only cancel own membership.",
+  "status": "completed",
+  "steps": [
+    "Read wwwroot/js/memberships.js function executeCancelMembership() around line 398",
+    "Verify the apiFetch call - it should automatically add Auth header if token exists (per api.js line 14-16), so this is likely correct",
+    "The real issue: check if the confirmation modal enables the red button only when input === 'Xác Nhận' (line 383) - verify this logic works",
+    "Test that the button's onclick attribute correctly passes membershipId to executeCancelMembership",
+    "Ensure the page reload logic after successful cancel (line 411-417) properly refreshes to show updated membership list"
+  ],
+  "acceptance_criteria": [
+    "Cancel confirmation modal appears with text input and disabled red button",
+    "Button enables ONLY when user types exactly 'Xác Nhận'",
+    "Clicking enabled button calls POST /api/Membership/{id}/cancel with Authorization header",
+    "Successful cancel shows success toast and reloads membership list",
+    "Member can only cancel own active memberships (backend enforces this)"
+  ],
+  "verification": [
+    "Login as member01/password",
+    "Navigate to Gói Tập (#memberships)",
+    "Find an active membership with Hủy Gói button",
+    "Click button - verify modal shows with disabled red Hủy Gói Tập button",
+    "Type 'Xác Nhận' - verify button becomes enabled (no longer disabled)",
+    "Click enabled button - verify success toast and membership status updates",
+    "If 403 still occurs, check browser Network tab for Authorization header presence"
+  ],
+  "blocked_reason": null,
+  "findings": "Root cause: JWT claim name case mismatch. AuthService creates 'memberId' (lowercase) but MembershipController.Cancel was looking for 'MemberId' (capital M), causing User.FindFirst to return null and trigger 403 Forbid. Fixed by changing claim lookup to lowercase 'memberId' in both MembershipController (Cancel and Purchase endpoints) and PaymentController (Process endpoint). Frontend confirmation modal logic was already correct - button properly enables only when user types exactly 'Xác Nhận'. Build verified successful."
+}
