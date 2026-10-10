@@ -71,16 +71,23 @@ async function renderAdminDashboard(container) {
 async function loadActiveMembersCount() {
     try {
         const result = await apiFetch('/api/Member?pageNumber=1&pageSize=1');
-        const count = result?.totalCount || result?.total || 0;
+        // Backend returns PagedResult with PascalCase: { Data, Total, PageNumber, PageSize, TotalPages }
+        const count = result?.Total || 0;
         document.getElementById('activeMembersCount').textContent = count;
     } catch (error) {
         console.error('Error loading active members:', error);
-        document.getElementById('activeMembersCount').textContent = 'Lỗi';
+        const errorMsg = error.message?.includes('401') || error.message?.includes('403') 
+            ? 'Lỗi xác thực' 
+            : error.message?.includes('Network') || error.message?.includes('fetch')
+            ? 'Lỗi kết nối'
+            : 'Lỗi tải dữ liệu';
+        document.getElementById('activeMembersCount').textContent = errorMsg;
     }
 }
 
 /**
  * Load Monthly Revenue
+ * Note: Fetches up to 1000 payments and filters client-side. If monthly volume exceeds 1000, results may be incomplete.
  */
 async function loadMonthlyRevenue() {
     try {
@@ -89,46 +96,59 @@ async function loadMonthlyRevenue() {
         const currentYear = now.getFullYear();
         
         const result = await apiFetch('/api/Payment?pageNumber=1&pageSize=1000');
-        const payments = result?.items || result?.data || [];
+        // Backend returns PagedResult with PascalCase: { Data, Total, PageNumber, PageSize, TotalPages }
+        const payments = result?.Data || [];
         
-        // Filter payments for current month
+        // Filter payments for current month using backend field name: PaymentDate (PascalCase)
         const filtered = payments.filter(p => {
-            const dateStr = p.paymentDate || p.transactionDate || p.createdAt;
-            if (!dateStr) return false;
+            if (!p.PaymentDate) return false;
             
-            const date = new Date(dateStr);
+            const date = new Date(p.PaymentDate);
             return date.getMonth() === currentMonth && date.getFullYear() === currentYear;
         });
         
-        // Sum the amounts
-        const total = filtered.reduce((sum, p) => sum + (p.amount || 0), 0);
+        // Sum the amounts using backend field name: Amount (PascalCase)
+        const total = filtered.reduce((sum, p) => sum + (p.Amount || 0), 0);
         document.getElementById('monthlyRevenue').textContent = formatCurrency(total);
     } catch (error) {
         console.error('Error loading monthly revenue:', error);
-        document.getElementById('monthlyRevenue').textContent = 'Lỗi';
+        const errorMsg = error.message?.includes('401') || error.message?.includes('403') 
+            ? 'Lỗi xác thực' 
+            : error.message?.includes('Network') || error.message?.includes('fetch')
+            ? 'Lỗi kết nối'
+            : 'Lỗi tải dữ liệu';
+        document.getElementById('monthlyRevenue').textContent = errorMsg;
     }
 }
 
 /**
  * Load Today's Checkins Count
+ * Note: Fetches up to 1000 checkins and filters client-side. If daily volume exceeds 1000, results may be incomplete.
  */
 async function loadTodayCheckins() {
     try {
         const today = new Date().toISOString().split('T')[0];
         
         const result = await apiFetch('/api/Checkin?pageNumber=1&pageSize=1000');
-        const checkins = result?.items || result?.data || [];
+        // Backend returns PagedResult with PascalCase: { Data, Total, PageNumber, PageSize, TotalPages }
+        const checkins = result?.Data || [];
         
-        // Filter checkins for today
+        // Filter checkins for today using backend field name: CheckinTime (PascalCase)
         const filtered = checkins.filter(c => {
-            const checkinDate = new Date(c.checkinTime).toISOString().split('T')[0];
+            if (!c.CheckinTime) return false;
+            const checkinDate = new Date(c.CheckinTime).toISOString().split('T')[0];
             return checkinDate === today;
         });
         
         document.getElementById('todayCheckins').textContent = filtered.length;
     } catch (error) {
         console.error('Error loading today checkins:', error);
-        document.getElementById('todayCheckins').textContent = 'Lỗi';
+        const errorMsg = error.message?.includes('401') || error.message?.includes('403') 
+            ? 'Lỗi xác thực' 
+            : error.message?.includes('Network') || error.message?.includes('fetch')
+            ? 'Lỗi kết nối'
+            : 'Lỗi tải dữ liệu';
+        document.getElementById('todayCheckins').textContent = errorMsg;
     }
 }
 
@@ -138,11 +158,17 @@ async function loadTodayCheckins() {
 async function loadActiveFacilities() {
     try {
         const result = await apiFetch('/api/Facility?pageNumber=1&pageSize=1');
-        const count = result?.totalCount || result?.total || 0;
+        // Backend returns PagedResult with PascalCase: { Data, Total, PageNumber, PageSize, TotalPages }
+        const count = result?.Total || 0;
         document.getElementById('activeFacilitiesCount').textContent = count;
     } catch (error) {
         console.error('Error loading active facilities:', error);
-        document.getElementById('activeFacilitiesCount').textContent = 'Lỗi';
+        const errorMsg = error.message?.includes('401') || error.message?.includes('403') 
+            ? 'Lỗi xác thực' 
+            : error.message?.includes('Network') || error.message?.includes('fetch')
+            ? 'Lỗi kết nối'
+            : 'Lỗi tải dữ liệu';
+        document.getElementById('activeFacilitiesCount').textContent = errorMsg;
     }
 }
 
@@ -248,26 +274,33 @@ async function renderMemberDashboard(container) {
 
 function renderRecentCheckinsTable(data) {
     const container = document.getElementById('recentCheckins');
-    if (!data || !data.items || data.items.length === 0) {
+    if (!data || !data.Data || data.Data.length === 0) {
         container.innerHTML = '<p class="empty-state-text">Chưa có check-in nào</p>';
         return;
     }
     
-    // Sort by checkinTime descending (most recent first)
-    const sortedItems = [...data.items].sort((a, b) => {
-        return new Date(b.checkinTime) - new Date(a.checkinTime);
+    // Sort by CheckinTime descending (most recent first) - using PascalCase
+    const sortedItems = [...data.Data].sort((a, b) => {
+        return new Date(b.CheckinTime) - new Date(a.CheckinTime);
     });
     
     let html = '<table><thead><tr><th>Member</th><th>Thời gian vào</th><th>Thời gian ra</th><th>Trạng thái</th></tr></thead><tbody>';
     sortedItems.forEach(item => {
-        const memberName = item.memberName || `Member #${item.memberId || '-'}`;
-        const status = item.checkoutTime ? 'Đã ra' : 'Đang tập';
-        const badgeClass = item.checkoutTime ? 'badge-secondary' : 'badge-success';
+        // Backend returns PascalCase: MemberName, MemberId, CheckinTime, CheckoutTime
+        const memberName = item.MemberName || `Member #${item.MemberId || '-'}`;
+        
+        // CheckoutTime is nullable (DateTime?) - null means still checked in
+        // Also check for C# sentinel dates like "0001-01-01T00:00:00" or empty strings
+        const hasCheckedOut = item.CheckoutTime && 
+                             item.CheckoutTime !== '' && 
+                             !item.CheckoutTime.startsWith('0001-01-01');
+        const status = hasCheckedOut ? 'Đã ra' : 'Đang tập';
+        const badgeClass = hasCheckedOut ? 'badge-secondary' : 'badge-success';
         
         html += `<tr>
             <td>${escapeHtml(memberName)}</td>
-            <td>${formatDateTime(item.checkinTime)}</td>
-            <td>${item.checkoutTime ? formatDateTime(item.checkoutTime) : 'Chưa ra'}</td>
+            <td>${formatDateTime(item.CheckinTime)}</td>
+            <td>${hasCheckedOut ? formatDateTime(item.CheckoutTime) : 'Chưa ra'}</td>
             <td><span class="badge ${badgeClass}">${status}</span></td>
         </tr>`;
     });
