@@ -26,13 +26,21 @@ builder.Services.AddScoped<IUserRepository,       UserRepository>();
 
 // ── Business Services ─────────────────────────────────────────
 builder.Services.AddScoped<IMemberService,     MemberService>();
+builder.Services.AddScoped<ITrainerService,    TrainerService>();
+builder.Services.AddScoped<IFacilityService,   FacilityService>();
 builder.Services.AddScoped<IMembershipService, MembershipService>();
+builder.Services.AddScoped<IScheduleService,   ScheduleService>();
+builder.Services.AddScoped<ISessionService,    SessionService>();
 builder.Services.AddScoped<ICheckinService,    CheckinService>();
 builder.Services.AddScoped<IInvoiceService,    InvoiceService>();
 builder.Services.AddScoped<IPaymentService,    PaymentService>();
 builder.Services.AddScoped<IReportService,     ReportService>();
 builder.Services.AddScoped<IAuthService,       AuthService>();
 builder.Services.AddScoped<IExportService,     ExportService>();
+
+
+builder.Services.AddScoped<IEmailService, EmailService>();
+
 
 // ── JWT Authentication ────────────────────────────────────────
 var jwtKey = builder.Configuration["Jwt:Key"]!;
@@ -100,6 +108,10 @@ if (app.Environment.IsDevelopment())
 }
 
 app.UseHttpsRedirection();
+
+// Global exception handling middleware
+app.UseMiddleware<GymManegement.Middleware.GlobalExceptionMiddleware>();
+
 app.UseCors();
 
 // ── Serve frontend từ wwwroot/ ─────────────────────────────────

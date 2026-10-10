@@ -43,6 +43,10 @@ namespace GymManegement.Service.BUS.Implementations
 
         public async Task<SessionResponse> CreateAsync(CreateSessionRequest request)
         {
+            // Validate MemberId is provided (not default 0)
+            if (request.MemberId <= 0)
+                throw new InvalidOperationException("MemberId phải được cung cấp và lớn hơn 0.");
+
             // Ensure RegistrationDate has a valid value (prevent SQL datetime out-of-range)
             var registrationDate = request.RegistrationDate == default || request.RegistrationDate == DateTime.MinValue
                 ? DateTime.UtcNow

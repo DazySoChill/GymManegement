@@ -1,4 +1,5 @@
-﻿using GymManegement.API.DTOs.Invoice;
+using GymManegement.API.DTOs.Common;
+using GymManegement.API.DTOs.Invoice;
 using GymManegement.DAL.Entities;
 using GymManegement.DAL.Repositories.Interfaces;
 using GymManegement.Service.BUS.Interfaces;
@@ -10,53 +11,92 @@ namespace GymManegement.Service.BUS.Implementations
         private readonly IInvoiceRepository _repo;
         public InvoiceService(IInvoiceRepository repo) => _repo = repo;
 
-        public async Task<IEnumerable<InvoiceResponse>> GetAllAsync()
-            => (await _repo.GetAllAsync()).Select(ToResponse);
+        public async Task<PagedResult<InvoiceResponse>> GetAllAsync(int pageNumber = 1, int pageSize = 10, string? searchTerm = null, string? sortBy = null, string? sortDir = null)
+        {
+            var result = await _repo.GetAllAsync(pageNumber, pageSize, searchTerm, sortBy, sortDir);
+            return new PagedResult<InvoiceResponse>
+            {
+                Data = result.Data.Select(ToResponse).ToList(),
+                Total = result.Total,
+                PageNumber = result.PageNumber,
+                PageSize = result.PageSize
+            };
+        }
 
         public async Task<InvoiceResponse?> GetByIdAsync(int id)
         {
-            var inv = await _repo.GetByIdAsync(id);
-            return inv is null ? null : ToResponse(inv);
+            var entity = await _repo.GetByIdAsync(id);
+            return entity is null ? null : ToResponse(entity);
         }
 
-        public async Task<IEnumerable<InvoiceResponse>> GetByMemberAsync(int memberId)
-            => (await _repo.GetByMemberIdAsync(memberId)).Select(ToResponse);
+        public async Task<IEnumerable<InvoiceResponse>> GetByMemberIdAsync(int memberId)
+        {
+            var entities = await _repo.GetByMemberIdAsync(memberId);
+            return entities.Select(ToResponse);
+        }
+
+        public async Task<IEnumerable<InvoiceResponse>> GetByStatusAsync(string status)
+        {
+            var entities = await _repo.GetByStatusAsync(status);
+            return entities.Select(ToResponse);
+        }
 
         public async Task<IEnumerable<InvoiceResponse>> GetOverdueAsync()
-            => (await _repo.GetOverdueAsync()).Select(ToResponse);
+        {
+            var entities = await _repo.GetOverdueAsync();
+            return entities.Select(ToResponse);
+        }
+
+        public async Task<decimal> GetTotalRevenueAsync(int month, int year)
+        {
+            return await _repo.GetTotalRevenueAsync(month, year);
+        }
 
         public async Task<InvoiceResponse> CreateAsync(CreateInvoiceRequest request)
         {
             var entity = new Invoice
             {
-                MemberId    = request.MemberId,
+                MembershipId = request.MembershipId,
                 TotalAmount = request.TotalAmount,
-                InvoiceDate = request.InvoiceDate == default ? DateTime.UtcNow : request.InvoiceDate,
-                DueDate     = request.DueDate == default ? DateTime.UtcNow.AddDays(7) : request.DueDate,
-                Status      = "Pending"
+                InvoiceDate = request.InvoiceDate,
+                DueDate = request.DueDate,
+                Status = "Pending",
+                Description = request.Description
             };
             await _repo.CreateAsync(entity);
             return ToResponse(entity);
         }
 
-        public async Task<bool> UpdateStatusAsync(int id, UpdateInvoiceRequest request)
+        public async Task<InvoiceResponse?> UpdateAsync(int id, UpdateInvoiceRequest request)
+        {
+            var entity = await _repo.GetByIdAsync(id);
+            if (entity is null)
+                throw new KeyNotFoundException($"Hóa đơn với ID {id} không tồn tại.");
+
+            entity.Status = request.Status;
+            await _repo.UpdateAsync(entity);
+            return ToResponse(entity);
+        }
+
+        public async Task<bool> DeleteAsync(int id)
         {
             var entity = await _repo.GetByIdAsync(id);
             if (entity is null) return false;
-            entity.Status = request.Status;
-            await _repo.UpdateAsync(entity);
+            await _repo.DeleteAsync(id);
             return true;
         }
 
-        private static InvoiceResponse ToResponse(Invoice i) => new()
+        private static InvoiceResponse ToResponse(Invoice i) => new InvoiceResponse
         {
-            InvoiceId   = i.InvoiceId,
-            MemberId    = i.MemberId,
-            MemberName  = string.Empty,
+            InvoiceId = i.InvoiceId,
+            MembershipId = i.MembershipId,
             TotalAmount = i.TotalAmount,
             InvoiceDate = i.InvoiceDate,
-            DueDate     = i.DueDate,
-            Status      = i.Status
+            DueDate = i.DueDate,
+            Status = i.Status,
+            Description = i.Description,
+            CreatedAt = i.CreatedAt,
+            UpdatedAt = i.UpdatedAt
         };
     }
 }
