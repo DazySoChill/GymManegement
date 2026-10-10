@@ -184,6 +184,7 @@
     <div class="footer-note">Gym Management v2.0</div>
   </div>
 
+  <script src="/js/api.js"></script>
   <script>
     // ── Redirect if already logged in ──────────────────────────────
     if (localStorage.getItem('accessToken')) { window.location.href = '/'; }
@@ -243,12 +244,9 @@
 
       setLoading('btnLogin', 'loginSpinner', 'btnLoginText', true, 'Đăng nhập');
       try {
-        const res  = await fetch('/api/auth/login', {
-          method: 'POST', headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ username, password })
-        });
-        const data = await res.json();
-        if (!res.ok) throw new Error(data.message || 'Đăng nhập thất bại.');
+        // Use api.auth.login() for consistency with apiFetch pattern
+        // Note: auth endpoints intentionally don't require Bearer token (handled by apiFetch 401 logic)
+        const data = await api.auth.login({ username, password });
         localStorage.setItem('accessToken', data.token);
         localStorage.setItem('user', JSON.stringify({
           userId: data.userId, username: data.username,
@@ -287,12 +285,8 @@
         const body = { username, email, password };
         if (fullName) body.fullName = fullName;
 
-        const res  = await fetch('/api/auth/register', {
-          method: 'POST', headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(body)
-        });
-        const data = await res.json();
-        if (!res.ok) throw new Error(typeof data === 'string' ? data : (data.message || data.title || 'Đăng ký thất bại.'));
+        // Use api.auth.register() for consistency with apiFetch pattern
+        const data = await api.auth.register(body);
 
         // Thành công – hiển thị thông báo, reset form, chuyển sang tab đăng nhập
         showAlert('registerAlert', 'Tạo tài khoản thành công! Bạn có thể đăng nhập ngay.', 'success');

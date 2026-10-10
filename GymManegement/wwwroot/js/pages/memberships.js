@@ -51,16 +51,6 @@ function openAddMembership() {
   // POST /api/membership returns 500 error - disable this feature
   toast('Chức năng tạm thời không khả dụng (API lỗi)', 'warning');
   return;
-  
-  /* Commented out until API is fixed
-  if (!membershipsMemberId) { const sel = document.getElementById('ms-member-select').value; if (!sel) return toast('Vui lòng chọn hội viên trước', 'warning'); membershipsMemberId = sel; }
-  document.getElementById('membership-form').reset();
-  document.getElementById('ms-member').value = membershipsMemberId;
-  document.getElementById('ms-start').value = new Date().toISOString().split('T')[0];
-  const end = new Date(); end.setMonth(end.getMonth() + 1); document.getElementById('ms-end').value = end.toISOString().split('T')[0];
-  loadMemberSelectForMembership('ms-member');
-  openModal('modal-membership');
-  */
 }
 
 document.getElementById('membership-form')?.addEventListener('submit', async e => {
@@ -69,24 +59,6 @@ document.getElementById('membership-form')?.addEventListener('submit', async e =
   // POST /api/membership returns 500 error - block submission
   toast('Chức năng tạm thời không khả dụng (API lỗi)', 'warning');
   return;
-  
-  /* Commented out until API is fixed
-  const body = {
-    memberId: parseInt(document.getElementById('ms-member').value),
-    membershipType: document.getElementById('ms-type').value,
-    price: parseFloat(document.getElementById('ms-price').value),
-    startDate: document.getElementById('ms-start').value,
-    endDate: document.getElementById('ms-end').value,
-    isActive: true
-  };
-  if (!body.memberId || !body.price) return toast('Vui lòng nhập đầy đủ', 'warning');
-  try {
-    await api.createMembership(body);
-    toast('Đăng ký gói tập thành công', 'success');
-    closeModal('modal-membership');
-    if (membershipsMemberId) loadMemberMemberships();
-  } catch (err) { toast(err.message || 'Lỗi lưu', 'error'); }
-  */
 });
 
 function init_memberships() {

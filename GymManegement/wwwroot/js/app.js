@@ -20,6 +20,9 @@ function initAuth() {
     if (isAuthenticated()) window.location.href = '/';
     return;
   }
+  // Token validation: We only check presence, not expiry/validity.
+  // Expired tokens are handled gracefully by apiFetch() 401 logic (auto-logout on first API call).
+  // This avoids clock-skew issues and keeps auth boundary simple.
   if (!isAuthenticated()) { window.location.href = '/login.html'; return; }
 
   const user = getCurrentUser();
