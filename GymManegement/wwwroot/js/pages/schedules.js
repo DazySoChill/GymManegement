@@ -12,6 +12,10 @@ async function loadSchedules(page = 1) {
     const total = res.total ?? 0;
     schedulesTotalPages = Math.ceil(total / schedulesPageSize);
 
+    const user = getCurrentUser();
+    const isSuperAdmin = user?.role === 'SuperAdmin';
+    const showActions = isAdmin(); // Only admins can edit/delete
+
     const tbody = document.getElementById('schedules-tbody');
     if (!data.length) { emptyRow('schedules-tbody', 7); }
     else {
@@ -24,7 +28,7 @@ async function loadSchedules(page = 1) {
           <td>${datetimeFmt(s.startTime)}</td>
           <td>${datetimeFmt(s.endTime)}</td>
           <td>
-            <button class="btn btn-icon btn-sm" onclick="confirmDeleteSchedule(${s.scheduleId})" data-tip="Xóa"><span>🗑️</span></button>
+            ${showActions && isSuperAdmin ? `<button class="btn btn-icon btn-sm" onclick="confirmDeleteSchedule(${s.scheduleId})" data-tip="Xóa"><span>🗑️</span></button>` : (showActions ? '<span style="color:var(--text-muted);font-size:0.8rem">—</span>' : '<span style="color:var(--text-muted);font-size:0.8rem">—</span>')}
           </td>
         </tr>
       `).join('');
@@ -73,4 +77,16 @@ function confirmDeleteSchedule(id) {
   openModal('modal-confirm');
 }
 
-function init_schedules() { loadSchedules(1); }
+function init_schedules() {
+  // Hide create button for members
+  if (isMember()) {
+    const createBtn = document.querySelector('button[onclick="openAddSchedule()"]');
+    if (createBtn) createBtn.style.display = 'none';
+    
+    // Change page title
+    const title = document.querySelector('#page-schedules .card h2');
+    if (title) title.textContent = '📅 Lịch tập (Chỉ xem)';
+  }
+  
+  loadSchedules(1);
+}

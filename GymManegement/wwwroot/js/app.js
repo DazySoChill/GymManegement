@@ -82,8 +82,57 @@ function toast(msg, type = 'info', duration = 3500) {
 function openModal(id) { document.getElementById(id)?.classList.add('open'); }
 function closeModal(id) { document.getElementById(id)?.classList.remove('open'); }
 
+// ── Navigation control ────────────────────────────────────────
+function initNavigation() {
+  const user = getCurrentUser();
+  if (!user) return;
+  
+  const role = user.role;
+  
+  // Define allowed pages per role
+  const allowedPages = {
+    'Admin': ['dashboard', 'members', 'memberships', 'trainers', 'facilities', 'schedules', 'checkins', 'invoices', 'reports'],
+    'SuperAdmin': ['dashboard', 'members', 'memberships', 'trainers', 'facilities', 'schedules', 'checkins', 'invoices', 'reports'],
+    'Member': ['dashboard', 'schedules', 'memberships', 'checkins'],
+    'Trainer': ['dashboard', 'schedules', 'checkins']
+  };
+  
+  const allowed = allowedPages[role] || ['dashboard'];
+  
+  // Hide nav links not allowed for current role
+  document.querySelectorAll('#sidebar nav a').forEach(link => {
+    const page = link.dataset.page;
+    if (!allowed.includes(page)) {
+      link.style.display = 'none';
+    } else {
+      link.style.display = '';
+    }
+  });
+}
+
+function isAllowedPage(pageId, role) {
+  const allowedPages = {
+    'Admin': ['dashboard', 'members', 'memberships', 'trainers', 'facilities', 'schedules', 'checkins', 'invoices', 'reports'],
+    'SuperAdmin': ['dashboard', 'members', 'memberships', 'trainers', 'facilities', 'schedules', 'checkins', 'invoices', 'reports'],
+    'Member': ['dashboard', 'schedules', 'memberships', 'checkins'],
+    'Trainer': ['dashboard', 'schedules', 'checkins']
+  };
+  
+  const allowed = allowedPages[role] || ['dashboard'];
+  return allowed.includes(pageId);
+}
+
 // ── Router ────────────────────────────────────────────────────
 function navigateTo(pageId) {
+  const user = getCurrentUser();
+  
+  // Check route protection
+  if (user && !isAllowedPage(pageId, user.role)) {
+    toast('Bạn không có quyền truy cập trang này', 'error');
+    navigateTo('dashboard');
+    return;
+  }
+  
   document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
   document.querySelectorAll('#sidebar nav a').forEach(a => {
     a.classList.toggle('active', a.dataset.page === pageId);
@@ -162,6 +211,7 @@ function populateSelect(selectId, items, valueKey, labelKey, placeholder = '-- C
 // ── Initialize on DOM ready ───────────────────────────────────
 document.addEventListener('DOMContentLoaded', () => {
   initAuth();
+  initNavigation();
 
   // Sidebar navigation
   document.querySelectorAll('#sidebar nav a').forEach(link => {

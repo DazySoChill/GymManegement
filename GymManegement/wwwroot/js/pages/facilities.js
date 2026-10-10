@@ -7,6 +7,9 @@ async function loadFacilities() {
     const tbody = document.getElementById('facilities-tbody');
     if (!data.length) { emptyRow('facilities-tbody', 5); }
     else {
+      const user = getCurrentUser();
+      const isSuperAdmin = user?.role === 'SuperAdmin';
+      
       tbody.innerHTML = data.map(f => `
         <tr>
           <td>${f.facilityId}</td>
@@ -15,7 +18,7 @@ async function loadFacilities() {
           <td>${statusBadge(f.isActive ? 'Active' : 'Inactive')}</td>
           <td>
             <button class="btn btn-icon btn-sm" onclick="openEditFacility(${f.facilityId})" data-tip="Sửa"><span>✏️</span></button>
-            <button class="btn btn-icon btn-sm" onclick="confirmDeleteFacility(${f.facilityId})" data-tip="Xóa"><span>🗑️</span></button>
+            ${isSuperAdmin ? `<button class="btn btn-icon btn-sm" onclick="confirmDeleteFacility(${f.facilityId})" data-tip="Xóa"><span>🗑️</span></button>` : ''}
           </td>
         </tr>
       `).join('');

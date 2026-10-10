@@ -15,6 +15,9 @@ async function loadTrainers(page = 1) {
     const tbody = document.getElementById('trainers-tbody');
     if (!data.length) { emptyRow('trainers-tbody', 6); }
     else {
+      const user = getCurrentUser();
+      const isSuperAdmin = user?.role === 'SuperAdmin';
+      
       tbody.innerHTML = data.map(t => `
         <tr>
           <td>${t.trainerId}</td>
@@ -24,7 +27,7 @@ async function loadTrainers(page = 1) {
           <td>${t.specialization || '—'}</td>
           <td>
             <button class="btn btn-icon btn-sm" onclick="openEditTrainer(${t.trainerId})" data-tip="Sửa"><span>✏️</span></button>
-            <button class="btn btn-icon btn-sm" onclick="confirmDeleteTrainer(${t.trainerId})" data-tip="Xóa"><span>🗑️</span></button>
+            ${isSuperAdmin ? `<button class="btn btn-icon btn-sm" onclick="confirmDeleteTrainer(${t.trainerId})" data-tip="Xóa"><span>🗑️</span></button>` : ''}
           </td>
         </tr>
       `).join('');

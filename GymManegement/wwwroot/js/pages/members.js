@@ -15,6 +15,9 @@ async function loadMembers(page = 1) {
     const tbody = document.getElementById('members-tbody');
     if (!data.length) { emptyRow('members-tbody', 7); }
     else {
+      const user = getCurrentUser();
+      const isSuperAdmin = user?.role === 'SuperAdmin';
+      
       tbody.innerHTML = data.map(m => `
         <tr>
           <td>${m.memberId}</td>
@@ -25,7 +28,7 @@ async function loadMembers(page = 1) {
           <td>${statusBadge(m.status)}</td>
           <td>
             <button class="btn btn-icon btn-sm" onclick="openEditMember(${m.memberId})" data-tip="Sửa"><span>✏️</span></button>
-            <button class="btn btn-icon btn-sm" onclick="confirmDelete('member', ${m.memberId})" data-tip="Xóa"><span>🗑️</span></button>
+            ${isSuperAdmin ? `<button class="btn btn-icon btn-sm" onclick="confirmDelete('member', ${m.memberId})" data-tip="Xóa"><span>🗑️</span></button>` : ''}
           </td>
         </tr>
       `).join('');

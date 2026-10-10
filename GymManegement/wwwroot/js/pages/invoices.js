@@ -18,6 +18,9 @@ async function loadInvoices(page = 1) {
     const tbody = document.getElementById('invoices-tbody');
     if (!data.length) { emptyRow('invoices-tbody', 7); }
     else {
+      const user = getCurrentUser();
+      const isSuperAdmin = user?.role === 'SuperAdmin';
+      
       tbody.innerHTML = data.map(inv => `
         <tr>
           <td>${inv.invoiceId}</td>
@@ -28,7 +31,7 @@ async function loadInvoices(page = 1) {
           <td>${statusBadge(inv.status)}</td>
           <td>
             <button class="btn btn-icon btn-sm" onclick="openPayments(${inv.invoiceId})" data-tip="Thanh toán"><span>💰</span></button>
-            <button class="btn btn-icon btn-sm" onclick="confirmDeleteInvoice(${inv.invoiceId})" data-tip="Xóa"><span>🗑️</span></button>
+            ${isSuperAdmin ? `<button class="btn btn-icon btn-sm" onclick="confirmDeleteInvoice(${inv.invoiceId})" data-tip="Xóa"><span>🗑️</span></button>` : ''}
           </td>
         </tr>
       `).join('');
