@@ -1,0 +1,578 @@
+═══════════════════════════════════════════════════════════════
+GYM MANAGEMENT API - TEST INPUTS REFERENCE
+═══════════════════════════════════════════════════════════════
+Date: January 15, 2026
+Admin Account: gymadmin / Gym@2026
+Server: http://localhost:5250
+═══════════════════════════════════════════════════════════════
+
+🔑 AUTHENTICATION
+═══════════════════════════════════════════════════════════════
+
+Endpoint: POST http://localhost:5250/api/auth/login
+Headers: Content-Type: application/json
+Body:
+{
+    "username": "gymadmin",
+    "password": "Gym@2026"
+}
+
+Result: ✅ Token obtained
+Token (use in all subsequent requests as "Authorization: Bearer {token}"):
+eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiI1MTQiLCJ1bmlxdWVfbmFtZSI6Imd5bWFkbWluIiwiZW1haWwiOiJneW1hZG1pbkBneW0uY29tIiwiZnVsbE5hbWUiOiJHeW0gQWRtaW5pc3RyYXRvciIsImh0dHA6Ly9zY2hlbWFzLm1pY3Jvc29mdC5jb20vd3MvMjAwOC8wNi9pZGVudGl0eS9jbGFpbXMvcm9sZSI6IkFkbWluIiwicm9sZSI6IkFkbWluIiwianRpIjoiNWEwNzg5ZjUtNmUwMy00OTkzLWE2NjItNjI2YzExNzYyYmY1IiwiZXhwIjoxNzkxNjI0NzEyLCJpc3MiOiJHeW1NYW5hZ2VtZW50IiwiYXVkIjoiR3ltTWFuYWdlbWVudFVzZXJzIn0.PYffHxjtMGiV9QsYBdPmN72E0RxjJSizLpI8LQZ6sUY
+
+═══════════════════════════════════════════════════════════════
+1️⃣ MEMBER API (BASE: /api/member)
+═══════════════════════════════════════════════════════════════
+
+✅ GET List
+-------------------------------------------------------------------
+Endpoint: GET http://localhost:5250/api/member?pageNumber=1&pageSize=10
+Headers: Authorization: Bearer {token}
+Result: ✅ 200 OK - Returns 10 members from total 506
+
+✅ GET By ID
+-------------------------------------------------------------------
+Endpoint: GET http://localhost:5250/api/member/0
+Headers: Authorization: Bearer {token}
+Test Input: ID = 0 (Member 1)
+Result: ✅ 200 OK - Returns member details
+
+✅ CREATE
+-------------------------------------------------------------------
+Endpoint: POST http://localhost:5250/api/member
+Headers: 
+  Authorization: Bearer {token}
+  Content-Type: application/json
+Body:
+{
+  "fullName": "Test Member API",
+  "email": "testmember@gym.com",
+  "phone": "0901234999",
+  "dateOfBirth": "1990-05-15",
+  "gender": "Male",
+  "address": "123 Test Street",
+  "emergencyContact": "0909999888",
+  "joinDate": "2025-01-01",
+  "status": "Active"
+}
+Result: ✅ 201 Created - Member ID 507 created
+
+✅ UPDATE
+-------------------------------------------------------------------
+Endpoint: PUT http://localhost:5250/api/member/507
+Headers: 
+  Authorization: Bearer {token}
+  Content-Type: application/json
+Body:
+{
+  "fullName": "Test Member Updated",
+  "email": "testmember@gym.com",
+  "phone": "0901234999",
+  "dateOfBirth": "1990-05-15",
+  "gender": "Male",
+  "address": "456 Updated Street",
+  "emergencyContact": "0909999888",
+  "joinDate": "2025-01-01",
+  "status": "Active"
+}
+Result: ✅ 200 OK - Member 507 updated
+
+❌ DELETE
+-------------------------------------------------------------------
+Endpoint: DELETE http://localhost:5250/api/member/507
+Headers: Authorization: Bearer {token}
+Result: ❌ 403 Forbidden - Requires SuperAdmin role
+
+═══════════════════════════════════════════════════════════════
+2️⃣ TRAINER API (BASE: /api/trainer)
+═══════════════════════════════════════════════════════════════
+
+❌ ALL ENDPOINTS FAILING
+-------------------------------------------------------------------
+Issue: Missing stored procedure 'sp_Trainer_GetPaged' in database
+Status: ❌ 500 Internal Server Error
+Action Required: Create database stored procedures for Trainer module
+
+Test Inputs Prepared (for when fixed):
+CREATE Body:
+{
+  "fullName": "Test Trainer API",
+  "email": "testtrainer@gym.com",
+  "phone": "0902345001",
+  "specialization": "Cardio",
+  "experience": 3,
+  "certification": "ACE Certified",
+  "status": "Active",
+  "hireDate": "2024-01-01"
+}
+
+UPDATE Body:
+{
+  "fullName": "Test Trainer Updated",
+  "email": "testtrainer@gym.com",
+  "phone": "0902345001",
+  "specialization": "Strength Training",
+  "experience": 4,
+  "certification": "ACE Certified",
+  "status": "Active",
+  "hireDate": "2024-01-01"
+}
+
+═══════════════════════════════════════════════════════════════
+3️⃣ FACILITY API (BASE: /api/facility)
+═══════════════════════════════════════════════════════════════
+
+✅ GET List
+-------------------------------------------------------------------
+Endpoint: GET http://localhost:5250/api/facility?pageNumber=1&pageSize=10
+Headers: Authorization: Bearer {token}
+Result: ✅ 200 OK - Returns 10 facilities
+
+✅ GET By ID
+-------------------------------------------------------------------
+Endpoint: GET http://localhost:5250/api/facility/0
+Headers: Authorization: Bearer {token}
+Test Input: ID = 0 (Phòng tập Yoga 1)
+Result: ✅ 200 OK
+
+✅ CREATE
+-------------------------------------------------------------------
+Endpoint: POST http://localhost:5250/api/facility
+Headers: 
+  Authorization: Bearer {token}
+  Content-Type: application/json
+Body:
+{
+  "name": "Test Room API",
+  "type": "Gym",
+  "capacity": 30,
+  "description": "Test facility",
+  "status": "Available"
+}
+Result: ✅ 201 Created - Facility ID 10 created
+
+✅ UPDATE
+-------------------------------------------------------------------
+Endpoint: PUT http://localhost:5250/api/facility/10
+Headers: 
+  Authorization: Bearer {token}
+  Content-Type: application/json
+Body:
+{
+  "name": "Test Room Updated",
+  "type": "Yoga",
+  "capacity": 20,
+  "description": "Updated test facility",
+  "status": "Available"
+}
+Result: ✅ 200 OK
+
+❌ DELETE
+-------------------------------------------------------------------
+Endpoint: DELETE http://localhost:5250/api/facility/10
+Headers: Authorization: Bearer {token}
+Result: ❌ 403 Forbidden - Requires SuperAdmin role
+
+═══════════════════════════════════════════════════════════════
+4️⃣ SCHEDULE API (BASE: /api/schedule)
+═══════════════════════════════════════════════════════════════
+
+✅ GET List
+-------------------------------------------------------------------
+Endpoint: GET http://localhost:5250/api/schedule?pageNumber=1&pageSize=10
+Headers: Authorization: Bearer {token}
+Result: ✅ 200 OK
+
+✅ GET By ID
+-------------------------------------------------------------------
+Endpoint: GET http://localhost:5250/api/schedule/98
+Headers: Authorization: Bearer {token}
+Test Input: ID = 98
+Result: ✅ 200 OK
+
+❌ CREATE
+-------------------------------------------------------------------
+Endpoint: POST http://localhost:5250/api/schedule
+Headers: 
+  Authorization: Bearer {token}
+  Content-Type: application/json
+Body:
+{
+  "trainerId": 0,
+  "facilityId": 0,
+  "className": "Test Class API",
+  "dayOfWeek": 1,
+  "startTime": "09:00:00",
+  "endTime": "10:00:00",
+  "maxParticipants": 20,
+  "status": "Active"
+}
+Result: ❌ 400 Bad Request - Validation or business rule error
+
+❌ GET By Trainer
+-------------------------------------------------------------------
+Endpoint: GET http://localhost:5250/api/schedule/trainer/0
+Result: ❌ 404 Not Found - Endpoint not implemented
+
+❌ GET By Date
+-------------------------------------------------------------------
+Endpoint: GET http://localhost:5250/api/schedule/date/2025-01-15
+Result: ❌ 404 Not Found - Endpoint not implemented
+
+═══════════════════════════════════════════════════════════════
+5️⃣ SESSION API (BASE: /api/session)
+═══════════════════════════════════════════════════════════════
+
+✅ GET List
+-------------------------------------------------------------------
+Endpoint: GET http://localhost:5250/api/session?pageNumber=1&pageSize=10
+Headers: Authorization: Bearer {token}
+Result: ✅ 200 OK
+
+✅ GET By ID
+-------------------------------------------------------------------
+Endpoint: GET http://localhost:5250/api/session/0
+Headers: Authorization: Bearer {token}
+Test Input: ID = 0
+Result: ✅ 200 OK
+
+❌ CREATE
+-------------------------------------------------------------------
+Endpoint: POST http://localhost:5250/api/session
+Headers: 
+  Authorization: Bearer {token}
+  Content-Type: application/json
+Body:
+{
+  "scheduleId": 98,
+  "sessionDate": "2025-07-20",
+  "startTime": "09:00:00",
+  "endTime": "10:00:00",
+  "status": "Scheduled",
+  "notes": "Test session"
+}
+Result: ❌ 500 Internal Server Error - Backend error
+
+✅ GET By Schedule
+-------------------------------------------------------------------
+Endpoint: GET http://localhost:5250/api/session/schedule/98
+Headers: Authorization: Bearer {token}
+Test Input: Schedule ID = 98
+Result: ✅ 200 OK
+
+❌ GET By Member
+-------------------------------------------------------------------
+Endpoint: GET http://localhost:5250/api/session/member/0
+Result: ❌ 404 Not Found - Endpoint not implemented
+
+═══════════════════════════════════════════════════════════════
+6️⃣ MEMBERSHIP API (BASE: /api/membership)
+═══════════════════════════════════════════════════════════════
+
+✅ GET List
+-------------------------------------------------------------------
+Endpoint: GET http://localhost:5250/api/membership?pageNumber=1&pageSize=10
+Headers: Authorization: Bearer {token}
+Result: ✅ 200 OK
+
+✅ GET By ID
+-------------------------------------------------------------------
+Endpoint: GET http://localhost:5250/api/membership/498
+Headers: Authorization: Bearer {token}
+Test Input: ID = 498
+Result: ✅ 200 OK
+
+✅ CREATE
+-------------------------------------------------------------------
+Endpoint: POST http://localhost:5250/api/membership
+Headers: 
+  Authorization: Bearer {token}
+  Content-Type: application/json
+Body:
+{
+  "memberId": 0,
+  "planName": "Monthly Basic",
+  "startDate": "2025-07-01",
+  "endDate": "2025-07-31",
+  "price": 500000,
+  "status": "Active"
+}
+Result: ✅ 201 Created
+
+✅ UPDATE
+-------------------------------------------------------------------
+Endpoint: PUT http://localhost:5250/api/membership/{id}
+Body:
+{
+  "memberId": 0,
+  "planName": "Monthly Basic Updated",
+  "startDate": "2025-07-01",
+  "endDate": "2025-07-31",
+  "price": 500000,
+  "status": "Active"
+}
+Result: ✅ 200 OK
+
+❌ DELETE
+-------------------------------------------------------------------
+Endpoint: DELETE http://localhost:5250/api/membership/{id}
+Result: ❌ 403 Forbidden - Requires SuperAdmin
+
+✅ GET Active
+-------------------------------------------------------------------
+Endpoint: GET http://localhost:5250/api/membership/active
+Headers: Authorization: Bearer {token}
+Result: ✅ 200 OK
+
+✅ GET Expiring
+-------------------------------------------------------------------
+Endpoint: GET http://localhost:5250/api/membership/expiring
+Headers: Authorization: Bearer {token}
+Result: ✅ 200 OK
+
+═══════════════════════════════════════════════════════════════
+7️⃣ CHECKIN API (BASE: /api/checkin)
+═══════════════════════════════════════════════════════════════
+
+✅ GET List
+-------------------------------------------------------------------
+Endpoint: GET http://localhost:5250/api/checkin?pageNumber=1&pageSize=10
+Headers: Authorization: Bearer {token}
+Result: ✅ 200 OK
+
+✅ GET By ID
+-------------------------------------------------------------------
+Endpoint: GET http://localhost:5250/api/checkin/0
+Headers: Authorization: Bearer {token}
+Result: ✅ 200 OK
+
+✅ CREATE
+-------------------------------------------------------------------
+Endpoint: POST http://localhost:5250/api/checkin
+Headers: 
+  Authorization: Bearer {token}
+  Content-Type: application/json
+Body:
+{
+  "memberId": 0,
+  "facilityId": 0,
+  "checkinTime": "2025-07-15T09:00:00",
+  "checkoutTime": "2025-07-15T10:00:00",
+  "notes": "Test checkin"
+}
+Result: ✅ 201 Created
+
+✅ GET By Member
+-------------------------------------------------------------------
+Endpoint: GET http://localhost:5250/api/checkin/member/0
+Headers: Authorization: Bearer {token}
+Test Input: Member ID = 0
+Result: ✅ 200 OK
+
+✅ GET By Date
+-------------------------------------------------------------------
+Endpoint: GET http://localhost:5250/api/checkin/date/2025-07-15
+Headers: Authorization: Bearer {token}
+Test Input: Date = 2025-07-15
+Result: ✅ 200 OK
+
+✅ QR CODE CHECKIN
+-------------------------------------------------------------------
+Endpoint: POST http://localhost:5250/api/checkin/qr
+Headers: 
+  Authorization: Bearer {token}
+  Content-Type: application/json
+Body:
+{
+  "memberId": 0,
+  "facilityId": 0
+}
+Result: ✅ 200 OK
+
+═══════════════════════════════════════════════════════════════
+8️⃣ INVOICE API (BASE: /api/invoice)
+═══════════════════════════════════════════════════════════════
+
+✅ GET List
+-------------------------------------------------------------------
+Endpoint: GET http://localhost:5250/api/invoice?pageNumber=1&pageSize=10
+Headers: Authorization: Bearer {token}
+Result: ✅ 200 OK
+
+✅ GET By ID
+-------------------------------------------------------------------
+Endpoint: GET http://localhost:5250/api/invoice/0
+Headers: Authorization: Bearer {token}
+Result: ✅ 200 OK
+
+✅ CREATE
+-------------------------------------------------------------------
+Endpoint: POST http://localhost:5250/api/invoice
+Headers: 
+  Authorization: Bearer {token}
+  Content-Type: application/json
+Body:
+{
+  "memberId": 0,
+  "membershipId": 498,
+  "amount": 500000,
+  "dueDate": "2025-08-01",
+  "status": "Unpaid",
+  "description": "Test invoice"
+}
+Result: ✅ 201 Created
+
+✅ UPDATE
+-------------------------------------------------------------------
+Endpoint: PUT http://localhost:5250/api/invoice/{id}
+Body:
+{
+  "memberId": 0,
+  "membershipId": 498,
+  "amount": 500000,
+  "dueDate": "2025-08-01",
+  "status": "Unpaid",
+  "description": "Updated test invoice"
+}
+Result: ✅ 200 OK
+
+❌ DELETE
+-------------------------------------------------------------------
+Endpoint: DELETE http://localhost:5250/api/invoice/{id}
+Result: ❌ 403 Forbidden - Requires SuperAdmin
+
+✅ GET By Member
+-------------------------------------------------------------------
+Endpoint: GET http://localhost:5250/api/invoice/member/0
+Headers: Authorization: Bearer {token}
+Test Input: Member ID = 0
+Result: ✅ 200 OK
+
+✅ GET Unpaid
+-------------------------------------------------------------------
+Endpoint: GET http://localhost:5250/api/invoice/unpaid
+Headers: Authorization: Bearer {token}
+Result: ✅ 200 OK
+
+═══════════════════════════════════════════════════════════════
+9️⃣ PAYMENT API (BASE: /api/payment)
+═══════════════════════════════════════════════════════════════
+
+✅ GET List
+-------------------------------------------------------------------
+Endpoint: GET http://localhost:5250/api/payment?pageNumber=1&pageSize=10
+Headers: Authorization: Bearer {token}
+Result: ✅ 200 OK
+
+✅ GET By ID
+-------------------------------------------------------------------
+Endpoint: GET http://localhost:5250/api/payment/0
+Headers: Authorization: Bearer {token}
+Result: ✅ 200 OK
+
+✅ CREATE
+-------------------------------------------------------------------
+Endpoint: POST http://localhost:5250/api/payment
+Headers: 
+  Authorization: Bearer {token}
+  Content-Type: application/json
+Body:
+{
+  "invoiceId": 0,
+  "memberId": 0,
+  "amount": 500000,
+  "paymentDate": "2025-07-15T09:00:00",
+  "paymentMethod": "Cash",
+  "status": "Completed",
+  "notes": "Test payment"
+}
+Result: ✅ 201 Created
+
+✅ UPDATE
+-------------------------------------------------------------------
+Endpoint: PUT http://localhost:5250/api/payment/{id}
+Body:
+{
+  "invoiceId": 0,
+  "memberId": 0,
+  "amount": 500000,
+  "paymentDate": "2025-07-15T09:00:00",
+  "paymentMethod": "Cash",
+  "status": "Completed",
+  "notes": "Updated test payment"
+}
+Result: ✅ 200 OK
+
+❌ DELETE
+-------------------------------------------------------------------
+Endpoint: DELETE http://localhost:5250/api/payment/{id}
+Result: ❌ 403 Forbidden - Requires SuperAdmin
+
+✅ GET By Invoice
+-------------------------------------------------------------------
+Endpoint: GET http://localhost:5250/api/payment/invoice/0
+Headers: Authorization: Bearer {token}
+Test Input: Invoice ID = 0
+Result: ✅ 200 OK
+
+✅ GET By Member
+-------------------------------------------------------------------
+Endpoint: GET http://localhost:5250/api/payment/member/0
+Headers: Authorization: Bearer {token}
+Test Input: Member ID = 0
+Result: ✅ 200 OK
+
+═══════════════════════════════════════════════════════════════
+🔟 REPORT API (BASE: /api/report)
+═══════════════════════════════════════════════════════════════
+
+✅ Revenue Report
+-------------------------------------------------------------------
+Endpoint: GET http://localhost:5250/api/report/revenue?startDate=2025-01-01&endDate=2025-12-31
+Headers: Authorization: Bearer {token}
+Test Inputs: 
+  - startDate: 2025-01-01
+  - endDate: 2025-12-31
+Result: ✅ 200 OK
+
+✅ Members Report
+-------------------------------------------------------------------
+Endpoint: GET http://localhost:5250/api/report/members
+Headers: Authorization: Bearer {token}
+Result: ✅ 200 OK
+
+✅ Trainers Report
+-------------------------------------------------------------------
+Endpoint: GET http://localhost:5250/api/report/trainers
+Headers: Authorization: Bearer {token}
+Result: ✅ 200 OK
+
+✅ Facilities Report
+-------------------------------------------------------------------
+Endpoint: GET http://localhost:5250/api/report/facilities
+Headers: Authorization: Bearer {token}
+Result: ✅ 200 OK
+
+═══════════════════════════════════════════════════════════════
+📊 SUMMARY
+═══════════════════════════════════════════════════════════════
+
+Total Tests: 59
+Passed: 42 (71.2%)
+Failed: 17 (28.8%)
+
+Critical Issues:
+1. Trainer API - Missing stored procedure (all endpoints fail)
+2. Schedule Creation - 400 Bad Request
+3. Session Creation - 500 Internal Server Error
+4. Missing endpoints for trainer/date/member queries
+
+Security Notes:
+- DELETE operations require SuperAdmin role (by design)
+- Admin account (gymadmin) has limited permissions
+- JWT token authentication working correctly
+
+═══════════════════════════════════════════════════════════════
+END OF TEST INPUTS REFERENCE
+═══════════════════════════════════════════════════════════════
