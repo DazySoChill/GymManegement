@@ -1,142 +1,139 @@
 # Fix Changes Summary
 
+## Date
+2025-01-10
+
 ## Overview
-Fixed all 7 endpoints returning 500 Internal Server Error by addressing review findings in the global exception handling middleware and service layer validation.
+Fixed review findings to ensure proper middleware pipeline ordering and consistent error handling patterns across the codebase.
 
 ## Files Changed
 
 ### 1. Program.cs
-**Location:** `d:\Workspace\Độ án 2\GymManegement\GymManegement\Program.cs`
+**Change:** Moved GlobalExceptionMiddleware registration before `app.UseCors()`
 
-**Change:** Moved middleware registration to correct position in pipeline
+**Location:** Lines 107-111
 
 **Before:**
 ```csharp
 app.UseHttpsRedirection();
-app.UseMiddleware<GymManegement.Middleware.GlobalExceptionMiddleware>();
+
 app.UseCors();
+
+// Global exception handling middleware
+app.UseMiddleware<GymManegement.Middleware.GlobalExceptionMiddleware>();
 ```
 
 **After:**
 ```csharp
 app.UseHttpsRedirection();
-app.UseCors();
+
+// Global exception handling middleware
 app.UseMiddleware<GymManegement.Middleware.GlobalExceptionMiddleware>();
+
+app.UseCors();
 ```
 
-**Reason:** Standard ASP.NET Core pipeline order places exception middleware after CORS to ensure CORS headers are properly applied even when exceptions occur. This follows convention and prevents potential issues with browser-based clients.
+**Rationale:** 
+- Follows standard ASP.NET Core middleware ordering (exception handling → CORS → auth → endpoints)
+- Ensures exceptions from all downstream middleware (CORS, static files, authentication) are caught
+- Aligns with conventional pipeline patterns seen in ASP.NET Core applications
 
 ---
 
-### 2. Middleware/GlobalExceptionMiddleware.cs
-**Location:** `d:\Workspace\Độ án 2\GymManegement\GymManegement\Middleware\GlobalExceptionMiddleware.cs`
+### 2. Service/BUS/Implementations/InvoiceService.cs
+**Change:** Updated `UpdateAsync` to return null instead of throwing KeyNotFoundException
 
-**Change:** Simplified response structure by removing redundant `detail` field
-
-**Before:**
-```csharp
-var response = new
-{
-    statusCode,
-    message = statusCode == 500 ? "Đã xảy ra lỗi hệ thống. Vui lòng thử lại sau." : exception.Message,
-    detail = statusCode == 500 ? null : exception.Message
-};
-```
-
-**After:**
-```csharp
-var response = new
-{
-    statusCode,
-    message = statusCode == 500 ? "Đã xảy ra lỗi hệ thống. Vui lòng thử lại sau." : exception.Message
-};
-```
-
-**Reason:** The `detail` field was duplicating the same value as `message` for non-500 errors. Removed redundancy while maintaining proper error handling (generic message for 500, actual exception message for 400/404).
-
----
-
-### 3. Service/BUS/Implementations/SessionService.cs
-**Location:** `d:\Workspace\Độ án 2\GymManegement\GymManegement\Service\BUS\Implementations\SessionService.cs`
-
-**Change 1:** Added IMemberRepository dependency injection
+**Location:** Lines 69-77
 
 **Before:**
 ```csharp
-private readonly ISessionRepository _repo;
-public SessionService(ISessionRepository repo) => _repo = repo;
-```
-
-**After:**
-```csharp
-private readonly ISessionRepository _repo;
-private readonly IMemberRepository _memberRepo;
-
-public SessionService(ISessionRepository repo, IMemberRepository memberRepo)
+public async Task<InvoiceResponse?> UpdateAsync(int id, UpdateInvoiceRequest request)
 {
-    _repo = repo;
-    _memberRepo = memberRepo;
+    var entity = await _repo.GetByIdAsync(id);
+    if (entity is null)
+        throw new KeyNotFoundException($"Hóa đơn với ID {id} không tồn tại.");
+
+    entity.Status = request.Status;
+    await _repo.UpdateAsync(entity);
+    return ToResponse(entity);
 }
 ```
 
-**Change 2:** Added member existence validation in CreateAsync
-
-**Before:**
-```csharp
-if (request.MemberId <= 0)
-    throw new InvalidOperationException("MemberId phải được cung cấp và lớn hơn 0.");
-
-// Ensure RegistrationDate has a valid value...
-```
-
 **After:**
 ```csharp
-if (request.MemberId <= 0)
-    throw new InvalidOperationException("MemberId phải được cung cấp và lớn hơn 0.");
+public async Task<InvoiceResponse?> UpdateAsync(int id, UpdateInvoiceRequest request)
+{
+    var entity = await _repo.GetByIdAsync(id);
+    if (entity is null) return null;
 
-// Validate member exists
-var member = await _memberRepo.GetByIdAsync(request.MemberId);
-if (member is null)
-    throw new InvalidOperationException($"Hội viên với ID {request.MemberId} không tồn tại.");
-
-// Ensure RegistrationDate has a valid value...
+    entity.Status = request.Status;
+    await _repo.UpdateAsync(entity);
+    return ToResponse(entity);
+}
 ```
 
-**Reason:** Previously only checked if MemberId > 0 but didn't verify the member actually exists in the database. If a non-existent MemberId was provided, the database foreign key constraint violation would cause a SqlException, resulting in a 500 error. Now throws InvalidOperationException with a clear Vietnamese message, which the middleware catches and returns as 400 Bad Request.
+**Rationale:**
+- Makes InvoiceService consistent with other services (MemberService, TrainerService, ScheduleService, PaymentService)
+- All services now return null for missing entities, letting controllers handle 404 responses
+- Maintains consistent error handling pattern across the codebase
+- Simplifies the error path (no exception thrown → caught → converted to 404)
 
 ---
 
-## Impact on Failing Endpoints
+## Review Findings Addressed
 
-### Fixed Endpoints (7 total):
+### ✅ Finding 1: Middleware placement breaks pipeline convention
+**Status:** FIXED  
+**Action:** Moved GlobalExceptionMiddleware registration before `app.UseCors()` in Program.cs
 
-1. **Member POST** - Returns 400 with "Email đã tồn tại" instead of 500 (middleware catches existing InvalidOperationException)
-2. **Member PUT** - Returns 400 with "Email đã tồn tại" instead of 500 (middleware catches existing InvalidOperationException)
-3. **Trainer POST** - Returns 400 with "Email đã tồn tại" instead of 500 (middleware catches InvalidOperationException from existing validation)
-4. **Trainer PUT** - Returns 400 with "Email đã tồn tại" instead of 500 (middleware catches InvalidOperationException from existing validation)
-5. **Session POST** - Returns 400 with "Hội viên với ID X không tồn tại" instead of 500 (new validation catches non-existent members before DB FK violation)
-6. **Invoice PUT** - Returns 404 with "Hóa đơn với ID X không tồn tại" instead of 500 (middleware catches existing KeyNotFoundException)
-7. **Checkin QR POST** - Returns 400 with "Mã QR không hợp lệ" instead of 500 (middleware catches existing InvalidOperationException)
+### ✅ Finding 2: Inconsistent error handling pattern in InvoiceService
+**Status:** FIXED  
+**Action:** Changed InvoiceService.UpdateAsync to return null like other services instead of throwing KeyNotFoundException
+
+### ℹ️ Finding 3: SessionService validation adds latency
+**Status:** NOTED (not blocking)  
+**Action:** No change made. This is a performance consideration documented for future optimization if needed (caching member IDs or deferring to DB constraints)
+
+---
+
+## Impact Assessment
+
+### Behavior Changes
+- **InvoiceService.UpdateAsync:** Now returns null for non-existent invoices instead of throwing exception
+  - End result is the same: Controller returns 404 Not Found
+  - Consistent with other service update methods
+
+### Pipeline Changes
+- **Middleware ordering:** Exception middleware now catches exceptions from CORS, static files, and authentication middleware
+  - More robust error handling across the entire request pipeline
+  - Follows ASP.NET Core best practices
+
+### No Breaking Changes
+- All API endpoints maintain the same HTTP status code responses (400, 404, 500)
+- Error messages remain in Vietnamese
+- No changes to request/response structures
 
 ---
 
 ## Verification
 
-**Build Status:** ✅ Succeeded
-```
-Build succeeded with 2 warning(s) in 0.7s
+Build command:
+```bash
+cd "d:\Workspace\Độ án 2\GymManegement\GymManegement"
+dotnet build
 ```
 
-**Warnings:** Only version resolution warnings (NU1603) for IdentityModel packages - these are acceptable and don't affect functionality.
+Expected: Build succeeds with 0 errors
+
+The changes maintain backward compatibility while improving code consistency and following ASP.NET Core conventions.
 
 ---
 
 ## Summary
 
-All three review findings have been addressed:
-
-1. ✅ **Middleware placement** - Moved after CORS to follow standard pipeline order
-2. ✅ **SessionService validation** - Added member existence check with IMemberRepository injection
-3. ✅ **Response structure** - Removed redundant `detail` field from error responses
-
-All changes maintain backward compatibility with existing functionality while properly handling edge cases that previously caused 500 errors. The fixes follow the project's existing patterns (Vietnamese error messages, InvalidOperationException for business rules, minimal code changes).
+- 2 files modified
+- 2 critical review findings resolved
+- 1 performance consideration noted for future
+- No breaking changes to API behavior
+- Improved code consistency across service layer
+- Better middleware pipeline organization

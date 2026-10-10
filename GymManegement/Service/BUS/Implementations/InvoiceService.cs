@@ -70,8 +70,7 @@ namespace GymManegement.Service.BUS.Implementations
         public async Task<InvoiceResponse?> UpdateAsync(int id, UpdateInvoiceRequest request)
         {
             var entity = await _repo.GetByIdAsync(id);
-            if (entity is null)
-                throw new KeyNotFoundException($"Hóa đơn với ID {id} không tồn tại.");
+            if (entity is null) return null;
 
             entity.Status = request.Status;
             await _repo.UpdateAsync(entity);
