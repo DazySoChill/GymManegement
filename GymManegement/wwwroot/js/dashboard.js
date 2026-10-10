@@ -23,19 +23,19 @@ async function renderAdminDashboard(container) {
         <div id="statsGrid" class="stats-grid">
             <div class="stat-card">
                 <div class="stat-label">Tổng Members Hoạt Động</div>
-                <div class="stat-value" id="activeMembersCount">-</div>
+                <div class="stat-value" id="activeMembersCount">Đang tải...</div>
             </div>
             <div class="stat-card">
                 <div class="stat-label">Doanh Thu Tháng Này</div>
-                <div class="stat-value" id="monthlyRevenue">-</div>
-            </div>
-            <div class="stat-card">
-                <div class="stat-label">Gói Tập Sắp Hết Hạn</div>
-                <div class="stat-value" id="expiringCount">-</div>
+                <div class="stat-value" id="monthlyRevenue">Đang tải...</div>
             </div>
             <div class="stat-card">
                 <div class="stat-label">Check-in Hôm Nay</div>
-                <div class="stat-value" id="todayCheckins">-</div>
+                <div class="stat-value" id="todayCheckins">Đang tải...</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-label">Cơ Sở Vật Chất Hoạt Động</div>
+                <div class="stat-value" id="activeFacilitiesCount">Đang tải...</div>
             </div>
         </div>
         
@@ -48,30 +48,101 @@ async function renderAdminDashboard(container) {
     `;
     
     try {
-        // Load active members count
-        const activeMembers = await apiFetch('/api/Report/active-members');
-        document.getElementById('activeMembersCount').textContent = activeMembers || 0;
-        
-        // Load monthly revenue
-        const now = new Date();
-        const revenue = await apiFetch(`/api/Report/revenue?month=${now.getMonth() + 1}&year=${now.getFullYear()}`);
-        document.getElementById('monthlyRevenue').textContent = formatCurrency(revenue || 0);
-        
-        // Load expiring memberships
-        const expiring = await apiFetch('/api/Report/expiring-soon?daysAhead=7');
-        document.getElementById('expiringCount').textContent = expiring ? expiring.length : 0;
-        
-        // Load today's checkins
-        const today = new Date().toISOString().split('T')[0];
-        const checkins = await apiFetch(`/api/Checkin/date/${today}`);
-        document.getElementById('todayCheckins').textContent = checkins ? checkins.length : 0;
+        // Load all stats in parallel
+        await Promise.all([
+            loadActiveMembersCount(),
+            loadMonthlyRevenue(),
+            loadTodayCheckins(),
+            loadActiveFacilities()
+        ]);
         
         // Load recent checkins
-        const recentCheckins = await apiFetch('/api/Checkin?pageNumber=1&pageSize=5');
+        const recentCheckins = await apiFetch('/api/Checkin?pageNumber=1&pageSize=10');
         renderRecentCheckinsTable(recentCheckins);
         
     } catch (error) {
         showError('Lỗi tải dữ liệu dashboard: ' + error.message);
+    }
+}
+
+/**
+ * Load Active Members Count
+ */
+async function loadActiveMembersCount() {
+    try {
+        const result = await apiFetch('/api/Member?pageNumber=1&pageSize=1');
+        const count = result?.totalCount || result?.total || 0;
+        document.getElementById('activeMembersCount').textContent = count;
+    } catch (error) {
+        console.error('Error loading active members:', error);
+        document.getElementById('activeMembersCount').textContent = 'Lỗi';
+    }
+}
+
+/**
+ * Load Monthly Revenue
+ */
+async function loadMonthlyRevenue() {
+    try {
+        const now = new Date();
+        const currentMonth = now.getMonth();
+        const currentYear = now.getFullYear();
+        
+        const result = await apiFetch('/api/Payment?pageNumber=1&pageSize=1000');
+        const payments = result?.items || result?.data || [];
+        
+        // Filter payments for current month
+        const filtered = payments.filter(p => {
+            const dateStr = p.paymentDate || p.transactionDate || p.createdAt;
+            if (!dateStr) return false;
+            
+            const date = new Date(dateStr);
+            return date.getMonth() === currentMonth && date.getFullYear() === currentYear;
+        });
+        
+        // Sum the amounts
+        const total = filtered.reduce((sum, p) => sum + (p.amount || 0), 0);
+        document.getElementById('monthlyRevenue').textContent = formatCurrency(total);
+    } catch (error) {
+        console.error('Error loading monthly revenue:', error);
+        document.getElementById('monthlyRevenue').textContent = 'Lỗi';
+    }
+}
+
+/**
+ * Load Today's Checkins Count
+ */
+async function loadTodayCheckins() {
+    try {
+        const today = new Date().toISOString().split('T')[0];
+        
+        const result = await apiFetch('/api/Checkin?pageNumber=1&pageSize=1000');
+        const checkins = result?.items || result?.data || [];
+        
+        // Filter checkins for today
+        const filtered = checkins.filter(c => {
+            const checkinDate = new Date(c.checkinTime).toISOString().split('T')[0];
+            return checkinDate === today;
+        });
+        
+        document.getElementById('todayCheckins').textContent = filtered.length;
+    } catch (error) {
+        console.error('Error loading today checkins:', error);
+        document.getElementById('todayCheckins').textContent = 'Lỗi';
+    }
+}
+
+/**
+ * Load Active Facilities Count
+ */
+async function loadActiveFacilities() {
+    try {
+        const result = await apiFetch('/api/Facility?pageNumber=1&pageSize=1');
+        const count = result?.totalCount || result?.total || 0;
+        document.getElementById('activeFacilitiesCount').textContent = count;
+    } catch (error) {
+        console.error('Error loading active facilities:', error);
+        document.getElementById('activeFacilitiesCount').textContent = 'Lỗi';
     }
 }
 
@@ -182,12 +253,22 @@ function renderRecentCheckinsTable(data) {
         return;
     }
     
-    let html = '<table><thead><tr><th>Member</th><th>Thời gian vào</th><th>Thời gian ra</th></tr></thead><tbody>';
-    data.items.forEach(item => {
+    // Sort by checkinTime descending (most recent first)
+    const sortedItems = [...data.items].sort((a, b) => {
+        return new Date(b.checkinTime) - new Date(a.checkinTime);
+    });
+    
+    let html = '<table><thead><tr><th>Member</th><th>Thời gian vào</th><th>Thời gian ra</th><th>Trạng thái</th></tr></thead><tbody>';
+    sortedItems.forEach(item => {
+        const memberName = item.memberName || `Member #${item.memberId || '-'}`;
+        const status = item.checkoutTime ? 'Đã ra' : 'Đang tập';
+        const badgeClass = item.checkoutTime ? 'badge-secondary' : 'badge-success';
+        
         html += `<tr>
-            <td>${escapeHtml(item.memberName || '-')}</td>
+            <td>${escapeHtml(memberName)}</td>
             <td>${formatDateTime(item.checkinTime)}</td>
             <td>${item.checkoutTime ? formatDateTime(item.checkoutTime) : 'Chưa ra'}</td>
+            <td><span class="badge ${badgeClass}">${status}</span></td>
         </tr>`;
     });
     html += '</tbody></table>';
