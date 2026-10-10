@@ -30,8 +30,12 @@ namespace GymManegement.Controllers
             => Ok(await _service.GetByTrainerIdAsync(trainerId));
 
         [HttpGet("date/{date}")]
-        public async Task<IActionResult> GetByDate(DateTime date)
-            => Ok(await _service.GetByDateAsync(date));
+        public async Task<IActionResult> GetByDate(string date)
+        {
+            if (!DateTime.TryParse(date, out var parsedDate))
+                return BadRequest(new { message = "Invalid date format. Use YYYY-MM-DD format." });
+            return Ok(await _service.GetByDateAsync(parsedDate));
+        }
 
         [HttpPost]
         [Authorize(Roles = "SuperAdmin,Admin,Trainer")]
