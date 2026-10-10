@@ -1,0 +1,34 @@
+{
+  "id": "FEAT-001",
+  "type": "feat",
+  "description": "Complete CRUD modals and functionality for Members and Trainers management. Both wwwroot/js/members.js and trainers.js have placeholder functions showCreateXXXModal() and showEditXXXModal() that show error messages. Implement full create/edit modals with forms, validate inputs, call POST /api/Member and PUT /api/Member/{id} for members, POST /api/Trainer and PUT /api/Trainer/{id} for trainers. Follow the pattern from memberships.js modal system (injectModalStyles, modal-overlay, form validation). Members need: FullName, Email, Phone, DateOfBirth. Trainers need: FullName, Email, Phone, Specialization. Both have soft delete via DELETE endpoint (Admin only per controllers).",
+  "status": "completed",
+  "steps": [
+    "Read API/DTOs/Member/CreateMemberRequest.cs and UpdateMemberRequest.cs to understand exact field names and validation",
+    "Read API/DTOs/Trainer/CreateTrainerRequest.cs and UpdateTrainerRequest.cs for trainer fields",
+    "In wwwroot/js/members.js: replace showCreateMemberModal() with a function that injects modal HTML with form fields (FullName, Email, Phone, DateOfBirth as date input), adds event handler for form submit, validates inputs (required fields, email format, date not in future), calls apiFetch('/api/Member', {method: 'POST', body: JSON.stringify({...})}) on success, shows success toast and reloads members list",
+    "In wwwroot/js/members.js: replace showEditMemberModal(memberId) with a function that first fetches GET /api/Member/{memberId}, pre-fills the same modal form, submits to PUT /api/Member/{memberId}",
+    "Add optional delete button in members table (Admin only, check role) that calls DELETE /api/Member/{id} with confirmation",
+    "Repeat the same create/edit/delete pattern for wwwroot/js/trainers.js using /api/Trainer endpoints",
+    "Follow the modal injection pattern from memberships.js: create injectModalStyles() if not exists, use .gym-modal-overlay and .gym-modal classes, add close button (×) that removes the modal, ensure forms have proper labels and validation feedback"
+  ],
+  "acceptance_criteria": [
+    "Clicking 'Thêm Member' opens a modal with FullName, Email, Phone, DateOfBirth fields",
+    "Submitting the create form with valid data creates a new member via POST /api/Member and refreshes the table",
+    "Clicking edit (✏️) on a member row fetches that member's data and opens an edit modal with pre-filled fields",
+    "Submitting the edit form updates the member via PUT /api/Member/{id}",
+    "The same create/edit/delete functionality works for trainers in wwwroot/js/trainers.js",
+    "All modals have proper close buttons and validation (e.g., email format, required fields)",
+    "Toast notifications appear on success or error"
+  ],
+  "verification": [
+    "Start the API: dotnet run --project GymManegement.csproj",
+    "Open http://localhost:5250 in browser, log in as Admin (credentials depend on seeded data)",
+    "Navigate to Members page, click 'Thêm Member', fill form, submit - verify member appears in table",
+    "Click edit on a member, change name, submit - verify name updates in table",
+    "Navigate to Trainers page, test create and edit - verify same functionality",
+    "Check browser console for errors - should be clean"
+  ],
+  "blocked_reason": null,
+  "findings": "Implementation completed successfully. Added full CRUD modals for both Members and Trainers with proper form validation:\n- Members: Create/Edit forms with FullName, Email, Phone, DateOfBirth fields. All required fields validated, email format checked, date not in future validation.\n- Trainers: Create/Edit forms with FullName, Email, Phone, Specialization fields. All required fields validated, email format checked.\n- Both modules now have delete functionality with confirmation dialogs.\n- Modal system follows the pattern from memberships.js with gym-modal-overlay, proper close buttons, and validation feedback.\n- Toast notifications on success/error.\n- Forms pre-populate data for edit operations via GET requests.\n- All API calls use proper endpoints: POST /api/Member, PUT /api/Member/{id}, DELETE /api/Member/{id} for members, and similar for trainers.\n- Note: Manual browser testing required to verify full functionality as there is no automated test framework."
+}

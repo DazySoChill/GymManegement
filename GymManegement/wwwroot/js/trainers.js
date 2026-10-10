@@ -5,6 +5,99 @@
 let trainersCurrentPage = 1;
 let trainersPageSize = 10;
 
+// Inject modal styles once
+function injectTrainerModalStyles() {
+    if (document.getElementById('trainer-modal-styles')) return;
+    
+    const style = document.createElement('style');
+    style.id = 'trainer-modal-styles';
+    style.textContent = `
+        .gym-modal-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(0, 0, 0, 0.5);
+            z-index: 9999;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        .gym-modal {
+            background: white;
+            border-radius: 12px;
+            padding: 32px;
+            max-width: 500px;
+            width: 90%;
+            max-height: 90vh;
+            overflow-y: auto;
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.2);
+        }
+        .gym-modal h3 {
+            margin-top: 0;
+            margin-bottom: 20px;
+            color: #2c3e50;
+        }
+        .gym-modal-close {
+            position: absolute;
+            top: 16px;
+            right: 16px;
+            background: none;
+            border: none;
+            font-size: 24px;
+            cursor: pointer;
+            color: #999;
+        }
+        .gym-modal-close:hover {
+            color: #333;
+        }
+        .form-group {
+            margin-bottom: 16px;
+        }
+        .form-group label {
+            display: block;
+            margin-bottom: 8px;
+            font-weight: 600;
+            color: #2c3e50;
+        }
+        .form-group input,
+        .form-group select,
+        .form-group textarea {
+            width: 100%;
+            padding: 10px;
+            border: 2px solid #ddd;
+            border-radius: 6px;
+            font-size: 14px;
+        }
+        .form-group input:focus,
+        .form-group select:focus,
+        .form-group textarea:focus {
+            outline: none;
+            border-color: #3498db;
+        }
+        .form-group .error {
+            color: #e74c3c;
+            font-size: 12px;
+            margin-top: 4px;
+        }
+        .form-group input.invalid,
+        .form-group textarea.invalid {
+            border-color: #e74c3c;
+        }
+        .gym-modal-buttons {
+            display: flex;
+            gap: 12px;
+            margin-top: 24px;
+            justify-content: flex-end;
+        }
+        .required {
+            color: #e74c3c;
+        }
+    `;
+    document.head.appendChild(style);
+}
+
 async function renderTrainers(container) {
     container.innerHTML = `
         <div class="card">
@@ -76,6 +169,7 @@ function renderTrainersTable(data) {
                 <td>
                     <div class="action-buttons">
                         <button class="btn btn-sm btn-info" onclick="showEditTrainerModal(${trainer.trainerId})">✏️</button>
+                        <button class="btn btn-sm btn-danger" onclick="deleteTrainer(${trainer.trainerId})">🗑️</button>
                     </div>
                 </td>
             </tr>
@@ -107,9 +201,238 @@ function changeTrainersPage(page) {
 }
 
 function showCreateTrainerModal() {
-    showError('Chức năng tạo HLV chưa được triển khai đầy đủ');
+    injectTrainerModalStyles();
+    
+    const modal = document.createElement('div');
+    modal.className = 'gym-modal-overlay';
+    modal.innerHTML = `
+        <div class="gym-modal" style="position: relative;">
+            <button class="gym-modal-close" onclick="this.closest('.gym-modal-overlay').remove()">×</button>
+            <h3>➕ Thêm Huấn Luyện Viên Mới</h3>
+            <form id="createTrainerForm">
+                <div class="form-group">
+                    <label>Họ và tên <span class="required">*</span></label>
+                    <input type="text" id="fullName" name="fullName" required>
+                    <div class="error" id="fullNameError"></div>
+                </div>
+                <div class="form-group">
+                    <label>Email <span class="required">*</span></label>
+                    <input type="email" id="email" name="email" required>
+                    <div class="error" id="emailError"></div>
+                </div>
+                <div class="form-group">
+                    <label>Số điện thoại <span class="required">*</span></label>
+                    <input type="tel" id="phone" name="phone" required>
+                    <div class="error" id="phoneError"></div>
+                </div>
+                <div class="form-group">
+                    <label>Chuyên môn <span class="required">*</span></label>
+                    <textarea id="specialization" name="specialization" rows="3" required placeholder="VD: Yoga, Cardio, Boxing..."></textarea>
+                    <div class="error" id="specializationError"></div>
+                </div>
+                <div class="gym-modal-buttons">
+                    <button type="button" class="btn btn-secondary" onclick="this.closest('.gym-modal-overlay').remove()">Hủy</button>
+                    <button type="submit" class="btn btn-primary">Tạo HLV</button>
+                </div>
+            </form>
+        </div>
+    `;
+    document.body.appendChild(modal);
+    
+    // Form submit handler
+    const form = document.getElementById('createTrainerForm');
+    form.addEventListener('submit', async (e) => {
+        e.preventDefault();
+        
+        // Validate form
+        if (!validateTrainerForm()) {
+            return;
+        }
+        
+        // Gather data
+        const formData = {
+            fullName: document.getElementById('fullName').value.trim(),
+            email: document.getElementById('email').value.trim(),
+            phone: document.getElementById('phone').value.trim(),
+            specialization: document.getElementById('specialization').value.trim()
+        };
+        
+        try {
+            showLoading();
+            await apiFetch('/api/Trainer', {
+                method: 'POST',
+                body: JSON.stringify(formData)
+            });
+            hideLoading();
+            showSuccess('Tạo HLV thành công!');
+            modal.remove();
+            await loadTrainers();
+        } catch (error) {
+            hideLoading();
+            showError('Lỗi tạo HLV: ' + error.message);
+        }
+    });
 }
 
-function showEditTrainerModal(id) {
-    showError('Chức năng sửa HLV chưa được triển khai đầy đủ');
+async function showEditTrainerModal(trainerId) {
+    injectTrainerModalStyles();
+    
+    try {
+        showLoading();
+        const trainer = await apiFetch(`/api/Trainer/${trainerId}`);
+        hideLoading();
+        
+        if (!trainer) {
+            showError('Không tìm thấy HLV');
+            return;
+        }
+        
+        const modal = document.createElement('div');
+        modal.className = 'gym-modal-overlay';
+        modal.innerHTML = `
+            <div class="gym-modal" style="position: relative;">
+                <button class="gym-modal-close" onclick="this.closest('.gym-modal-overlay').remove()">×</button>
+                <h3>✏️ Sửa Thông Tin Huấn Luyện Viên</h3>
+                <form id="editTrainerForm">
+                    <div class="form-group">
+                        <label>Họ và tên <span class="required">*</span></label>
+                        <input type="text" id="editFullName" name="fullName" value="${escapeHtml(trainer.fullName)}" required>
+                        <div class="error" id="editFullNameError"></div>
+                    </div>
+                    <div class="form-group">
+                        <label>Email <span class="required">*</span></label>
+                        <input type="email" id="editEmail" name="email" value="${escapeHtml(trainer.email)}" required>
+                        <div class="error" id="editEmailError"></div>
+                    </div>
+                    <div class="form-group">
+                        <label>Số điện thoại <span class="required">*</span></label>
+                        <input type="tel" id="editPhone" name="phone" value="${escapeHtml(trainer.phone || '')}" required>
+                        <div class="error" id="editPhoneError"></div>
+                    </div>
+                    <div class="form-group">
+                        <label>Chuyên môn <span class="required">*</span></label>
+                        <textarea id="editSpecialization" name="specialization" rows="3" required>${escapeHtml(trainer.specialization || '')}</textarea>
+                        <div class="error" id="editSpecializationError"></div>
+                    </div>
+                    <div class="gym-modal-buttons">
+                        <button type="button" class="btn btn-secondary" onclick="this.closest('.gym-modal-overlay').remove()">Hủy</button>
+                        <button type="submit" class="btn btn-primary">Cập Nhật</button>
+                    </div>
+                </form>
+            </div>
+        `;
+        document.body.appendChild(modal);
+        
+        // Form submit handler
+        const form = document.getElementById('editTrainerForm');
+        form.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            
+            // Validate form
+            if (!validateTrainerForm(true)) {
+                return;
+            }
+            
+            // Gather data
+            const formData = {
+                fullName: document.getElementById('editFullName').value.trim(),
+                email: document.getElementById('editEmail').value.trim(),
+                phone: document.getElementById('editPhone').value.trim(),
+                specialization: document.getElementById('editSpecialization').value.trim()
+            };
+            
+            try {
+                showLoading();
+                await apiFetch(`/api/Trainer/${trainerId}`, {
+                    method: 'PUT',
+                    body: JSON.stringify(formData)
+                });
+                hideLoading();
+                showSuccess('Cập nhật HLV thành công!');
+                modal.remove();
+                await loadTrainers();
+            } catch (error) {
+                hideLoading();
+                showError('Lỗi cập nhật HLV: ' + error.message);
+            }
+        });
+        
+    } catch (error) {
+        hideLoading();
+        showError('Lỗi tải thông tin HLV: ' + error.message);
+    }
+}
+
+function validateTrainerForm(isEdit = false) {
+    const prefix = isEdit ? 'edit' : '';
+    const fullName = document.getElementById(prefix + 'fullName');
+    const email = document.getElementById(prefix + 'email');
+    const phone = document.getElementById(prefix + 'phone');
+    const specialization = document.getElementById(prefix + 'specialization');
+    
+    let isValid = true;
+    
+    // Clear previous errors
+    document.getElementById(prefix + 'fullNameError').textContent = '';
+    document.getElementById(prefix + 'emailError').textContent = '';
+    document.getElementById(prefix + 'phoneError').textContent = '';
+    document.getElementById(prefix + 'specializationError').textContent = '';
+    fullName.classList.remove('invalid');
+    email.classList.remove('invalid');
+    phone.classList.remove('invalid');
+    specialization.classList.remove('invalid');
+    
+    // Validate full name
+    if (!fullName.value.trim()) {
+        document.getElementById(prefix + 'fullNameError').textContent = 'Vui lòng nhập họ tên';
+        fullName.classList.add('invalid');
+        isValid = false;
+    }
+    
+    // Validate email
+    const emailValue = email.value.trim();
+    if (!emailValue) {
+        document.getElementById(prefix + 'emailError').textContent = 'Vui lòng nhập email';
+        email.classList.add('invalid');
+        isValid = false;
+    } else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(emailValue)) {
+        document.getElementById(prefix + 'emailError').textContent = 'Email không hợp lệ';
+        email.classList.add('invalid');
+        isValid = false;
+    }
+    
+    // Validate phone
+    if (!phone.value.trim()) {
+        document.getElementById(prefix + 'phoneError').textContent = 'Vui lòng nhập số điện thoại';
+        phone.classList.add('invalid');
+        isValid = false;
+    }
+    
+    // Validate specialization
+    if (!specialization.value.trim()) {
+        document.getElementById(prefix + 'specializationError').textContent = 'Vui lòng nhập chuyên môn';
+        specialization.classList.add('invalid');
+        isValid = false;
+    }
+    
+    return isValid;
+}
+
+async function deleteTrainer(trainerId) {
+    if (!confirm('Bạn có chắc chắn muốn xóa HLV này?')) {
+        return;
+    }
+    
+    try {
+        showLoading();
+        await apiFetch(`/api/Trainer/${trainerId}`, {
+            method: 'DELETE'
+        });
+        hideLoading();
+        showSuccess('Xóa HLV thành công!');
+        await loadTrainers();
+    } catch (error) {
+        hideLoading();
+        showError('Lỗi xóa HLV: ' + error.message);
+    }
 }
