@@ -85,7 +85,8 @@ BEGIN
     ALTER TABLE Invoices ALTER COLUMN MembershipId INT NULL;
     
     -- Re-add FK constraint
-    ALTER TABLE Invoices ADD CONSTRAINT FK_Invoices_Memberships FOREIGN KEY (MembershipId) REFERENCES Memberships(MembershipId);
+    IF NOT EXISTS (SELECT * FROM sys.foreign_keys WHERE name = 'FK_Invoices_Memberships')
+        ALTER TABLE Invoices ADD CONSTRAINT FK_Invoices_Memberships FOREIGN KEY (MembershipId) REFERENCES Memberships(MembershipId);
     PRINT '✓ Made MembershipId nullable';
 END
 
@@ -101,6 +102,16 @@ BEGIN
     
     IF @DueDateDefault IS NOT NULL
         EXEC('ALTER TABLE Invoices DROP CONSTRAINT ' + @DueDateDefault);
+    
+    -- Drop CHECK constraints if any
+    DECLARE @DueDateCheck NVARCHAR(200);
+    SELECT @DueDateCheck = name 
+    FROM sys.check_constraints 
+    WHERE parent_object_id = OBJECT_ID('Invoices') 
+    AND parent_column_id = (SELECT column_id FROM sys.columns WHERE object_id = OBJECT_ID('Invoices') AND name = 'DueDate');
+    
+    IF @DueDateCheck IS NOT NULL
+        EXEC('ALTER TABLE Invoices DROP CONSTRAINT ' + @DueDateCheck);
     
     ALTER TABLE Invoices ALTER COLUMN DueDate DATE NULL;
     PRINT '✓ Made DueDate nullable';
@@ -118,6 +129,16 @@ BEGIN
     
     IF @UpdatedAtDefault IS NOT NULL
         EXEC('ALTER TABLE Invoices DROP CONSTRAINT ' + @UpdatedAtDefault);
+    
+    -- Drop CHECK constraints if any
+    DECLARE @UpdatedAtCheck NVARCHAR(200);
+    SELECT @UpdatedAtCheck = name 
+    FROM sys.check_constraints 
+    WHERE parent_object_id = OBJECT_ID('Invoices') 
+    AND parent_column_id = (SELECT column_id FROM sys.columns WHERE object_id = OBJECT_ID('Invoices') AND name = 'UpdatedAt');
+    
+    IF @UpdatedAtCheck IS NOT NULL
+        EXEC('ALTER TABLE Invoices DROP CONSTRAINT ' + @UpdatedAtCheck);
     
     ALTER TABLE Invoices ALTER COLUMN UpdatedAt DATETIME2 NULL;
     PRINT '✓ Made UpdatedAt nullable';
@@ -196,7 +217,8 @@ BEGIN
     ALTER TABLE Payments ALTER COLUMN InvoiceId INT NULL;
     
     -- Re-add FK constraint
-    ALTER TABLE Payments ADD CONSTRAINT FK_Payments_Invoices FOREIGN KEY (InvoiceId) REFERENCES Invoices(InvoiceId);
+    IF NOT EXISTS (SELECT * FROM sys.foreign_keys WHERE name = 'FK_Payments_Invoices')
+        ALTER TABLE Payments ADD CONSTRAINT FK_Payments_Invoices FOREIGN KEY (InvoiceId) REFERENCES Invoices(InvoiceId);
     PRINT '✓ Made InvoiceId nullable';
 END
 
@@ -254,9 +276,8 @@ END
 -- This is complex, so we'll keep both for now and populate datetime versions
 IF EXISTS (SELECT * FROM sys.columns WHERE object_id = OBJECT_ID('Schedules') AND name = 'ScheduledDate')
 AND EXISTS (SELECT * FROM sys.columns WHERE object_id = OBJECT_ID('Schedules') AND name = 'StartTime')
-AND NOT EXISTS (SELECT * FROM sys.columns WHERE object_id = OBJECT_ID('Schedules') AND name = 'StartDateTime')
 BEGIN
-    -- Check if StartTime is TIME type (not DATETIME2)
+    -- Check if StartTime is TIME type (not already DATETIME2)
     DECLARE @StartTimeType NVARCHAR(128);
     SELECT @StartTimeType = TYPE_NAME(system_type_id)
     FROM sys.columns 
@@ -264,30 +285,46 @@ BEGIN
     
     IF @StartTimeType = 'time'
     BEGIN
-        -- Create temp datetime columns
-        ALTER TABLE Schedules ADD StartDateTime DATETIME2 NULL;
-        ALTER TABLE Schedules ADD EndDateTime DATETIME2 NULL;
-        
-        -- Combine ScheduledDate + StartTime/EndTime into datetime columns
-        UPDATE Schedules 
-        SET StartDateTime = CAST(CAST(ScheduledDate AS DATETIME) + CAST(StartTime AS DATETIME) AS DATETIME2),
-            EndDateTime = CAST(CAST(ScheduledDate AS DATETIME) + CAST(EndTime AS DATETIME) AS DATETIME2);
-        
-        -- Drop old columns
-        ALTER TABLE Schedules DROP COLUMN ScheduledDate;
-        ALTER TABLE Schedules DROP COLUMN StartTime;
-        ALTER TABLE Schedules DROP COLUMN EndTime;
-        
-        -- Rename temp columns
-        EXEC sp_rename 'Schedules.StartDateTime', 'StartTime', 'COLUMN';
-        EXEC sp_rename 'Schedules.EndDateTime', 'EndTime', 'COLUMN';
-        
-        -- Make non-nullable
-        ALTER TABLE Schedules ALTER COLUMN StartTime DATETIME2 NOT NULL;
-        ALTER TABLE Schedules ALTER COLUMN EndTime DATETIME2 NOT NULL;
-        
-        PRINT '✓ Converted ScheduledDate+TIME to DATETIME2';
+        -- Check if StartDateTime already exists (migration already partially done)
+        IF NOT EXISTS (SELECT * FROM sys.columns WHERE object_id = OBJECT_ID('Schedules') AND name = 'StartDateTime')
+        BEGIN
+            -- Create temp datetime columns
+            ALTER TABLE Schedules ADD StartDateTime DATETIME2 NULL;
+            ALTER TABLE Schedules ADD EndDateTime DATETIME2 NULL;
+            
+            -- Combine ScheduledDate + StartTime/EndTime into datetime columns
+            UPDATE Schedules 
+            SET StartDateTime = CAST(CAST(ScheduledDate AS DATETIME) + CAST(StartTime AS DATETIME) AS DATETIME2),
+                EndDateTime = CAST(CAST(ScheduledDate AS DATETIME) + CAST(EndTime AS DATETIME) AS DATETIME2);
+            
+            -- Drop old columns
+            ALTER TABLE Schedules DROP COLUMN ScheduledDate;
+            ALTER TABLE Schedules DROP COLUMN StartTime;
+            ALTER TABLE Schedules DROP COLUMN EndTime;
+            
+            -- Rename temp columns
+            EXEC sp_rename 'Schedules.StartDateTime', 'StartTime', 'COLUMN';
+            EXEC sp_rename 'Schedules.EndDateTime', 'EndTime', 'COLUMN';
+            
+            -- Make non-nullable
+            ALTER TABLE Schedules ALTER COLUMN StartTime DATETIME2 NOT NULL;
+            ALTER TABLE Schedules ALTER COLUMN EndTime DATETIME2 NOT NULL;
+            
+            PRINT '✓ Converted ScheduledDate+TIME to DATETIME2';
+        END
+        ELSE
+        BEGIN
+            PRINT '⚠ StartDateTime column already exists, skipping TIME conversion';
+        END
     END
+    ELSE
+    BEGIN
+        PRINT '⚠ StartTime is not TIME type (already ' + @StartTimeType + '), skipping conversion';
+    END
+END
+ELSE
+BEGIN
+    PRINT '⚠ Schedules already has DATETIME2 StartTime/EndTime or ScheduledDate does not exist, skipping conversion';
 END
 
 -- Remove Notes column if exists (not in C# entity)

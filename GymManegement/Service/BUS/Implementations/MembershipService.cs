@@ -112,13 +112,9 @@ namespace GymManegement.Service.BUS.Implementations
             return true;
         }
 
-        public async Task<bool> CancelAsync(int membershipId, int requestingMemberId)
+        public async Task<bool> CancelAsync(int membershipId)
         {
-            var entity = await _repo.GetByIdAsync(membershipId);
-            if (entity is null) return false;
-            if (entity.MemberId != requestingMemberId) return false; // Security check: member can only cancel own
-            var cancelled = await _repo.CancelAsync(membershipId);
-            return cancelled;
+            return await _repo.CancelAsync(membershipId);
         }
 
         private static MembershipResponse ToResponse(Membership m) => new MembershipResponse
