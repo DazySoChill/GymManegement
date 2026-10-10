@@ -6,9 +6,15 @@ namespace GymManegement.DAL.Entities
 
         public string Name { get; set; } = string.Empty;
 
-        public string Description { get; set; } = string.Empty;
+        public string? Description { get; set; }
 
-        public bool IsActive { get; set; } = true;
+        /// <summary>Status: Available | Maintenance | OutOfService</summary>
+        public string Status { get; set; } = "Available";
+
+        public DateTime CreatedAt { get; set; }
+        public DateTime UpdatedAt { get; set; }
+        public bool IsDeleted { get; set; }
+        public DateTime? DeletedAt { get; set; }
 
         // Navigation
         public ICollection<Schedule> Schedules { get; set; }

@@ -6,14 +6,22 @@ namespace GymManegement.DAL.Entities
 
         public int ScheduleId { get; set; }
 
-        public DateTime SessionDate { get; set; }
+        public int MemberId { get; set; }
 
-        public string Status { get; set; } = string.Empty;
+        public DateTime RegistrationDate { get; set; }
 
-        // Navigation
+        /// <summary>Status: Registered | Attended | Cancelled</summary>
+        public string Status { get; set; } = "Registered";
+
+        public DateTime CreatedAt { get; set; }
+        public DateTime UpdatedAt { get; set; }
+        public bool IsDeleted { get; set; }
+        public DateTime? DeletedAt { get; set; }
+
+        // Navigation - SQL2 relationships
         public Schedule Schedule { get; set; } = null!;
 
-        public ICollection<Checkin> Checkins { get; set; }
-            = new List<Checkin>();
+        public Member Member { get; set; } = null!;
+        // Note: Checkins → Members directly, not via Sessions
     }
 }

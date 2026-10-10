@@ -1,4 +1,5 @@
-﻿using GymManegement.API.DTOs.Membership;
+using GymManegement.API.DTOs.Common;
+using GymManegement.API.DTOs.Membership;
 using GymManegement.DAL.Entities;
 using GymManegement.DAL.Repositories.Interfaces;
 using GymManegement.Service.BUS.Interfaces;
@@ -8,60 +9,118 @@ namespace GymManegement.Service.BUS.Implementations
     public class MembershipService : IMembershipService
     {
         private readonly IMembershipRepository _repo;
-        public MembershipService(IMembershipRepository repo) => _repo = repo;
+        private readonly IInvoiceRepository _invoiceRepo;
 
-        public async Task<IEnumerable<MembershipResponse>> GetByMemberAsync(int memberId)
+        public MembershipService(IMembershipRepository repo, IInvoiceRepository invoiceRepo)
         {
-            var list = await _repo.GetByMemberIdAsync(memberId);
-            return list.Select(ToResponse);
+            _repo = repo;
+            _invoiceRepo = invoiceRepo;
         }
 
-        public async Task<MembershipResponse?> GetActiveAsync(int memberId)
+        public async Task<PagedResult<MembershipResponse>> GetAllAsync(int pageNumber = 1, int pageSize = 10, string? searchTerm = null, string? sortBy = null, string? sortDir = null)
         {
-            var m = await _repo.GetActiveMembershipAsync(memberId);
-            return m is null ? null : ToResponse(m);
+            var result = await _repo.GetAllAsync(pageNumber, pageSize, searchTerm, sortBy, sortDir);
+            return new PagedResult<MembershipResponse>
+            {
+                Data = result.Data.Select(ToResponse).ToList(),
+                Total = result.Total,
+                PageNumber = result.PageNumber,
+                PageSize = result.PageSize
+            };
         }
 
+        public async Task<MembershipResponse?> GetByIdAsync(int id)
+        {
+            var entity = await _repo.GetByIdAsync(id);
+            return entity is null ? null : ToResponse(entity);
+        }
+
+        public async Task<IEnumerable<MembershipResponse>> GetByMemberIdAsync(int memberId)
+        {
+            var entities = await _repo.GetByMemberIdAsync(memberId);
+            return entities.Select(ToResponse);
+        }
+
+        public async Task<MembershipResponse?> GetActiveMembershipAsync(int memberId)
+        {
+            var entity = await _repo.GetActiveMembershipAsync(memberId);
+            return entity is null ? null : ToResponse(entity);
+        }
+
+        public async Task<IEnumerable<MembershipResponse>> GetExpiringSoonAsync(int daysAhead = 7)
+        {
+            var entities = await _repo.GetExpiringSoonAsync(daysAhead);
+            return entities.Select(ToResponse);
+        }
+
+        public async Task<IEnumerable<MembershipResponse>> GetActiveAsync()
+        {
+            var entities = await _repo.GetActiveAsync();
+            return entities.Select(ToResponse);
+        }
+
+        /// <summary>
+        /// CreateAsync: Tạo Membership và AUTO CREATE Invoice
+        /// </summary>
         public async Task<MembershipResponse> CreateAsync(CreateMembershipRequest request)
         {
-            var entity = new Membership
+            // 1. Create Membership
+            var membership = new Membership
             {
-                MemberId       = request.MemberId,
-                MembershipType = request.MembershipType,
-                Price          = request.Price,
-                StartDate      = request.StartDate,
-                EndDate        = request.EndDate,
-                IsActive       = true
+                MemberId = request.MemberId,
+                PackageName = request.PackageName,
+                Price = request.Price,
+                StartDate = request.StartDate,
+                EndDate = request.EndDate
             };
-            await _repo.CreateAsync(entity);
+            await _repo.CreateAsync(membership);
+
+            // 2. AUTO CREATE Invoice
+            var invoice = new Invoice
+            {
+                MembershipId = membership.MembershipId,
+                InvoiceDate = DateTime.Today,
+                DueDate = membership.EndDate,
+                TotalAmount = membership.Price,
+                Status = "Pending",
+                Description = $"Hóa đơn cho gói tập {membership.PackageName}"
+            };
+            await _invoiceRepo.CreateAsync(invoice);
+
+            return ToResponse(membership);
+        }
+
+        public async Task<MembershipResponse?> UpdateAsync(int id, UpdateMembershipRequest request)
+        {
+            var entity = await _repo.GetByIdAsync(id);
+            if (entity is null) return null;
+
+            entity.PackageName = request.PackageName;
+            entity.Price = request.Price;
+            entity.StartDate = request.StartDate;
+            entity.EndDate = request.EndDate;
+            await _repo.UpdateAsync(entity);
             return ToResponse(entity);
         }
 
-        public async Task<bool> UpdateAsync(int id, UpdateMembershipRequest request)
+        public async Task<bool> DeleteAsync(int id)
         {
             var entity = await _repo.GetByIdAsync(id);
             if (entity is null) return false;
-            entity.MembershipType = request.MembershipType;
-            entity.Price          = request.Price;
-            entity.StartDate      = request.StartDate;
-            entity.EndDate        = request.EndDate;
-            entity.IsActive       = request.IsActive;
-            await _repo.UpdateAsync(entity);
+            await _repo.DeleteAsync(id);
             return true;
         }
 
-        public async Task<IEnumerable<object>> GetExpiringSoonAsync(int daysAhead = 7)
-            => (await _repo.GetExpiringSoonAsync(daysAhead)).Cast<object>();
-
-        private static MembershipResponse ToResponse(Membership m) => new()
+        private static MembershipResponse ToResponse(Membership m) => new MembershipResponse
         {
-            MembershipId   = m.MembershipId,
-            MemberId       = m.MemberId,
-            MembershipType = m.MembershipType,
-            Price          = m.Price,
-            StartDate      = m.StartDate,
-            EndDate        = m.EndDate,
-            IsActive       = m.IsActive
+            MembershipId = m.MembershipId,
+            MemberId = m.MemberId,
+            PackageName = m.PackageName,
+            Price = m.Price,
+            StartDate = m.StartDate,
+            EndDate = m.EndDate,
+            CreatedAt = m.CreatedAt,
+            UpdatedAt = m.UpdatedAt
         };
     }
 }

@@ -1,0 +1,9 @@
+{
+  "verdict": "CHANGES_REQUESTED",
+  "findings": [
+    "Middleware placement breaks pipeline convention — Move GlobalExceptionMiddleware registration before app.UseCors() to follow standard ASP.NET Core middleware ordering (exception handling → CORS → auth → endpoints).",
+    "Inconsistent error handling pattern in InvoiceService — UpdateAsync throws KeyNotFoundException while other services return null for missing entities. Either make InvoiceService return null like the others, or update all services to throw KeyNotFoundException consistently.",
+    "SessionService validation adds latency — Member existence check requires database lookup on every session create. Consider caching member IDs or deferring validation to database constraints if performance becomes a bottleneck (possible concern, not blocking)."
+  ],
+  "reviewDoc": "d:\\Workspace\\Độ án 2\\GymManegement\\GymManegement\\.agents\\tasks\\20261210-094056-review.md"
+}

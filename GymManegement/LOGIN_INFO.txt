@@ -1,0 +1,39 @@
+===============================================
+  GYM MANAGEMENT SYSTEM - ADMIN LOGIN
+===============================================
+
+✅ WORKING ADMIN ACCOUNT (VERIFIED)
+-------------------------------------------
+URL:      http://localhost:5250/login.html
+Username: gymadmin
+Password: Gym@2026
+Role:     Admin
+
+Status: ✅ TESTED - 100% WORKING
+
+
+❌ OLD ACCOUNT (NOT WORKING)
+-------------------------------------------
+Username: testmember2
+Password: password
+
+Status: ❌ FAILED - 401 Unauthorized
+Reason: BCrypt hash incompatibility
+
+
+📝 TECHNICAL DETAILS
+-------------------------------------------
+Hash Method: BCrypt.Net (C#)
+Hash in DB:  $2a$11$UqtdutQxZ1pNYnsDJdNuie...
+Verified:    ✅ Login API tested successfully
+Token:       ✅ JWT token generated
+
+
+📄 DOCUMENTATION
+-------------------------------------------
+Full details: ADMIN_CREDENTIALS.md
+Last tested:  2026-10-09
+Confidence:   100%
+
+
+===============================================

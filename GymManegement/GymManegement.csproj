@@ -23,9 +23,17 @@
 
   <ItemGroup>
     <Compile Remove="Gym.API\**" />
+    <Compile Remove="GenHash\**" />
+    <Compile Remove="TestHash\**" />
     <Content Remove="Gym.API\**" />
+    <Content Remove="GenHash\**" />
+    <Content Remove="TestHash\**" />
     <EmbeddedResource Remove="Gym.API\**" />
+    <EmbeddedResource Remove="GenHash\**" />
+    <EmbeddedResource Remove="TestHash\**" />
     <None Remove="Gym.API\**" />
+    <None Remove="GenHash\**" />
+    <None Remove="TestHash\**" />
   </ItemGroup>
 
   <ItemGroup>

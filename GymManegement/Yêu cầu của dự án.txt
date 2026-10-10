@@ -1,0 +1,32 @@
+Yêu cầu chung cho mọi bài tập lớn
+•	Tính năng nền tảng
+o	Đăng ký/đăng nhập, JWT/OAuth2, đặt lại mật khẩu, xác thực 2 bước (tuỳ chọn).
+o	RBAC: ít nhất 3 vai trò (Admin/Manager/User), phân quyền theo màn hình & theo hành động.
+o	CRUD có tìm kiếm, lọc, sắp xếp, phân trang; nhập/xuất Excel/CSV, xuất PDF (hoá đơn/phiếu/báo cáo).
+o	Audit log (ai làm gì, lúc nào), soft-delete, versioning cơ bản cho bản ghi nhạy cảm.
+o	Thông báo (email và/hoặc in-app), hàng đợi tác vụ (job) cho tác vụ lâu (gửi mail, xuất báo cáo lớn).
+•	Chất lượng & vận hành
+o	OpenAPI/Swagger đầy đủ, Postman collection.
+o	Unit test (service) & Integration test (API); tối thiểu 30–40% coverage.
+o	Docker (docker-compose) + hướng dẫn triển khai; CI/CD đơn giản (build, test, deploy).
+o	Bảo mật & hiệu năng: chống SQLi/XSS/CSRF, rate limit, CORS; cache (ví dụ Redis) cho danh mục và báo cáo; seed ≥ 2.000 bản ghi dữ liệu mẫu.
+o	Giám sát: logging có cấu trúc + health check endpoint.
+•	Tài liệu & bàn giao
+o	Tài liệu yêu cầu (SRS), mô hình ERD, use case/flow, sơ đồ kiến trúc.
+o	Hướng dẫn cài đặt, hướng dẫn sử dụng, video demo ngắn (5–10 phút).
+
+---------------------------------------------------------------------------------------------------------------------------------------------------
+
+Quản lý trung tâm thể dục – fitness (Gym Management)
+Mục tiêu: Quản lý hội viên, gói tập, lịch huấn luyện.
+Vai trò: Admin, Huấn luyện viên, Hội viên.
+Chức năng bắt buộc
+1.	Đăng ký hội viên, thẻ tập, hạn sử dụng.
+2.	Quản lý gói dịch vụ (theo tháng/năm).
+3.	Đặt lịch tập với PT, quản lý phòng/thiết bị.
+4.	Quản lý check-in, ghi nhận buổi tập.
+5.	Thu phí, hoá đơn; cảnh báo sắp hết hạn.
+6.	Báo cáo: hội viên đang hoạt động, doanh thu.
+Dữ liệu chính: members, memberships, trainers, facilities, schedules, sessions, checkins, invoices, payments.
+Tích hợp & NFR: check-in QR code, gửi nhắc hạn, audit thay đổi gói.
+Bàn giao: flow đăng ký–checkin–gia hạn, mẫu hợp đồng, dashboard hội viên.

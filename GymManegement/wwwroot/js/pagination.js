@@ -5,9 +5,9 @@
 class Pagination {
   constructor(options = {}) {
     this.containerId = options.containerId;
-    this.onPageChange = options.onPageChange || (() => {});
-    this.onSortChange = options.onSortChange || (() => {});
-    this.onFilterChange = options.onFilterChange || (() => {});
+    this.onPageChange = options.onPageChange || (() => { });
+    this.onSortChange = options.onSortChange || (() => { });
+    this.onFilterChange = options.onFilterChange || (() => { });
     this.page = 1;
     this.pageSize = options.pageSize || 20;
     this.totalItems = 0;

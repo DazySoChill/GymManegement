@@ -1,4 +1,5 @@
-﻿using Dapper;
+using Dapper;
+using GymManegement.API.DTOs.Common;
 using GymManegement.DAL.Entities;
 using GymManegement.DAL.Helper;
 using GymManegement.DAL.Repositories.Interfaces;
@@ -13,73 +14,162 @@ namespace GymManegement.DAL.Repositories.Implementations
         public async Task<IEnumerable<Member>> GetAllAsync()
         {
             using var conn = _db.CreateConnection();
-            return await conn.QueryAsync<Member>("sp_Member_GetAll", commandType: System.Data.CommandType.StoredProcedure);
+            var sql = @"
+                SELECT * FROM Members 
+                WHERE IsDeleted = 0 
+                ORDER BY CreatedAt DESC";
+            return await conn.QueryAsync<Member>(sql);
+        }
+
+        public async Task<PagedResult<Member>> GetAllAsync(int pageNumber, int pageSize, string? searchTerm = null, string? sortBy = null, string? sortDir = null)
+        {
+            using var conn = _db.CreateConnection();
+            
+            sortBy ??= "MemberId";
+            sortDir ??= "ASC";
+            
+            var whereClause = "WHERE IsDeleted = 0";
+            if (!string.IsNullOrEmpty(searchTerm))
+                whereClause += " AND (FullName LIKE @SearchTerm OR Email LIKE @SearchTerm OR Phone LIKE @SearchTerm)";
+
+            var sql = $@"
+                SELECT * FROM Members 
+                {whereClause}
+                ORDER BY {sortBy} {sortDir}
+                OFFSET @Offset ROWS FETCH NEXT @PageSize ROWS ONLY;
+
+                SELECT COUNT(*) FROM Members {whereClause};";
+
+            var parameters = new
+            {
+                SearchTerm = searchTerm != null ? $"%{searchTerm}%" : null,
+                Offset = (pageNumber - 1) * pageSize,
+                PageSize = pageSize
+            };
+
+            using var multi = await conn.QueryMultipleAsync(sql, parameters);
+            var data = (await multi.ReadAsync<Member>()).ToList();
+            var total = await multi.ReadSingleAsync<int>();
+
+            return new PagedResult<Member>
+            {
+                Data = data,
+                Total = total,
+                PageNumber = pageNumber,
+                PageSize = pageSize
+            };
         }
 
         public async Task<Member?> GetByIdAsync(int id)
         {
             using var conn = _db.CreateConnection();
-            return await conn.QueryFirstOrDefaultAsync<Member>(
-                "sp_Member_GetById", new { MemberId = id },
-                commandType: System.Data.CommandType.StoredProcedure);
+            var sql = @"
+                SELECT * FROM Members 
+                WHERE MemberId = @MemberId AND IsDeleted = 0";
+            return await conn.QueryFirstOrDefaultAsync<Member>(sql, new { MemberId = id });
         }
 
         public async Task<Member?> GetByEmailAsync(string email)
         {
             using var conn = _db.CreateConnection();
-            return await conn.QueryFirstOrDefaultAsync<Member>(
-                "sp_Member_GetByEmail", new { Email = email },
-                commandType: System.Data.CommandType.StoredProcedure);
+            var sql = @"
+                SELECT * FROM Members 
+                WHERE Email = @Email AND IsDeleted = 0";
+            return await conn.QueryFirstOrDefaultAsync<Member>(sql, new { Email = email });
         }
 
-        public async Task<Member?> GetByQRCodeAsync(string qrCodeValue)
+        public async Task<Member?> GetByQRCodeAsync(string qrCode)
         {
             using var conn = _db.CreateConnection();
-            return await conn.QueryFirstOrDefaultAsync<Member>(
-                "sp_Member_GetByQRCode", new { QRCodeValue = qrCodeValue },
-                commandType: System.Data.CommandType.StoredProcedure);
+            var sql = @"
+                SELECT * FROM Members 
+                WHERE QRCode = @QRCode AND IsDeleted = 0";
+            return await conn.QueryFirstOrDefaultAsync<Member>(sql, new { QRCode = qrCode });
         }
 
         public async Task<IEnumerable<Member>> GetByStatusAsync(string status)
         {
-            using var conn = _db.CreateConnection();
-            return await conn.QueryAsync<Member>(
-                "sp_Member_GetByStatus", new { Status = status },
-                commandType: System.Data.CommandType.StoredProcedure);
+            // SQL2 không có Status column nữa
+            // Trả về empty list hoặc throw exception
+            throw new NotSupportedException("Status filtering is not supported in SQL2 schema.");
         }
 
         public async Task<bool> EmailExistsAsync(string email, int? excludeMemberId = null)
         {
-            var member = await GetByEmailAsync(email);
-            return member is not null && (excludeMemberId is null || member.MemberId != excludeMemberId);
+            using var conn = _db.CreateConnection();
+            var sql = @"
+                SELECT COUNT(1) FROM Members 
+                WHERE Email = @Email AND IsDeleted = 0 
+                AND (@ExcludeMemberId IS NULL OR MemberId != @ExcludeMemberId)";
+            var count = await conn.ExecuteScalarAsync<int>(sql, new { Email = email, ExcludeMemberId = excludeMemberId });
+            return count > 0;
         }
 
         public async Task<Member> CreateAsync(Member entity)
         {
+            entity.CreatedAt = DateTime.UtcNow;
+            entity.UpdatedAt = DateTime.UtcNow;
+            entity.IsDeleted = false;
+
             using var conn = _db.CreateConnection();
-            var result = await conn.QuerySingleAsync<int>(
-                "sp_Member_Create",
-                new { entity.FullName, entity.Phone, entity.Email, entity.DateOfBirth, entity.JoinDate, entity.Status, entity.QRCodeValue },
-                commandType: System.Data.CommandType.StoredProcedure);
-            entity.MemberId = result;
+            var sql = @"
+                INSERT INTO Members (FullName, Email, Phone, DateOfBirth, QRCode, CreatedAt, UpdatedAt, IsDeleted)
+                OUTPUT INSERTED.MemberId
+                VALUES (@FullName, @Email, @Phone, @DateOfBirth, @QRCode, @CreatedAt, @UpdatedAt, @IsDeleted)";
+            
+            var id = await conn.QuerySingleAsync<int>(sql, new
+            {
+                entity.FullName,
+                entity.Email,
+                entity.Phone,
+                entity.DateOfBirth,
+                entity.QRCode,
+                entity.CreatedAt,
+                entity.UpdatedAt,
+                entity.IsDeleted
+            });
+            
+            entity.MemberId = id;
             return entity;
         }
 
         public async Task<Member> UpdateAsync(Member entity)
         {
+            entity.UpdatedAt = DateTime.UtcNow;
+
             using var conn = _db.CreateConnection();
-            await conn.ExecuteAsync(
-                "sp_Member_Update",
-                new { entity.MemberId, entity.FullName, entity.Phone, entity.Email, entity.DateOfBirth, entity.Status },
-                commandType: System.Data.CommandType.StoredProcedure);
+            var sql = @"
+                UPDATE Members 
+                SET FullName = @FullName,
+                    Email = @Email,
+                    Phone = @Phone,
+                    DateOfBirth = @DateOfBirth,
+                    UpdatedAt = @UpdatedAt
+                WHERE MemberId = @MemberId AND IsDeleted = 0";
+            
+            await conn.ExecuteAsync(sql, new
+            {
+                entity.MemberId,
+                entity.FullName,
+                entity.Email,
+                entity.Phone,
+                entity.DateOfBirth,
+                entity.UpdatedAt
+            });
+            
             return entity;
         }
 
         public async Task DeleteAsync(int id)
         {
             using var conn = _db.CreateConnection();
-            await conn.ExecuteAsync("sp_Member_Delete", new { MemberId = id },
-                commandType: System.Data.CommandType.StoredProcedure);
+            var sql = @"
+                UPDATE Members 
+                SET IsDeleted = 1,
+                    DeletedAt = @DeletedAt
+                WHERE MemberId = @MemberId";
+            
+            await conn.ExecuteAsync(sql, new { MemberId = id, DeletedAt = DateTime.UtcNow });
         }
     }
 }

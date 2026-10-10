@@ -47,6 +47,12 @@ namespace GymManegement.Service.BUS.Implementations
             return entities.Select(ToResponse);
         }
 
+        public async Task<IEnumerable<InvoiceResponse>> GetUnpaidAsync()
+        {
+            var entities = await _repo.GetUnpaidAsync();
+            return entities.Select(ToResponse);
+        }
+
         public async Task<decimal> GetTotalRevenueAsync(int month, int year)
         {
             return await _repo.GetTotalRevenueAsync(month, year);

@@ -6,31 +6,29 @@ namespace GymManegement.DAL.Entities
 
         public string FullName { get; set; } = string.Empty;
 
-        public string Phone { get; set; } = string.Empty;
-
         public string Email { get; set; } = string.Empty;
 
-        public DateTime DateOfBirth { get; set; }
+        public string? Phone { get; set; }
 
-        public DateTime JoinDate { get; set; }
+        public DateTime? DateOfBirth { get; set; }
 
-        /// <summary>Trạng thái hội viên: Active | Inactive | Suspended</summary>
-        public string Status { get; set; } = "Active";
+        /// <summary>QR Code để check-in (format: M000001)</summary>
+        public string QRCode { get; set; } = string.Empty;
 
-        /// <summary>Giá trị QR Code dùng để check-in (GUID duy nhất)</summary>
-        public string QRCodeValue { get; set; } = string.Empty;
+        public DateTime CreatedAt { get; set; }
+        public DateTime UpdatedAt { get; set; }
+        public bool IsDeleted { get; set; }
+        public DateTime? DeletedAt { get; set; }
 
-        // Navigation
+        // Navigation - SQL2 relationships
         public ICollection<Membership> Memberships { get; set; }
             = new List<Membership>();
 
-        public ICollection<Schedule> Schedules { get; set; }
-            = new List<Schedule>();
+        public ICollection<Session> Sessions { get; set; }
+            = new List<Session>();
 
         public ICollection<Checkin> Checkins { get; set; }
             = new List<Checkin>();
-
-        public ICollection<Invoice> Invoices { get; set; }
-            = new List<Invoice>();
+        // Note: Invoices → Memberships, not direct to Members
     }
 }

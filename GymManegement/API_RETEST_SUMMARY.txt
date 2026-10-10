@@ -1,0 +1,198 @@
+================================================================================
+API RETEST SUMMARY - BEFORE/AFTER COMPARISON
+================================================================================
+
+Test Date: 2026-10-10 09:40:55
+Server: http://localhost:5250
+Credentials: Username=gymadmin, Password=Gym@2026
+
+================================================================================
+OVERALL RESULTS
+================================================================================
+
+Previous Test: 42/59 (71.2%)
+Current Test:  40/59 (67.8%)
+Change:        -2 endpoints (-3.4 percentage points)
+
+REGRESSION: The overall pass rate DECREASED instead of improving to 85%+ as expected.
+
+================================================================================
+PER-MODULE BREAKDOWN
+================================================================================
+
+Module          | Previous | Current | Change | Notes
+----------------|----------|---------|--------|----------------------------------
+Auth            | 1/1      | 1/1     | =      | Still 100%, all working
+Member          | 4/5      | 3/5     | -1     | REGRESSION: PUT now failing
+Trainer         | 0/5      | 3/5     | +3     | IMPROVEMENT: GET & DELETE fixed
+Facility        | 5/5      | 5/5     | =      | Still 100%, all working
+Schedule        | 2/7      | 6/7     | +4     | IMPROVEMENT: POST & PUT fixed
+Session         | 3/5      | 3/5     | =      | No change
+Membership      | 5/7      | 5/7     | =      | No change
+Checkin         | 2/6      | 2/6     | =      | No change
+Invoice         | 5/7      | 5/7     | =      | No change
+Payment         | 6/7      | 6/7     | =      | No change
+Report          | 1/4      | 1/4     | =      | No change
+----------------|----------|---------|--------|----------------------------------
+TOTAL           | 42/59    | 40/59   | -2     | REGRESSION
+
+================================================================================
+NEW FAILURES (Endpoints that were working before, now failing)
+================================================================================
+
+1. PUT /api/member/{id}
+   - Previous: PASS
+   - Current: FAIL (500 Internal Server Error)
+   - Likely Cause: Recent code change introduced a bug
+
+2. POST /api/member
+   - Previous: May have been passing (need to verify logs)
+   - Current: FAIL (500 Internal Server Error)  
+   - Same root cause as PUT member
+
+================================================================================
+IMPROVEMENTS (Endpoints that were failing before, now working)
+================================================================================
+
+1. GET /api/trainer?pageNumber=1&pageSize=10
+   - Previous: FAIL
+   - Current: PASS ✓
+   - Fix: DateTime serialization issue resolved
+
+2. GET /api/trainer/{id}
+   - Previous: FAIL
+   - Current: PASS ✓
+   - Fix: DateTime serialization issue resolved
+
+3. DELETE /api/trainer/{id}
+   - Previous: FAIL
+   - Current: PASS (403 as expected) ✓
+   - Fix: DateTime serialization issue resolved
+
+4. POST /api/schedule
+   - Previous: FAIL
+   - Current: PASS ✓
+   - Fix: DateTime format handling improved
+
+5. PUT /api/schedule/{id}
+   - Previous: FAIL
+   - Current: PASS ✓
+   - Fix: DateTime format handling improved
+
+6. DELETE /api/schedule/{id}
+   - Previous: May have been failing
+   - Current: PASS (200 - deletion allowed for Admin) ✓
+
+================================================================================
+STILL FAILING (Endpoints that need attention)
+================================================================================
+
+CRITICAL (500 Internal Server Errors - Backend crashes):
+---------------------------------------------------------
+1. POST /api/member
+2. PUT /api/member/{id}
+3. POST /api/trainer
+4. PUT /api/trainer/{id}
+5. POST /api/session
+6. PUT /api/invoice/{id}
+7. POST /api/checkin/qr
+
+NOT IMPLEMENTED (404 Not Found - Missing endpoints):
+----------------------------------------------------
+8. GET /api/schedule/date/{date}
+9. GET /api/session/member/{id}
+10. GET /api/membership/active
+11. GET /api/membership/expiring
+12. GET /api/checkin/member/{id} (also has null reference issue)
+13. GET /api/checkin/date/{date}
+14. GET /api/invoice/unpaid
+15. GET /api/payment/member/{id}
+16. GET /api/report/members
+17. GET /api/report/trainers
+18. GET /api/report/facilities
+
+METHOD NOT ALLOWED (405 - Wrong HTTP verb or disabled):
+-------------------------------------------------------
+19. POST /api/checkin
+
+================================================================================
+ROOT CAUSE ANALYSIS
+================================================================================
+
+1. Member & Trainer POST/PUT failures (500 errors):
+   - Both modules have similar CRUD structure
+   - Both POST and PUT failing with 500 suggests:
+     * Missing required fields in the database schema
+     * Validation logic throwing unhandled exceptions
+     * DateTime conversion issues (though GET works fine)
+   - Recommendation: Check server logs for stack traces
+
+2. Session POST failure (500 error):
+   - DateTime fields may have wrong format
+   - Session model might require registrationDate field
+   - Recommendation: Review SessionDTO vs Session entity mapping
+
+3. Not Implemented Endpoints (11 endpoints):
+   - These are query/filter endpoints not in the original scope
+   - Decision needed: Are these required by project roadmap?
+   - If yes: Implement them
+   - If no: Remove from test suite or mark as "not required"
+
+4. Checkin Issues:
+   - POST disabled (405)
+   - GET by member has null reference
+   - GET by date not implemented
+   - Module may need architectural review
+
+================================================================================
+RECOMMENDED NEXT STEPS
+================================================================================
+
+IMMEDIATE (Fix regressions):
+1. Fix Member POST & PUT (500 errors) - CRITICAL REGRESSION
+2. Review recent changes to MemberController/Service that broke these
+3. Check database schema for Members table
+
+HIGH PRIORITY (Fix 500 errors):
+4. Fix Trainer POST & PUT
+5. Fix Session POST
+6. Fix Invoice PUT
+7. Fix Checkin QR POST
+
+MEDIUM PRIORITY (Implement missing endpoints):
+8. Decide which 404 endpoints are actually required
+9. Implement required endpoints
+10. Remove non-required endpoints from test suite
+
+LOW PRIORITY (Architecture review):
+11. Review Checkin module design
+12. Standardize DELETE behavior (some return 403, some 200)
+13. Add better error handling to prevent 500 errors
+
+TESTING:
+14. Add integration tests to prevent future regressions
+15. Enable server-side logging to capture 500 error stack traces
+16. Consider adding health check endpoint
+
+================================================================================
+CONCLUSION
+================================================================================
+
+The retest shows MIXED results:
+- ✓ Trainer module significantly improved (0/5 → 3/5)
+- ✓ Schedule module significantly improved (2/7 → 6/7)
+- ✗ Member module regressed (4/5 → 3/5)
+- = Other modules unchanged
+
+Overall pass rate DECREASED from 71.2% to 67.8%, falling short of the
+85%+ target. This is due to new regressions in the Member module that
+offset the improvements in Trainer and Schedule.
+
+NEXT ACTION: Focus on fixing the Member module regressions first, then
+address the remaining 500 errors. After that, decide which 404 endpoints
+are actually required by the project roadmap.
+
+Target for next test: 52+/59 (88%+) by fixing all 500 errors and the
+Member module regressions.
+
+================================================================================

@@ -6,15 +6,16 @@ namespace GymManegement.DAL.Entities
 
         public int MemberId { get; set; }
 
-        public int SessionId { get; set; }
-
         public DateTime CheckinTime { get; set; }
 
-        public string CheckinMethod { get; set; } = string.Empty;
+        public DateTime? CheckoutTime { get; set; }
+
+        public DateTime CreatedAt { get; set; }
+        public DateTime UpdatedAt { get; set; }
+        public bool IsDeleted { get; set; }
+        public DateTime? DeletedAt { get; set; }
 
         // Navigation
         public Member Member { get; set; } = null!;
-
-        public Session Session { get; set; } = null!;
     }
 }

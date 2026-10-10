@@ -1,4 +1,4 @@
-﻿namespace GymManegement.DAL.Repositories.Interfaces
+namespace GymManegement.DAL.Repositories.Interfaces
 {
     /// <summary>Generic repository: CRUD cơ bản dùng chung cho tất cả entity</summary>
     public interface IRepository<T> where T : class

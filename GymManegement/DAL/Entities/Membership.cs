@@ -6,7 +6,7 @@ namespace GymManegement.DAL.Entities
 
         public int MemberId { get; set; }
 
-        public string MembershipType { get; set; } = string.Empty;
+        public string PackageName { get; set; } = string.Empty;
 
         public decimal Price { get; set; }
 
@@ -14,10 +14,15 @@ namespace GymManegement.DAL.Entities
 
         public DateTime EndDate { get; set; }
 
-        /// <summary>Gói còn hiệu lực (dùng để query nhanh, không cần tính ngày)</summary>
-        public bool IsActive { get; set; } = true;
+        public DateTime CreatedAt { get; set; }
+        public DateTime UpdatedAt { get; set; }
+        public bool IsDeleted { get; set; }
+        public DateTime? DeletedAt { get; set; }
 
-        // Navigation
+        // Navigation - SQL2 relationships
         public Member Member { get; set; } = null!;
+
+        public ICollection<Invoice> Invoices { get; set; }
+            = new List<Invoice>();
     }
 }

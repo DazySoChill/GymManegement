@@ -1,4 +1,5 @@
-﻿using GymManegement.DAL.Entities;
+using GymManegement.API.DTOs.Common;
+using GymManegement.DAL.Entities;
 
 namespace GymManegement.DAL.Repositories.Interfaces
 {
@@ -9,5 +10,8 @@ namespace GymManegement.DAL.Repositories.Interfaces
         Task<Membership?> GetActiveMembershipAsync(int memberId);
         /// <summary>Hội viên sắp hết hạn trong N ngày</summary>
         Task<IEnumerable<Membership>> GetExpiringSoonAsync(int daysAhead = 7);
+        /// <summary>Lấy tất cả membership đang active (EndDate >= today)</summary>
+        Task<IEnumerable<Membership>> GetActiveAsync();
+        Task<PagedResult<Membership>> GetAllAsync(int pageNumber, int pageSize, string? searchTerm = null, string? sortBy = null, string? sortDir = null);
     }
 }

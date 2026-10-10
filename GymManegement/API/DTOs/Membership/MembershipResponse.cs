@@ -4,12 +4,12 @@
     {
         public int MembershipId { get; set; }
         public int MemberId { get; set; }
-        public string MembershipType { get; set; } = string.Empty;
+        public string PackageName { get; set; } = string.Empty;
         public decimal Price { get; set; }
         public DateTime StartDate { get; set; }
         public DateTime EndDate { get; set; }
-        public bool IsActive { get; set; }
-        /// <summary>Số ngày còn lại (tính từ EndDate - hôm nay)</summary>
-        public int DaysRemaining => IsActive ? Math.Max(0, (EndDate - DateTime.UtcNow).Days) : 0;
+        public int DaysRemaining => Math.Max(0, (EndDate - DateTime.UtcNow).Days);
+        public DateTime CreatedAt { get; set; }
+        public DateTime UpdatedAt { get; set; }
     }
 }

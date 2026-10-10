@@ -1,4 +1,5 @@
-﻿using Dapper;
+using Dapper;
+using GymManegement.API.DTOs.Common;
 using GymManegement.DAL.Entities;
 using GymManegement.DAL.Helper;
 using GymManegement.DAL.Repositories.Interfaces;
@@ -13,53 +14,160 @@ namespace GymManegement.DAL.Repositories.Implementations
         public async Task<IEnumerable<Membership>> GetAllAsync()
         {
             using var conn = _db.CreateConnection();
-            return await conn.QueryAsync<Membership>("SELECT * FROM Memberships ORDER BY StartDate DESC");
+            var sql = "SELECT * FROM Memberships WHERE IsDeleted = 0 ORDER BY StartDate DESC";
+            return await conn.QueryAsync<Membership>(sql);
         }
+
+        public async Task<PagedResult<Membership>> GetAllAsync(int pageNumber, int pageSize, string? searchTerm = null, string? sortBy = null, string? sortDir = null)
+        {
+            using var conn = _db.CreateConnection();
+            
+            sortBy ??= "MembershipId";
+            sortDir ??= "DESC";
+            
+            var whereClause = "WHERE IsDeleted = 0";
+            
+            var sql = $@"
+                SELECT * FROM Memberships 
+                {whereClause}
+                ORDER BY {sortBy} {sortDir}
+                OFFSET @Offset ROWS FETCH NEXT @PageSize ROWS ONLY;
+
+                SELECT COUNT(*) FROM Memberships {whereClause};";
+
+            var parameters = new
+            {
+                Offset = (pageNumber - 1) * pageSize,
+                PageSize = pageSize
+            };
+
+            using var multi = await conn.QueryMultipleAsync(sql, parameters);
+            var data = (await multi.ReadAsync<Membership>()).ToList();
+            var total = await multi.ReadSingleAsync<int>();
+
+            return new PagedResult<Membership>
+            {
+                Data = data,
+                Total = total,
+                PageNumber = pageNumber,
+                PageSize = pageSize
+            };
+        }
+
         public async Task<Membership?> GetByIdAsync(int id)
         {
             using var conn = _db.CreateConnection();
-            return await conn.QueryFirstOrDefaultAsync<Membership>(
-                "sp_Membership_GetById", new { MembershipId = id }, commandType: System.Data.CommandType.StoredProcedure);
+            var sql = "SELECT * FROM Memberships WHERE MembershipId = @MembershipId AND IsDeleted = 0";
+            return await conn.QueryFirstOrDefaultAsync<Membership>(sql, new { MembershipId = id });
         }
+
         public async Task<IEnumerable<Membership>> GetByMemberIdAsync(int memberId)
         {
             using var conn = _db.CreateConnection();
-            return await conn.QueryAsync<Membership>(
-                "sp_Membership_GetByMember", new { MemberId = memberId }, commandType: System.Data.CommandType.StoredProcedure);
+            var sql = "SELECT * FROM Memberships WHERE MemberId = @MemberId AND IsDeleted = 0 ORDER BY StartDate DESC";
+            return await conn.QueryAsync<Membership>(sql, new { MemberId = memberId });
         }
+
         public async Task<Membership?> GetActiveMembershipAsync(int memberId)
         {
             using var conn = _db.CreateConnection();
-            return await conn.QueryFirstOrDefaultAsync<Membership>(
-                "sp_Membership_GetActive", new { MemberId = memberId }, commandType: System.Data.CommandType.StoredProcedure);
+            var sql = @"
+                SELECT TOP 1 * FROM Memberships 
+                WHERE MemberId = @MemberId 
+                  AND EndDate >= CAST(GETDATE() AS DATE)
+                  AND IsDeleted = 0
+                ORDER BY EndDate DESC";
+            return await conn.QueryFirstOrDefaultAsync<Membership>(sql, new { MemberId = memberId });
         }
+
         public async Task<IEnumerable<Membership>> GetExpiringSoonAsync(int daysAhead = 7)
         {
             using var conn = _db.CreateConnection();
-            return await conn.QueryAsync<Membership>(
-                "sp_Membership_GetExpiringSoon", new { DaysAhead = daysAhead }, commandType: System.Data.CommandType.StoredProcedure);
+            var sql = @"
+                SELECT * FROM Memberships 
+                WHERE EndDate BETWEEN CAST(GETDATE() AS DATE) 
+                  AND DATEADD(DAY, @DaysAhead, CAST(GETDATE() AS DATE))
+                  AND IsDeleted = 0
+                ORDER BY EndDate ASC";
+            return await conn.QueryAsync<Membership>(sql, new { DaysAhead = daysAhead });
         }
-        public async Task<Membership> CreateAsync(Membership entity)
+
+        public async Task<IEnumerable<Membership>> GetActiveAsync()
         {
             using var conn = _db.CreateConnection();
-            var id = await conn.QuerySingleAsync<int>("sp_Membership_Create",
-                new { entity.MemberId, entity.MembershipType, entity.Price, entity.StartDate, entity.EndDate },
-                commandType: System.Data.CommandType.StoredProcedure);
+            var sql = @"
+                SELECT * FROM Memberships 
+                WHERE EndDate >= CAST(GETDATE() AS DATE)
+                  AND IsDeleted = 0
+                ORDER BY EndDate ASC";
+            return await conn.QueryAsync<Membership>(sql);
+        }
+
+        public async Task<Membership> CreateAsync(Membership entity)
+        {
+            entity.CreatedAt = DateTime.UtcNow;
+            entity.UpdatedAt = DateTime.UtcNow;
+            entity.IsDeleted = false;
+
+            using var conn = _db.CreateConnection();
+            var sql = @"
+                INSERT INTO Memberships (MemberId, PackageName, Price, StartDate, EndDate, CreatedAt, UpdatedAt, IsDeleted)
+                OUTPUT INSERTED.MembershipId
+                VALUES (@MemberId, @PackageName, @Price, @StartDate, @EndDate, @CreatedAt, @UpdatedAt, @IsDeleted)";
+            
+            var id = await conn.QuerySingleAsync<int>(sql, new
+            {
+                entity.MemberId,
+                entity.PackageName,
+                entity.Price,
+                entity.StartDate,
+                entity.EndDate,
+                entity.CreatedAt,
+                entity.UpdatedAt,
+                entity.IsDeleted
+            });
+            
             entity.MembershipId = id;
             return entity;
         }
+
         public async Task<Membership> UpdateAsync(Membership entity)
         {
+            entity.UpdatedAt = DateTime.UtcNow;
+
             using var conn = _db.CreateConnection();
-            await conn.ExecuteAsync("sp_Membership_Update",
-                new { entity.MembershipId, entity.MembershipType, entity.Price, entity.StartDate, entity.EndDate, entity.IsActive },
-                commandType: System.Data.CommandType.StoredProcedure);
+            var sql = @"
+                UPDATE Memberships 
+                SET PackageName = @PackageName,
+                    Price = @Price,
+                    StartDate = @StartDate,
+                    EndDate = @EndDate,
+                    UpdatedAt = @UpdatedAt
+                WHERE MembershipId = @MembershipId AND IsDeleted = 0";
+            
+            await conn.ExecuteAsync(sql, new
+            {
+                entity.MembershipId,
+                entity.PackageName,
+                entity.Price,
+                entity.StartDate,
+                entity.EndDate,
+                entity.UpdatedAt
+            });
+            
             return entity;
         }
+
         public async Task DeleteAsync(int id)
         {
             using var conn = _db.CreateConnection();
-            await conn.ExecuteAsync("DELETE FROM Memberships WHERE MembershipId = @MembershipId", new { MembershipId = id });
+            var sql = @"
+                UPDATE Memberships 
+                SET IsDeleted = 1,
+                    DeletedAt = @DeletedAt
+                WHERE MembershipId = @MembershipId";
+            
+            await conn.ExecuteAsync(sql, new { MembershipId = id, DeletedAt = DateTime.UtcNow });
         }
     }
 }

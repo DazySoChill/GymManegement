@@ -41,6 +41,12 @@ namespace GymManegement.Service.BUS.Implementations
             return entities.Select(ToResponse);
         }
 
+        public async Task<IEnumerable<SessionResponse>> GetByMemberIdAsync(int memberId)
+        {
+            var entities = await _repo.GetByMemberIdAsync(memberId);
+            return entities.Select(ToResponse);
+        }
+
         public async Task<IEnumerable<SessionResponse>> GetByStatusAsync(string status)
         {
             var entities = await _repo.GetByStatusAsync(status);

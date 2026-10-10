@@ -1,4 +1,5 @@
-﻿using GymManegement.API.DTOs.Member;
+using GymManegement.API.DTOs.Common;
+using GymManegement.API.DTOs.Member;
 using GymManegement.DAL.Entities;
 using GymManegement.DAL.Repositories.Interfaces;
 using GymManegement.Service.BUS.Interfaces;
@@ -10,10 +11,16 @@ namespace GymManegement.Service.BUS.Implementations
         private readonly IMemberRepository _repo;
         public MemberService(IMemberRepository repo) => _repo = repo;
 
-        public async Task<IEnumerable<MemberResponse>> GetAllAsync()
+        public async Task<PagedResult<MemberResponse>> GetAllAsync(int pageNumber = 1, int pageSize = 10, string? searchTerm = null, string? sortBy = null, string? sortDir = null)
         {
-            var members = await _repo.GetAllAsync();
-            return members.Select(ToResponse);
+            var result = await _repo.GetAllAsync(pageNumber, pageSize, searchTerm, sortBy, sortDir);
+            return new PagedResult<MemberResponse>
+            {
+                Data = result.Data.Select(ToResponse).ToList(),
+                Total = result.Total,
+                PageNumber = result.PageNumber,
+                PageSize = result.PageSize
+            };
         }
 
         public async Task<MemberResponse?> GetByIdAsync(int id)
@@ -27,15 +34,16 @@ namespace GymManegement.Service.BUS.Implementations
             if (await _repo.EmailExistsAsync(request.Email))
                 throw new InvalidOperationException($"Email '{request.Email}' đã tồn tại.");
 
+            // Generate unique QRCode using GUID
+            var qrCode = $"M{Guid.NewGuid():N}"[..10].ToUpper(); // M + 9 hex chars
+
             var entity = new Member
             {
                 FullName     = request.FullName,
-                Phone        = request.Phone,
                 Email        = request.Email,
+                Phone        = request.Phone,
                 DateOfBirth  = request.DateOfBirth,
-                JoinDate     = request.JoinDate == default ? DateTime.UtcNow : request.JoinDate,
-                Status       = "Active",
-                QRCodeValue  = Guid.NewGuid().ToString("N")[..20] // 20 ký tự, duy nhất
+                QRCode       = qrCode
             };
             await _repo.CreateAsync(entity);
             return ToResponse(entity);
@@ -51,10 +59,9 @@ namespace GymManegement.Service.BUS.Implementations
                 throw new InvalidOperationException($"Email '{request.Email}' đã tồn tại.");
 
             entity.FullName    = request.FullName;
-            entity.Phone       = request.Phone;
             entity.Email       = request.Email;
+            entity.Phone       = request.Phone;
             entity.DateOfBirth = request.DateOfBirth;
-            entity.Status      = string.IsNullOrEmpty(request.Status) ? entity.Status : request.Status;
             await _repo.UpdateAsync(entity);
             return ToResponse(entity);
         }
@@ -71,12 +78,12 @@ namespace GymManegement.Service.BUS.Implementations
         {
             MemberId    = m.MemberId,
             FullName    = m.FullName,
-            Phone       = m.Phone,
             Email       = m.Email,
+            Phone       = m.Phone,
             DateOfBirth = m.DateOfBirth,
-            JoinDate    = m.JoinDate,
-            Status      = m.Status,
-            QRCodeValue = m.QRCodeValue
+            QRCode      = m.QRCode,
+            CreatedAt   = m.CreatedAt,
+            UpdatedAt   = m.UpdatedAt
         };
     }
 }

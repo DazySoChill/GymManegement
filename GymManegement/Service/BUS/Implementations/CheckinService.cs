@@ -1,8 +1,6 @@
-using Dapper;
 using GymManegement.API.DTOs.Common;
 using GymManegement.API.DTOs.Checkin;
 using GymManegement.DAL.Entities;
-using GymManegement.DAL.Helper;
 using GymManegement.DAL.Repositories.Interfaces;
 using GymManegement.Service.BUS.Interfaces;
 
@@ -12,14 +10,11 @@ namespace GymManegement.Service.BUS.Implementations
     {
         private readonly ICheckinRepository _repo;
         private readonly IMemberRepository  _memberRepo;
-        private readonly IMembershipRepository _membershipRepo;
-        private readonly DapperContext      _db;
 
-        public CheckinService(ICheckinRepository repo, IMemberRepository memberRepo,
-            IMembershipRepository membershipRepo, DapperContext db)
+        public CheckinService(ICheckinRepository repo, IMemberRepository memberRepo)
         {
-            _repo = repo; _memberRepo = memberRepo;
-            _membershipRepo = membershipRepo; _db = db;
+            _repo = repo;
+            _memberRepo = memberRepo;
         }
 
         public async Task<PagedResult<CheckinResponse>> GetAllAsync(int pageNumber = 1, int pageSize = 10, string? searchTerm = null, string? sortBy = null, string? sortDir = null)
@@ -46,54 +41,69 @@ namespace GymManegement.Service.BUS.Implementations
             return list.Select(ToResponse);
         }
 
-        public async Task<IEnumerable<CheckinResponse>> GetBySessionIdAsync(int sessionId)
-        {
-            var list = await _repo.GetBySessionIdAsync(sessionId);
-            return list.Select(ToResponse);
-        }
-
         public async Task<IEnumerable<CheckinResponse>> GetByDateRangeAsync(DateTime from, DateTime to)
         {
             var list = await _repo.GetByDateRangeAsync(from, to);
             return list.Select(ToResponse);
         }
 
+        public async Task<IEnumerable<CheckinResponse>> GetByDateAsync(DateTime date)
+        {
+            var list = await _repo.GetByDateAsync(date);
+            return list.Select(ToResponse);
+        }
+
         public async Task<CheckinResponse> CreateManualAsync(CreateCheckinRequest request)
         {
-            // Validate membership
-            var active = await _membershipRepo.GetActiveMembershipAsync(request.MemberId);
-            if (active is null)
-                throw new InvalidOperationException("Hội viên không có gói tập còn hiệu lực.");
+            // Validate member exists
+            var member = await _memberRepo.GetByIdAsync(request.MemberId);
+            if (member is null)
+                throw new InvalidOperationException("Hội viên không tồn tại.");
 
             var entity = new Checkin
             {
-                MemberId      = request.MemberId,
-                SessionId     = request.SessionId,
-                CheckinTime   = request.CheckinTime == default ? DateTime.UtcNow : request.CheckinTime,
-                CheckinMethod = request.CheckinMethod
+                MemberId    = request.MemberId,
+                CheckinTime = request.CheckinTime == default ? DateTime.UtcNow : request.CheckinTime
             };
             await _repo.CreateAsync(entity);
             return ToResponse(entity);
         }
 
-        public async Task<object> CheckinByQRAsync(QRCheckinRequest request)
+        public async Task<CheckinResponse> CheckinByQRAsync(QRCheckinRequest request)
         {
-            using var conn = _db.CreateConnection();
-            var result = await conn.QuerySingleAsync(
-                "sp_Checkin_ByQRCode",
-                new { request.QRCodeValue, request.SessionId },
-                commandType: System.Data.CommandType.StoredProcedure);
-            return new { CheckinId = (int)result.CheckinId, Message = (string)result.Message };
+            // Find member by QR code
+            var member = await _memberRepo.GetByQRCodeAsync(request.QRCode);
+            if (member is null)
+                throw new InvalidOperationException("Mã QR không hợp lệ.");
+
+            var entity = new Checkin
+            {
+                MemberId    = member.MemberId,
+                CheckinTime = DateTime.UtcNow
+            };
+            await _repo.CreateAsync(entity);
+            return ToResponse(entity);
+        }
+
+        public async Task<CheckinResponse?> CheckoutAsync(int checkinId)
+        {
+            var entity = await _repo.GetByIdAsync(checkinId);
+            if (entity is null) return null;
+
+            entity.CheckoutTime = DateTime.UtcNow;
+            await _repo.UpdateAsync(entity);
+            return ToResponse(entity);
         }
 
         private static CheckinResponse ToResponse(Checkin c) => new()
         {
-            CheckinId     = c.CheckinId,
-            MemberId      = c.MemberId,
-            MemberName    = string.Empty,
-            SessionId     = c.SessionId,
-            CheckinTime   = c.CheckinTime,
-            CheckinMethod = c.CheckinMethod
+            CheckinId    = c.CheckinId,
+            MemberId     = c.MemberId,
+            MemberName   = string.Empty,
+            CheckinTime  = c.CheckinTime,
+            CheckoutTime = c.CheckoutTime,
+            CreatedAt    = c.CreatedAt,
+            UpdatedAt    = c.UpdatedAt
         };
     }
 }

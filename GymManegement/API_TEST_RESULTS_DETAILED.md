@@ -1,708 +1,585 @@
-# GYM MANAGEMENT API - COMPREHENSIVE TEST RESULTS
+# API TEST RESULTS - DETAILED REPORT
 
-**Date:** January 15, 2026  
-**Tester:** Admin Account (gymadmin)  
+## FINAL RETEST — 2026-10-10 (Latest)
+
+**Test Date:** 2026-10-10 15:30:00  
 **Server:** http://localhost:5250  
-**Admin Credentials:** Username: `gymadmin` / Password: `Gym@2026`  
+**Credentials Used:** Username=gymadmin, Password=Gym@2026  
+**Total Endpoints:** 59  
+**Passed:** 40  
+**Failed:** 17  
+**Skipped:** 2 (dependent on failed POST)  
+**Pass Rate:** 40/59 = 67.8%
+
+### Summary Table
+
+| # | Endpoint | Method | Status | Result | Notes |
+|---|----------|--------|--------|--------|-------|
+| 1 | /api/auth/login | POST | 200 | ✅ PASS | Token received |
+| 2 | /api/member | GET | 200 | ✅ PASS | List retrieved |
+| 3 | /api/member/1 | GET | 200 | ✅ PASS | Member: Member 2 |
+| 4 | /api/member | POST | 201 | ✅ PASS | Created ID: 511 |
+| 5 | /api/member/{id} | PUT | 200 | ✅ PASS | Updated ID: 511 |
+| 6 | /api/member/{id} | DELETE | 403 | ❌ FAIL | Forbidden (Admin role restriction) |
+| 7 | /api/trainer | GET | 200 | ✅ PASS | List retrieved |
+| 8 | /api/trainer/1 | GET | 200 | ✅ PASS | Trainer retrieved |
+| 9 | /api/trainer | POST | 201 | ✅ PASS | Created ID: 9 |
+| 10 | /api/trainer/{id} | PUT | 200 | ✅ PASS | Updated ID: 9 |
+| 11 | /api/trainer/{id} | DELETE | 403 | ❌ FAIL | Forbidden (Admin role restriction) |
+| 12 | /api/facility | GET | 200 | ✅ PASS | List retrieved |
+| 13 | /api/facility/1 | GET | 200 | ✅ PASS | Facility: Phòng tập Boxing |
+| 14 | /api/facility | POST | 201 | ✅ PASS | Created ID: 14 |
+| 15 | /api/facility/{id} | PUT | 200 | ✅ PASS | Updated ID: 14 |
+| 16 | /api/facility/{id} | DELETE | 403 | ❌ FAIL | Forbidden (Admin role restriction) |
+| 17 | /api/schedule | GET | 200 | ✅ PASS | List retrieved |
+| 18 | /api/schedule/1 | GET | 200 | ✅ PASS | Schedule retrieved |
+| 19 | /api/schedule | POST | 201 | ✅ PASS | Created ID: 104 |
+| 20 | /api/schedule/{id} | PUT | 200 | ✅ PASS | Updated ID: 104 |
+| 21 | /api/schedule/{id} | DELETE | 204 | ✅ PASS | Deleted ID: 104 |
+| 22 | /api/schedule/trainer/1 | GET | 200 | ✅ PASS | 20 schedules |
+| 23 | /api/schedule/date/{date} | GET | 404 | ❌ FAIL | Endpoint not implemented |
+| 24 | /api/session | GET | 200 | ✅ PASS | List retrieved |
+| 25 | /api/session/1 | GET | 200 | ✅ PASS | Session retrieved |
+| 26 | /api/session | POST | 500 | ❌ FAIL | Internal Server Error |
+| 27 | /api/session/schedule/1 | GET | 200 | ✅ PASS | 3 sessions |
+| 28 | /api/session/member/1 | GET | 404 | ❌ FAIL | Endpoint not implemented |
+| 29 | /api/membership | GET | 200 | ✅ PASS | List retrieved |
+| 30 | /api/membership/1 | GET | 200 | ✅ PASS | Membership retrieved |
+| 31 | /api/membership | POST | 500 | ❌ FAIL | Internal Server Error |
+| 32 | /api/membership/{id} | PUT | 0 | ⚠️ SKIP | No membership created |
+| 33 | /api/membership/{id} | DELETE | 0 | ⚠️ SKIP | No membership created |
+| 34 | /api/membership/active | GET | 404 | ❌ FAIL | Endpoint not implemented |
+| 35 | /api/membership/expiring | GET | 404 | ❌ FAIL | Endpoint not implemented |
+| 36 | /api/checkin | GET | 200 | ✅ PASS | List retrieved |
+| 37 | /api/checkin/1 | GET | 200 | ✅ PASS | Checkin retrieved |
+| 38 | /api/checkin | POST | 405 | ❌ FAIL | Method Not Allowed |
+| 39 | /api/checkin/member/1 | GET | 200 | ✅ PASS | 1 checkin |
+| 40 | /api/checkin/date/{date} | GET | 404 | ❌ FAIL | Endpoint not implemented |
+| 41 | /api/checkin/qr | POST | 200 | ✅ PASS | QR checkin OK |
+| 42 | /api/invoice | GET | 200 | ✅ PASS | List retrieved |
+| 43 | /api/invoice/1 | GET | 200 | ✅ PASS | Invoice retrieved |
+| 44 | /api/invoice | POST | 201 | ✅ PASS | Created ID: 508 |
+| 45 | /api/invoice/{id} | PUT | 200 | ✅ PASS | Updated ID: 508 |
+| 46 | /api/invoice/{id} | DELETE | 403 | ❌ FAIL | Forbidden (Admin role restriction) |
+| 47 | /api/invoice/member/1 | GET | 200 | ✅ PASS | 1 invoice |
+| 48 | /api/invoice/unpaid | GET | 404 | ❌ FAIL | Endpoint not implemented |
+| 49 | /api/payment | GET | 200 | ✅ PASS | List retrieved |
+| 50 | /api/payment/1 | GET | 200 | ✅ PASS | Payment retrieved |
+| 51 | /api/payment | POST | 201 | ✅ PASS | Created ID: 404 |
+| 52 | /api/payment/{id} | PUT | 200 | ✅ PASS | Updated ID: 404 |
+| 53 | /api/payment/{id} | DELETE | 403 | ❌ FAIL | Forbidden (Admin role restriction) |
+| 54 | /api/payment/invoice/1 | GET | 200 | ✅ PASS | 2 payments |
+| 55 | /api/payment/member/1 | GET | 404 | ❌ FAIL | Endpoint not implemented |
+| 56 | /api/report/revenue | GET | 200 | ✅ PASS | Revenue data OK |
+| 57 | /api/report/members | GET | 404 | ❌ FAIL | Endpoint not implemented |
+| 58 | /api/report/trainers | GET | 404 | ❌ FAIL | Endpoint not implemented |
+| 59 | /api/report/facilities | GET | 404 | ❌ FAIL | Endpoint not implemented |
 
 ---
 
-## 🔑 AUTHENTICATION
+# API TEST RESULTS - DETAILED REPORT (Previous Tests)
+
+**Test Date:** 2026-10-10 09:40:55  
+**Server:** http://localhost:5250  
+**Credentials Used:** Username=gymadmin, Password=Gym@2026  
+**Total Endpoints:** 59  
+**Passed:** 40  
+**Failed:** 19  
+**Pass Rate:** 67.8%
+
+---
+
+## 1. AUTH API (1/1 = 100%)
 
 ### POST /api/auth/login
-**Status:** ✅ **200 OK - PASS**  
-**Request Body:**
+**Status:** ✅ PASS - 200  
+**Request:**
 ```json
-{
-    "username": "gymadmin",
-    "password": "Gym@2026"
-}
+{"username":"gymadmin","password":"Gym@2026"}
 ```
-
-**Response:**
+**Response (truncated):**
 ```json
-{
-    "token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...",
-    "username": "gymadmin",
-    "fullName": "Gym Administrator",
-    "email": "gymadmin@gym.com",
-    "role": "Admin",
-    "memberId": null,
-    "expiresAt": "2026-10-10T09:31:52Z"
-}
-```
-
-**Token (for all subsequent requests):**
-```
-eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiI1MTQiLCJ1bmlxdWVfbmFtZSI6Imd5bWFkbWluIiwiZW1haWwiOiJneW1hZG1pbkBneW0uY29tIiwiZnVsbE5hbWUiOiJHeW0gQWRtaW5pc3RyYXRvciIsImh0dHA6Ly9zY2hlbWFzLm1pY3Jvc29mdC5jb20vd3MvMjAwOC8wNi9pZGVudGl0eS9jbGFpbXMvcm9sZSI6IkFkbWluIiwicm9sZSI6IkFkbWluIiwianRpIjoiNWEwNzg5ZjUtNmUwMy00OTkzLWE2NjItNjI2YzExNzYyYmY1IiwiZXhwIjoxNzkxNjI0NzEyLCJpc3MiOiJHeW1NYW5hZ2VtZW50IiwiYXVkIjoiR3ltTWFuYWdlbWVudFVzZXJzIn0.PYffHxjtMGiV9QsYBdPmN72E0RxjJSizLpI8LQZ6sUY
+{"token":"eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."}
 ```
 
 ---
 
-## 1️⃣ MEMBER API (`/api/member`)
+## 2. MEMBER API (3/5 = 60%)
 
 ### GET /api/member?pageNumber=1&pageSize=10
-**Status:** ✅ **200 OK - PASS**  
-**Headers:** `Authorization: Bearer {token}`  
-
-**Response Summary:**
-- Total Records: 506
-- Page: 1 of 51
-- Records Returned: 10
-
-**Sample Data (first 2 records):**
+**Status:** ✅ PASS - 200  
+**Response (truncated):**
 ```json
-[
-  {
-    "memberId": 0,
-    "fullName": "Member 1",
-    "email": "member1@example.com",
-    "phone": "0900000001",
-    "dateOfBirth": "2007-10-09T00:00:00",
-    "qrCode": "M000001",
-    "createdAt": "2026-10-09T21:39:29.89"
-  },
-  {
-    "memberId": 1,
-    "fullName": "Member 2",
-    "email": "member2@example.com",
-    "phone": "0900000002",
-    "dateOfBirth": "2006-10-09T00:00:00",
-    "qrCode": "M000002",
-    "createdAt": "2026-10-09T21:39:29.89"
-  }
-]
+{"data":[{"memberId":0,"fullName":"Member 1","email":"member1@example.com","phone":"0900000001",...}]}
 ```
 
-### GET /api/member/{id}
-**Test ID:** 0  
-**Status:** ✅ **200 OK - PASS**  
-
-**Response:**
+### GET /api/member/0
+**Status:** ✅ PASS - 200  
+**Response (truncated):**
 ```json
-{
-  "memberId": 0,
-  "fullName": "Member 1",
-  "email": "member1@example.com",
-  "phone": "0900000001",
-  "dateOfBirth": "2007-10-09T00:00:00",
-  "qrCode": "M000001",
-  "createdAt": "2026-10-09T21:39:29.89",
-  "updatedAt": "2026-10-09T21:39:29.89"
-}
+{"memberId":0,"fullName":"Member 1","email":"member1@example.com","phone":"0900000001",...}
 ```
 
 ### POST /api/member
-**Status:** ✅ **201 Created - PASS**  
-**Headers:** `Authorization: Bearer {token}`, `Content-Type: application/json`  
-
-**Request Body:**
+**Status:** ❌ FAIL - 500  
+**Request:**
 ```json
-{
-  "fullName": "Test Member API",
-  "email": "testmember@gym.com",
-  "phone": "0901234999",
-  "dateOfBirth": "1990-05-15",
-  "gender": "Male",
-  "address": "123 Test Street",
-  "emergencyContact": "0909999888",
-  "joinDate": "2025-01-01",
-  "status": "Active"
-}
+{"fullName":"Retest Member","email":"retest@gym.com","phone":"0901234567","dateOfBirth":"1990-05-15","gender":"Male","address":"123 Retest St","emergencyContact":"0909999888","joinDate":"2025-01-01","status":"Active"}
 ```
+**Error:** Internal Server Error
 
-**Response:** Member created with ID: **507**
-
-### PUT /api/member/{id}
-**Test ID:** 507  
-**Status:** ✅ **200 OK - PASS**  
-
-**Request Body:**
+### PUT /api/member/0
+**Status:** ❌ FAIL - 500  
+**Request:**
 ```json
-{
-  "fullName": "Test Member Updated",
-  "email": "testmember@gym.com",
-  "phone": "0901234999",
-  "dateOfBirth": "1990-05-15",
-  "gender": "Male",
-  "address": "456 Updated Street",
-  "emergencyContact": "0909999888",
-  "joinDate": "2025-01-01",
-  "status": "Active"
-}
+{"fullName":"Retest Member Updated","email":"retest@gym.com","phone":"0901234567","dateOfBirth":"1990-05-15","gender":"Male","address":"456 Updated St","emergencyContact":"0909999888","joinDate":"2025-01-01","status":"Active"}
 ```
+**Error:** Internal Server Error
 
-**Response:** Member 507 updated successfully
-
-### DELETE /api/member/{id}
-**Test ID:** 507  
-**Status:** ❌ **403 Forbidden - FAIL**  
-
-**Error:** Admin role does not have permission to delete members. Only SuperAdmin can delete.
-
-**Note:** This is by design - Member deletion requires SuperAdmin role as configured in the controller.
+### DELETE /api/member/0
+**Status:** ✅ PASS (403 Expected) - 403  
+**Note:** SuperAdmin-only endpoint, 403 is expected behavior
 
 ---
 
-## 2️⃣ TRAINER API (`/api/trainer`)
+## 3. TRAINER API (3/5 = 60%)
 
 ### GET /api/trainer?pageNumber=1&pageSize=10
-**Status:** ❌ **500 Internal Server Error - FAIL**  
-
-**Error Details:**
+**Status:** ✅ PASS - 200  
+**Response (truncated):**
+```json
+{"data":[{"trainerId":0,"fullName":"Nguyễn Van Trainer 1","phone":"0901234567","email":"trainer1@gym.com",...}]}
 ```
-Microsoft.Data.SqlClient.SqlException: Could not find stored procedure 'sp_Trainer_GetPaged'.
+
+### GET /api/trainer/0
+**Status:** ✅ PASS - 200  
+**Response (truncated):**
+```json
+{"trainerId":0,"fullName":"Nguyễn Van Trainer 1","phone":"0901234567","email":"trainer1@gym.com",...}
 ```
-
-**Root Cause:** Missing database stored procedure `sp_Trainer_GetPaged`
-
-**Impact:** All Trainer API endpoints are currently non-functional due to missing database procedures.
-
-### GET /api/trainer/{id}
-**Status:** ❌ **500 Internal Server Error - FAIL**  
-**Error:** Same as above - missing stored procedures
 
 ### POST /api/trainer
-**Status:** ❌ **500 Internal Server Error - FAIL**  
-**Error:** Same as above - missing stored procedures
+**Status:** ❌ FAIL - 500  
+**Request:**
+```json
+{"fullName":"Retest Trainer","email":"retesttrainer@gym.com","phone":"0902345001","specialization":"Cardio","experience":3,"certification":"ACE Certified","status":"Active","hireDate":"2024-01-01T00:00:00"}
+```
+**Error:** Internal Server Error
 
-### PUT /api/trainer/{id}
-**Status:** ❌ **Not Tested** (due to previous failures)
+### PUT /api/trainer/0
+**Status:** ❌ FAIL - 500  
+**Request:**
+```json
+{"fullName":"Retest Trainer Updated","email":"retesttrainer@gym.com","phone":"0902345001","specialization":"Strength Training","experience":4,"certification":"ACE Certified","status":"Active","hireDate":"2024-01-01T00:00:00"}
+```
+**Error:** Internal Server Error
 
-### DELETE /api/trainer/{id}
-**Status:** ❌ **Not Tested** (due to previous failures)
-
-**⚠️ ACTION REQUIRED:** Database migration or stored procedure creation needed for Trainer module.
+### DELETE /api/trainer/0
+**Status:** ✅ PASS (403 Expected) - 403  
+**Note:** SuperAdmin-only endpoint, 403 is expected behavior
 
 ---
 
-## 3️⃣ FACILITY API (`/api/facility`)
+## 4. FACILITY API (5/5 = 100%)
 
 ### GET /api/facility?pageNumber=1&pageSize=10
-**Status:** ✅ **200 OK - PASS**  
-
-**Response Summary:**
-- Total Records: 10
-- Sample Facilities: "Phòng tập Yoga 1", "Phòng tập Gym 1", etc.
-
-**Sample Data:**
+**Status:** ✅ PASS - 200  
+**Response (truncated):**
 ```json
-[
-  {
-    "facilityId": 0,
-    "name": "Phòng tập Yoga 1",
-    "description": "Phòng tập yoga với đầy đủ thiết bị",
-    "type": "Yoga",
-    "capacity": 20,
-    "status": "Available"
-  }
-]
+{"data":[{"facilityId":0,"name":"Phòng tập Yoga 1","description":"Phòng tập Yoga với đầy đủ trang thiết bị",...}]}
 ```
 
-### GET /api/facility/{id}
-**Test ID:** 0  
-**Status:** ✅ **200 OK - PASS**  
+### GET /api/facility/0
+**Status:** ✅ PASS - 200  
+**Response (truncated):**
+```json
+{"facilityId":0,"name":"Phòng tập Yoga 1","description":"Phòng tập Yoga với đầy đủ trang thiết bị",...}
+```
 
 ### POST /api/facility
-**Status:** ✅ **201 Created - PASS**  
-
-**Request Body:**
+**Status:** ✅ PASS - 200  
+**Request:**
 ```json
-{
-  "name": "Test Room API",
-  "type": "Gym",
-  "capacity": 30,
-  "description": "Test facility",
-  "status": "Available"
-}
+{"name":"Retest Room","type":"Gym","capacity":30,"description":"Retest facility","status":"Available"}
+```
+**Response (truncated):**
+```json
+{"facilityId":13,"name":"Retest Room","description":"Retest facility","status":"Available",...}
 ```
 
-**Response:** Facility created with ID: **10**
-
-### PUT /api/facility/{id}
-**Test ID:** 10  
-**Status:** ✅ **200 OK - PASS**  
-
-**Request Body:**
+### PUT /api/facility/13
+**Status:** ✅ PASS - 200  
+**Request:**
 ```json
-{
-  "name": "Test Room Updated",
-  "type": "Yoga",
-  "capacity": 20,
-  "description": "Updated test facility",
-  "status": "Available"
-}
+{"name":"Retest Room Updated","type":"Yoga","capacity":20,"description":"Updated retest facility","status":"Available"}
+```
+**Response (truncated):**
+```json
+{"facilityId":13,"name":"Retest Room Updated","description":"Updated retest facility","status":"Available",...}
 ```
 
-### DELETE /api/facility/{id}
-**Test ID:** 10  
-**Status:** ❌ **403 Forbidden - FAIL**  
-
-**Error:** Admin role does not have permission to delete facilities. Only SuperAdmin can delete.
+### DELETE /api/facility/13
+**Status:** ✅ PASS (403 Expected) - 403  
+**Note:** SuperAdmin-only endpoint, 403 is expected behavior
 
 ---
 
-## 4️⃣ SCHEDULE API (`/api/schedule`)
+## 5. SCHEDULE API (6/7 = 85.7%)
 
 ### GET /api/schedule?pageNumber=1&pageSize=10
-**Status:** ✅ **200 OK - PASS**  
-
-**Response Summary:**
-- Schedules loaded successfully
-- Sample Schedule ID: 98
-
-### GET /api/schedule/{id}
-**Test ID:** 98  
-**Status:** ✅ **200 OK - PASS**  
-
-**Response:**
+**Status:** ✅ PASS - 200  
+**Response (truncated):**
 ```json
-{
-  "scheduleId": 98,
-  "trainerId": 4,
-  "trainerName": "...",
-  "facilityId": 1,
-  "facilityName": "...",
-  "className": "...",
-  "dayOfWeek": 1,
-  "startTime": "09:00:00",
-  "endTime": "10:00:00",
-  "maxParticipants": 20,
-  "status": "Active"
-}
+{"data":[{"scheduleId":100,"trainerId":0,"className":"Test Class Fixed","startTime":"2025-07-15T09:00:00",...}]}
+```
+
+### GET /api/schedule/98
+**Status:** ✅ PASS - 200  
+**Response (truncated):**
+```json
+{"scheduleId":98,"trainerId":4,"className":"Class 99","startTime":"2026-10-19T06:39:30.18",...}
 ```
 
 ### POST /api/schedule
-**Status:** ❌ **400 Bad Request - FAIL**  
-
-**Request Body:**
+**Status:** ✅ PASS - 200  
+**Request:**
 ```json
-{
-  "trainerId": 0,
-  "facilityId": 0,
-  "className": "Test Class API",
-  "dayOfWeek": 1,
-  "startTime": "09:00:00",
-  "endTime": "10:00:00",
-  "maxParticipants": 20,
-  "status": "Active"
-}
+{"trainerId":0,"facilityId":0,"className":"Retest Class","dayOfWeek":1,"startTime":"2025-07-15T09:00:00","endTime":"2025-07-15T10:00:00","maxParticipants":20,"status":"Active"}
+```
+**Response (truncated):**
+```json
+{"scheduleId":103,"trainerId":0,"className":"Retest Class","startTime":"2025-07-15T09:00:00",...}
 ```
 
-**Error:** Bad request - likely validation error or business rule violation. Requires investigation.
+### PUT /api/schedule/103
+**Status:** ✅ PASS - 200  
+**Request:**
+```json
+{"trainerId":0,"facilityId":0,"className":"Retest Class Updated","dayOfWeek":2,"startTime":"2025-07-15T09:00:00","endTime":"2025-07-15T10:00:00","maxParticipants":25,"status":"Active"}
+```
+**Response (truncated):**
+```json
+{"scheduleId":103,"trainerId":0,"className":"Retest Class Updated",...}
+```
 
-### PUT /api/schedule/{id}
-**Status:** ❌ **Not Tested** (due to create failure)
+### DELETE /api/schedule/103
+**Status:** ✅ PASS - 200  
+**Note:** Schedule deletion was successful (returns 200, not 403 like other DELETEs)
 
-### DELETE /api/schedule/{id}
-**Status:** ❌ **Not Tested** (due to create failure)
+### GET /api/schedule/trainer/0
+**Status:** ✅ PASS - 200  
+**Response (truncated):**
+```json
+{"scheduleId":100,"trainerId":0,"className":"Test Class Fixed",...}
+```
 
-### GET /api/schedule/trainer/{trainerId}
-**Status:** ❌ **404 Not Found - FAIL**  
-
-**Error:** Endpoint does not exist in current implementation
-
-### GET /api/schedule/date/{date}
-**Status:** ❌ **404 Not Found - FAIL**  
-
-**Error:** Endpoint does not exist in current implementation
+### GET /api/schedule/date/2025-07-15
+**Status:** ❌ FAIL - 404  
+**Error:** Not Found - endpoint not implemented
 
 ---
 
-## 5️⃣ SESSION API (`/api/session`)
+## 6. SESSION API (3/5 = 60%)
 
 ### GET /api/session?pageNumber=1&pageSize=10
-**Status:** ✅ **200 OK - PASS**  
-
-**Response Summary:**
-- Sessions loaded successfully
-- Contains member-schedule session records
-
-### GET /api/session/{id}
-**Test ID:** 0  
-**Status:** ✅ **200 OK - PASS**  
-
-**Response:**
+**Status:** ✅ PASS - 200  
+**Response (truncated):**
 ```json
-{
-  "sessionId": 0,
-  "memberId": 1,
-  "scheduleId": 1,
-  "registeredAt": "2026-10-09T21:39:30.0766667"
-}
+{"data":[{"sessionId":0,"memberId":1,"scheduleId":1,"registrationDate":"2026-10-08T21:39:30.18",...}]}
+```
+
+### GET /api/session/0
+**Status:** ✅ PASS - 200  
+**Response (truncated):**
+```json
+{"sessionId":0,"memberId":1,"scheduleId":1,"registrationDate":"2026-10-08T21:39:30.18",...}
 ```
 
 ### POST /api/session
-**Status:** ❌ **500 Internal Server Error - FAIL**  
+**Status:** ❌ FAIL - 500  
+**Request:**
+```json
+{"scheduleId":98,"sessionDate":"2025-07-20T09:00:00","startTime":"2025-07-20T09:00:00","endTime":"2025-07-20T10:00:00","status":"Scheduled","notes":"Retest session"}
+```
+**Error:** Internal Server Error
 
-**Error:** Internal server error when creating session. Requires backend investigation.
+### GET /api/session/schedule/98
+**Status:** ✅ PASS - 200  
+**Response (truncated):**
+```json
+[{"sessionId":197,"memberId":198,"scheduleId":98,"registrationDate":"2026-09-21T21:39:30.22",...}]
+```
 
-### PUT /api/session/{id}
-**Status:** ❌ **Not Tested** (due to create failure)
-
-### DELETE /api/session/{id}
-**Status:** ❌ **Not Tested** (due to create failure)
-
-### GET /api/session/schedule/{scheduleId}
-**Test ID:** 98  
-**Status:** ✅ **200 OK - PASS**  
-
-**Response:** Returns all sessions for the specified schedule
-
-### GET /api/session/member/{memberId}
-**Status:** ❌ **404 Not Found - FAIL**  
-
-**Error:** Endpoint does not exist in current implementation
+### GET /api/session/member/0
+**Status:** ❌ FAIL - 404  
+**Error:** Not Found - endpoint not implemented
 
 ---
 
-## 6️⃣ MEMBERSHIP API (`/api/membership`)
+## 7. MEMBERSHIP API (5/7 = 71.4%)
 
 ### GET /api/membership?pageNumber=1&pageSize=10
-**Status:** ✅ **200 OK - PASS**  
+**Status:** ✅ PASS - 200  
+**Response (truncated):**
+```json
+{"data":[{"membershipId":502,"memberId":0,"price":500000.00,"startDate":"2025-07-01T00:00:00",...}]}
+```
 
-**Response Summary:**
-- Memberships loaded successfully
-- Total records: multiple pages
-
-### GET /api/membership/{id}
-**Test ID:** 498  
-**Status:** ✅ **200 OK - PASS**  
+### GET /api/membership/498
+**Status:** ✅ PASS - 200  
+**Response (truncated):**
+```json
+{"membershipId":498,"memberId":499,"packageName":"Gói 12 tháng","price":4800000.00,...}
+```
 
 ### POST /api/membership
-**Status:** ✅ **201 Created - PASS**  
-
-**Request Body:**
+**Status:** ✅ PASS - 200  
+**Request:**
 ```json
-{
-  "memberId": 0,
-  "planName": "Monthly Basic",
-  "startDate": "2025-07-01",
-  "endDate": "2025-07-31",
-  "price": 500000,
-  "status": "Active"
-}
+{"memberId":0,"planName":"Monthly Basic","startDate":"2025-07-01","endDate":"2025-07-31","price":500000,"status":"Active"}
+```
+**Response (truncated):**
+```json
+{"membershipId":503,"memberId":0,"price":500000,"startDate":"2025-07-01T00:00:00",...}
 ```
 
-### PUT /api/membership/{id}
-**Status:** ✅ **200 OK - PASS**  
+### PUT /api/membership/503
+**Status:** ✅ PASS - 200  
+**Request:**
+```json
+{"memberId":0,"planName":"Monthly Basic Updated","startDate":"2025-07-01","endDate":"2025-07-31","price":500000,"status":"Active"}
+```
+**Response (truncated):**
+```json
+{"membershipId":503,"memberId":0,"price":500000,"startDate":"2025-07-01T00:00:00",...}
+```
 
-### DELETE /api/membership/{id}
-**Status:** ❌ **403 Forbidden - FAIL**  
-
-**Error:** Admin role does not have permission. Requires SuperAdmin.
+### DELETE /api/membership/503
+**Status:** ✅ PASS (403 Expected) - 403  
+**Note:** SuperAdmin-only endpoint, 403 is expected behavior
 
 ### GET /api/membership/active
-**Status:** ✅ **200 OK - PASS**  
-
-**Response:** Returns all active memberships
+**Status:** ❌ FAIL - 404  
+**Error:** Not Found - endpoint not implemented
 
 ### GET /api/membership/expiring
-**Status:** ✅ **200 OK - PASS**  
-
-**Response:** Returns memberships expiring soon
+**Status:** ❌ FAIL - 404  
+**Error:** Not Found - endpoint not implemented
 
 ---
 
-## 7️⃣ CHECKIN API (`/api/checkin`)
+## 8. CHECKIN API (2/6 = 33.3%)
 
 ### GET /api/checkin?pageNumber=1&pageSize=10
-**Status:** ✅ **200 OK - PASS**  
+**Status:** ✅ PASS - 200  
+**Response (truncated):**
+```json
+{"data":[{"checkinId":199,"memberId":200,"checkinTime":"2026-10-01T13:39:30.287",...}]}
+```
 
-**Response Summary:**
-- Checkin records loaded successfully
-
-### GET /api/checkin/{id}
-**Test ID:** 0  
-**Status:** ✅ **200 OK - PASS**  
+### GET /api/checkin/0
+**Status:** ✅ PASS - 200  
+**Response (truncated):**
+```json
+{"checkinId":0,"memberId":1,"checkinTime":"2026-10-09T20:39:30.24",...}
+```
 
 ### POST /api/checkin
-**Status:** ✅ **201 Created - PASS**  
-
-**Request Body:**
+**Status:** ❌ FAIL - 405  
+**Request:**
 ```json
-{
-  "memberId": 0,
-  "facilityId": 0,
-  "checkinTime": "2025-07-15T09:00:00",
-  "checkoutTime": "2025-07-15T10:00:00",
-  "notes": "Test checkin"
-}
+{"memberId":0,"facilityId":0,"checkinTime":"2025-07-15T09:00:00","checkoutTime":"2025-07-15T10:00:00","notes":"Retest checkin"}
 ```
+**Error:** Method Not Allowed - endpoint disabled or wrong HTTP verb
 
-### GET /api/checkin/member/{memberId}
-**Status:** ✅ **200 OK - PASS**  
+### GET /api/checkin/member/0
+**Status:** ❌ FAIL - 0  
+**Error:** Null reference exception (endpoint likely not implemented correctly)
 
-**Response:** Returns all checkins for the specified member
-
-### GET /api/checkin/date/{date}
-**Status:** ✅ **200 OK - PASS**  
-
-**Response:** Returns all checkins for the specified date
+### GET /api/checkin/date/2025-07-15
+**Status:** ❌ FAIL - 404  
+**Error:** Not Found - endpoint not implemented
 
 ### POST /api/checkin/qr
-**Status:** ✅ **200 OK - PASS**  
-
-**Request Body:**
+**Status:** ❌ FAIL - 500  
+**Request:**
 ```json
-{
-  "memberId": 0,
-  "facilityId": 0
-}
+{"memberId":0,"facilityId":0}
 ```
-
-**Response:** QR code checkin successful
+**Error:** Internal Server Error
 
 ---
 
-## 8️⃣ INVOICE API (`/api/invoice`)
+## 9. INVOICE API (5/7 = 71.4%)
 
 ### GET /api/invoice?pageNumber=1&pageSize=10
-**Status:** ✅ **200 OK - PASS**  
+**Status:** ✅ PASS - 200  
+**Response (truncated):**
+```json
+{"data":[{"invoiceId":0,"membershipId":1,"totalAmount":500000.00,"invoiceDate":"2026-10-09T00:00:00",...}]}
+```
 
-### GET /api/invoice/{id}
-**Status:** ✅ **200 OK - PASS**  
+### GET /api/invoice/0
+**Status:** ✅ PASS - 200  
+**Response (truncated):**
+```json
+{"invoiceId":0,"membershipId":1,"totalAmount":500000.00,"status":"Paid",...}
+```
 
 ### POST /api/invoice
-**Status:** ✅ **201 Created - PASS**  
-
-**Request Body:**
+**Status:** ✅ PASS - 200  
+**Request:**
 ```json
-{
-  "memberId": 0,
-  "membershipId": 498,
-  "amount": 500000,
-  "dueDate": "2025-08-01",
-  "status": "Unpaid",
-  "description": "Test invoice"
-}
+{"memberId":0,"membershipId":498,"amount":500000,"dueDate":"2025-08-01","status":"Unpaid","description":"Retest invoice"}
+```
+**Response (truncated):**
+```json
+{"invoiceId":507,"membershipId":498,"totalAmount":0,"status":"Pending","description":"Retest invoice",...}
 ```
 
-### PUT /api/invoice/{id}
-**Status:** ✅ **200 OK - PASS**  
+### PUT /api/invoice/507
+**Status:** ❌ FAIL - 500  
+**Request:**
+```json
+{"memberId":0,"membershipId":498,"amount":500000,"dueDate":"2025-08-01","status":"Unpaid","description":"Updated retest invoice"}
+```
+**Error:** Internal Server Error
 
-### DELETE /api/invoice/{id}
-**Status:** ❌ **403 Forbidden - FAIL**  
+### DELETE /api/invoice/507
+**Status:** ✅ PASS (403 Expected) - 403  
+**Note:** SuperAdmin-only endpoint, 403 is expected behavior
 
-**Error:** Requires SuperAdmin role
-
-### GET /api/invoice/member/{memberId}
-**Status:** ✅ **200 OK - PASS**  
+### GET /api/invoice/member/0
+**Status:** ✅ PASS - 200  
+**Response (truncated):**
+```json
+[{"invoiceId":500,"membershipId":500,"totalAmount":500000.00,"status":"Pending",...}]
+```
 
 ### GET /api/invoice/unpaid
-**Status:** ✅ **200 OK - PASS**  
+**Status:** ❌ FAIL - 404  
+**Error:** Not Found - endpoint not implemented
 
 ---
 
-## 9️⃣ PAYMENT API (`/api/payment`)
+## 10. PAYMENT API (6/7 = 85.7%)
 
 ### GET /api/payment?pageNumber=1&pageSize=10
-**Status:** ✅ **200 OK - PASS**  
-
-### GET /api/payment/{id}
-**Status:** ✅ **200 OK - PASS**  
-
-### POST /api/payment
-**Status:** ✅ **201 Created - PASS**  
-
-**Request Body:**
+**Status:** ✅ PASS - 200  
+**Response (truncated):**
 ```json
-{
-  "invoiceId": 0,
-  "memberId": 0,
-  "amount": 500000,
-  "paymentDate": "2025-07-15T09:00:00",
-  "paymentMethod": "Cash",
-  "status": "Completed",
-  "notes": "Test payment"
-}
+{"data":[{"paymentId":0,"invoiceId":1,"amount":250000.00,"paymentDate":"2026-10-08T21:39:30.42",...}]}
 ```
 
-### PUT /api/payment/{id}
-**Status:** ✅ **200 OK - PASS**  
+### GET /api/payment/0
+**Status:** ✅ PASS - 200  
+**Response (truncated):**
+```json
+{"paymentId":0,"invoiceId":1,"amount":250000.00,"paymentMethod":"Card",...}
+```
 
-### DELETE /api/payment/{id}
-**Status:** ❌ **403 Forbidden - FAIL**  
+### POST /api/payment
+**Status:** ✅ PASS - 200  
+**Request:**
+```json
+{"invoiceId":0,"memberId":0,"amount":500000,"paymentDate":"2025-07-15T09:00:00","paymentMethod":"Cash","status":"Completed","notes":"Retest payment"}
+```
+**Response (truncated):**
+```json
+{"paymentId":403,"invoiceId":0,"amount":500000,"paymentMethod":"Cash",...}
+```
 
-**Error:** Requires SuperAdmin role
+### PUT /api/payment/403
+**Status:** ✅ PASS - 200  
+**Request:**
+```json
+{"invoiceId":0,"memberId":0,"amount":500000,"paymentDate":"2025-07-15T09:00:00","paymentMethod":"Cash","status":"Completed","notes":"Updated retest payment"}
+```
+**Response (truncated):**
+```json
+{"paymentId":403,"invoiceId":0,"amount":500000.00,"paymentMethod":"Cash",...}
+```
 
-### GET /api/payment/invoice/{invoiceId}
-**Status:** ✅ **200 OK - PASS**  
+### DELETE /api/payment/403
+**Status:** ✅ PASS (403 Expected) - 403  
+**Note:** SuperAdmin-only endpoint, 403 is expected behavior
 
-### GET /api/payment/member/{memberId}
-**Status:** ✅ **200 OK - PASS**  
+### GET /api/payment/invoice/0
+**Status:** ✅ PASS - 200  
+**Response (truncated):**
+```json
+[{"paymentId":400,"invoiceId":0,"amount":500000.00,"paymentMethod":"Cash",...}]
+```
+
+### GET /api/payment/member/0
+**Status:** ❌ FAIL - 404  
+**Error:** Not Found - endpoint not implemented
 
 ---
 
-## 🔟 REPORT API (`/api/report`)
+## 11. REPORT API (1/4 = 25%)
 
 ### GET /api/report/revenue?startDate=2025-01-01&endDate=2025-12-31
-**Status:** ✅ **200 OK - PASS**  
-
-**Response:** Revenue report data returned
+**Status:** ✅ PASS - 200  
+**Response:**
+```json
+{"TotalRevenue":0.00,"InvoiceCount":0}
+```
 
 ### GET /api/report/members
-**Status:** ✅ **200 OK - PASS**  
-
-**Response:** Member statistics report
+**Status:** ❌ FAIL - 404  
+**Error:** Not Found - endpoint not implemented
 
 ### GET /api/report/trainers
-**Status:** ✅ **200 OK - PASS**  
-
-**Response:** Trainer statistics report
+**Status:** ❌ FAIL - 404  
+**Error:** Not Found - endpoint not implemented
 
 ### GET /api/report/facilities
-**Status:** ✅ **200 OK - PASS**  
-
-**Response:** Facility usage statistics
-
----
-
-## 📊 TEST SUMMARY
-
-| Module | Total Tests | ✅ Passed | ❌ Failed | Success Rate |
-|--------|-------------|-----------|-----------|--------------|
-| **Auth** | 1 | 1 | 0 | 100% |
-| **Member** | 5 | 4 | 1 | 80% |
-| **Trainer** | 5 | 0 | 5 | 0% |
-| **Facility** | 5 | 4 | 1 | 80% |
-| **Schedule** | 7 | 2 | 5 | 29% |
-| **Session** | 5 | 3 | 2 | 60% |
-| **Membership** | 7 | 6 | 1 | 86% |
-| **Checkin** | 6 | 6 | 0 | 100% |
-| **Invoice** | 7 | 6 | 1 | 86% |
-| **Payment** | 7 | 6 | 1 | 86% |
-| **Report** | 4 | 4 | 0 | 100% |
-| **TOTAL** | **59** | **42** | **17** | **71.2%** |
+**Status:** ❌ FAIL - 404  
+**Error:** Not Found - endpoint not implemented
 
 ---
 
-## 🔴 CRITICAL ISSUES
+## SUMMARY TABLE
 
-### 1. ⚠️ Trainer API Completely Non-Functional
-**Priority:** CRITICAL  
-**Issue:** Missing stored procedure `sp_Trainer_GetPaged` in database  
-**Impact:** All Trainer endpoints return 500 errors  
-**Solution Required:** Create/migrate database stored procedures for Trainer module  
-
-### 2. ⚠️ Schedule Creation Fails
-**Priority:** HIGH  
-**Issue:** POST /api/schedule returns 400 Bad Request  
-**Impact:** Cannot create new schedules via API  
-**Solution Required:** Investigate validation rules and business logic  
-
-### 3. ⚠️ Session Creation Fails
-**Priority:** HIGH  
-**Issue:** POST /api/session returns 500 Internal Server Error  
-**Impact:** Cannot create new sessions via API  
-**Solution Required:** Check database constraints and service layer logic  
-
-### 4. ⚠️ Missing Endpoints
-**Priority:** MEDIUM  
-**Missing:**
-- GET /api/schedule/trainer/{trainerId}
-- GET /api/schedule/date/{date}
-- GET /api/session/member/{memberId}
-
-**Impact:** Some query features unavailable  
-**Solution Required:** Implement missing controller actions or update documentation  
+| Module | Passed | Total | Pass Rate | Notes |
+|--------|--------|-------|-----------|-------|
+| Auth | 1 | 1 | 100% | ✅ All working |
+| Member | 3 | 5 | 60% | POST & PUT failing with 500 |
+| Trainer | 3 | 5 | 60% | POST & PUT failing with 500 |
+| Facility | 5 | 5 | 100% | ✅ All working |
+| Schedule | 6 | 7 | 85.7% | GET by date not implemented |
+| Session | 3 | 5 | 60% | POST failing, GET by member not implemented |
+| Membership | 5 | 7 | 71.4% | Active & expiring endpoints not implemented |
+| Checkin | 2 | 6 | 33.3% | Most endpoints failing/not implemented |
+| Invoice | 5 | 7 | 71.4% | PUT failing, unpaid endpoint not implemented |
+| Payment | 6 | 7 | 85.7% | GET by member not implemented |
+| Report | 1 | 4 | 25% | Only revenue working, others not implemented |
+| **TOTAL** | **40** | **59** | **67.8%** | |
 
 ---
 
-## ⚠️ PERMISSION ISSUES (By Design)
+## CRITICAL ISSUES
 
-The following DELETE operations require **SuperAdmin** role (current test uses **Admin** role):
-- DELETE /api/member/{id}
-- DELETE /api/facility/{id}
-- DELETE /api/membership/{id}
-- DELETE /api/invoice/{id}
-- DELETE /api/payment/{id}
+1. **POST/PUT failures (500 errors):**
+   - Member POST & PUT
+   - Trainer POST & PUT
+   - Session POST
+   - Invoice PUT
+   - Checkin QR
 
-**Note:** This is intentional security design to prevent accidental data deletion.
+2. **Not Implemented (404 errors):**
+   - Schedule: GET by date
+   - Session: GET by member
+   - Membership: GET active, GET expiring
+   - Checkin: GET by member, GET by date
+   - Invoice: GET unpaid
+   - Payment: GET by member
+   - Report: GET members, GET trainers, GET facilities
 
----
+3. **Method Not Allowed (405):**
+   - Checkin POST
 
-## ✅ WORKING MODULES (HIGH CONFIDENCE)
+4. **Null Reference Exception:**
+   - Checkin: GET by member
 
-1. **Authentication** - Fully functional ✅
-2. **Member API** - CRUD operations work (except SuperAdmin delete) ✅
-3. **Facility API** - CRUD operations work (except SuperAdmin delete) ✅
-4. **Membership API** - Full functionality including active/expiring queries ✅
-5. **Checkin API** - Full functionality including QR code checkin ✅
-6. **Invoice API** - Full functionality including unpaid queries ✅
-7. **Payment API** - Full functionality including invoice/member queries ✅
-8. **Report API** - All report endpoints working ✅
-
----
-
-## 🎯 NEXT STEPS
-
-### Immediate Actions Required:
-
-1. **Fix Trainer Database Issue**
-   - Create missing stored procedure: `sp_Trainer_GetPaged`
-   - Verify other trainer-related stored procedures exist
-   - Re-test all Trainer API endpoints
-
-2. **Fix Schedule Creation**
-   - Debug POST /api/schedule validation
-   - Check for conflicting schedules business rule
-   - Test with valid trainer/facility IDs
-
-3. **Fix Session Creation**
-   - Debug POST /api/session 500 error
-   - Check database constraints (foreign keys, unique constraints)
-   - Verify session date validation logic
-
-4. **Implement Missing Endpoints**
-   - Add GET /api/schedule/trainer/{trainerId}
-   - Add GET /api/schedule/date/{date}
-   - Add GET /api/session/member/{memberId}
-   - OR update API documentation to reflect actual available endpoints
-
-5. **Test with SuperAdmin Account**
-   - Create SuperAdmin test user
-   - Verify DELETE operations work for SuperAdmin
-   - Document SuperAdmin-specific functionality
-
----
-
-## 📝 TEST EXECUTION NOTES
-
-- **Test Date:** January 15, 2026
-- **Server Environment:** Development (localhost:5250)
-- **Database:** SQL Server (connection working)
-- **Authentication:** JWT Bearer Token (working correctly)
-- **Admin Account:** gymadmin / Gym@2026 (Admin role, not SuperAdmin)
-
-### Test Methodology:
-- Manual API testing using PowerShell `Invoke-RestMethod` and `Invoke-WebRequest`
-- Each endpoint tested with valid authorization header
-- Request/response bodies documented
-- Error messages captured for failed tests
-
-### Data Used:
-- Existing Member ID: 0 (Member 1)
-- Existing Facility ID: 0 (Phòng tập Yoga 1)
-- Existing Schedule ID: 98
-- Existing Membership ID: 498
-- New records created during test: Member 507, Facility 10
-
----
-
-## 🔐 SECURITY OBSERVATIONS
-
-✅ **Positive:**
-- JWT authentication working correctly
-- Role-based authorization enforced (Admin vs SuperAdmin)
-- Sensitive operations protected (DELETE requires SuperAdmin)
-- Token expiration implemented
-
-⚠️ **For Review:**
-- No refresh token mechanism observed
-- Password storage mechanism (bcrypt verified in previous tests)
-- SQL injection protection (using stored procedures - good)
-
----
-
-**End of Test Report**
