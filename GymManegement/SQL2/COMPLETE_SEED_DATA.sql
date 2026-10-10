@@ -310,7 +310,8 @@ GO
 -- ============================================================
 PRINT 'Seeding Sessions table...';
 
--- Register 20 members to various schedules
+-- Register members to various schedules (first 60 schedules for demonstration)
+-- Note: Only seeding first 60 out of 240 schedules to avoid excessive data
 DECLARE @SessionScheduleId INT = 1;
 DECLARE @SessionMemberId INT;
 DECLARE @j INT = 0;
@@ -342,7 +343,7 @@ BEGIN
     SET @SessionScheduleId = @SessionScheduleId + 1;
 END
 
-PRINT '✓ 600 Sessions created (60 schedules × 10 registrations each)';
+PRINT '✓ 600 Sessions created (60 schedules × 10 registrations each, remaining schedules have no registrations yet)';
 GO
 
 -- ============================================================

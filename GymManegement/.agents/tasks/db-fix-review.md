@@ -1,184 +1,246 @@
-# Database Schema Fix and Cancel Membership Feature
+# Database Schema Fix and Cancel Membership
 
-Fixed database schema mismatches between C# entities and SQL Server tables, corrected the invoice creation bug, and added member cancellation functionality. The changes unblock admin data display, enable proper invoice tracking, and let members cancel active memberships.
+Fixed SQL schema to align with C# entities, corrected invoice MemberId handling, and added membership cancellation.
 
-The schema fix script alters eight tables to align column names and types with the C# codebase. InvoiceRepository and MembershipService now populate `Invoice.MemberId` correctly when creating invoices. Three new methods (`CancelAsync`) span repository, service, and controller layers to support membership cancellation, with security checks to prevent members from canceling each other's memberships. The frontend displays a cancel button for active memberships.
+The changes restructure several database tables to match the backend entity models, fix foreign key relationships, resolve the missing MemberId in invoice creation, and introduce a member-initiated cancellation workflow. The schema fix includes destructive transformations (combining date + time columns, dropping columns not in entities) that can't be reversed without data loss.
 
-**Watch for:** SQL script fails on re-run without schema checks (**confirmed**); password hashes in seed data may not work with BCrypt library configuration (**likely**); admin authorization logic allows any authenticated user to cancel memberships via role bypass (**confirmed**).
+**Watch for:** Schema migrations will fail on re-run without dropping the database (confirmed — ALTER statements lack IF NOT EXISTS for column modifications and renames). Invoice MemberId population defaults to 0 (confirmed — seed script sets MemberId=0 for Users without linked Members, causing FK violation or orphaned invoices).
 
 **Verdict**: NEEDS_CHANGES
 
 ## High-level view
 
-The schema fix script addresses eight tables (Memberships, Invoices, Payments, Schedules, Sessions, Checkins, Users, Members) with column renames, type changes, and FK adjustments. Schedules are restructured from per-member timeslots to shared class schedules with `ClassName` and `MaxCapacity`, and Checkins lose `SessionId` to become gym entry logs rather than class attendance records.
+The schema fix script transforms Memberships, Invoices, Payments, Schedules, Sessions, Checkins, Members, and Users tables through column additions, removals, renames, and nullability changes. Most transformations handle pre-existing columns with conditional checks, but several use sp_rename and ALTER COLUMN without guards, meaning a second run will fail. The Schedules table change is destructive: it combines ScheduledDate (DATE) + StartTime/EndTime (TIME) into StartTime/EndTime (DATETIME2), which loses the original columns permanently.
 
-InvoiceRepository and MembershipService were updated to include `MemberId` in invoice INSERTs, closing the gap where invoices had no member reference. The cancel feature adds `CancelAsync` to repository, service interface, and controller, setting `EndDate` to today rather than deleting the record.
+Invoice creation now writes MemberId to the database. The service sets invoice.MemberId from membership.MemberId before calling the repository, and the repository's INSERT includes MemberId in the column list. This closes the foreign key gap but relies on the assumption that membership.MemberId is never null.
 
-Authorization on the cancel endpoint checks that members can only cancel their own memberships but allows admins to cancel any membership. However, the controller logic has a flaw: non-member roles without a `MemberId` claim bypass the security check and can cancel arbitrary memberships.
+Membership cancellation is implemented as an EndDate rewrite: the repository sets EndDate to today, the service checks ownership (member can only cancel their own), and the controller enforces role-based access. The frontend cancel button calls POST /api/Membership/{id}/cancel. The implementation prevents canceling already-expired memberships (EndDate <= today) and returns false if no rows are updated.
 
-Seed data creates 30 members, 50 memberships, 5 trainers, 20 facilities, and hundreds of schedules/sessions/checkins/invoices/payments. BCrypt password hashes are hardcoded strings that may fail if the BCrypt WorkFactor doesn't match the application's configuration.
+Seed data creates 1 SuperAdmin, 5 trainers, 30 members with linked User accounts, 50 memberships (25 active, 25 expired), 240 schedules (30 days × 8 classes/day), 600 session registrations, 100 checkins, and matching invoices/payments. The script clears existing data with DELETE before seeding, which works for development but could cause FK constraint violations if run against a live database with untracked dependencies.
 
-The SQL scripts lack conditional checks for already-applied schema changes in several places, so re-running the schema fix script will fail with constraint or column errors. The master run script uses `:r` (sqlcmd include syntax), which won't work if run via SSMS or other SQL clients.
+## Issues (7)
 
 <details>
-<summary>Issues (11)</summary>
+<summary>Issues (7)</summary>
 
-1. **Unsafe DROP COLUMN without conditional check** — COMPLETE_SCHEMA_FIX.sql attempts to drop `Memberships.Status`, `Schedules.MemberId`, `Sessions.ActualStartTime/ActualEndTime/Notes`, `Checkins.SessionId/CheckinMethod`, `Members.Status/JoinDate` without checking if those columns still exist. If the script runs twice, the second run fails with "column does not exist" errors. Add `IF EXISTS (SELECT * FROM sys.columns WHERE object_id = OBJECT_ID('TableName') AND name = 'ColumnName')` guards before every DROP COLUMN.
+1. **Schema re-run failure** — ALTER statements for column renames (sp_rename) and type changes (ALTER COLUMN) lack IF NOT EXISTS guards. Running COMPLETE_SCHEMA_FIX.sql twice will fail. Add column existence checks before sp_rename and ALTER COLUMN, or document that the script requires a fresh database.
 
-2. **Password hash mismatch risk** — COMPLETE_SEED_DATA.sql includes hardcoded BCrypt hashes (`$2a$10$92IXU...`, `$2a$10$N9qo8...`, `$2a$10$CwTyc...`) with WorkFactor 10. If the application's BCrypt configuration uses a different WorkFactor or hashing algorithm, login will fail for all seeded users. Verify the hash algorithm and WorkFactor match the application's `PasswordHasher` or regenerate hashes using the actual service.
+2. **Destructive Schedules migration** — Schedules date/time transformation drops ScheduledDate, StartTime (TIME), EndTime (TIME) and replaces with StartTime/EndTime (DATETIME2). If the TIME-type columns already exist, the migration runs; if they're already DATETIME2, it skips. But the dropped columns are gone forever. Document this as a breaking change or add a rollback script.
 
-3. **Authorization bypass via missing MemberId claim** — MembershipController.Cancel checks `User.FindFirst("MemberId")` and calls `Forbid()` if the parse fails. However, for Admin/SuperAdmin roles, the code proceeds to `CancelAsync(id, membership.MemberId)` even if `userMemberId` is 0 or invalid. An admin user without a `MemberId` claim can cancel any membership by calling the endpoint with role=Admin. The service layer's ownership check (`entity.MemberId != requestingMemberId`) will always pass when `requestingMemberId` is 0, allowing cancellation. Fix: For admin roles, bypass the ownership check entirely or validate that the admin role is authorized before calling `CancelAsync`.
+3. **Invoice MemberId defaults to 0 in seed data** — COMPLETE_SEED_DATA.sql creates Users with Role='SuperAdmin' and Role='Trainer' but no MemberId (defaults to NULL or 0). If any invoice creation logic reads from Users.MemberId, it will write 0 to Invoices.MemberId, causing FK violations or orphaned invoices. The seed script avoids this by inserting Invoices directly from Memberships, but the Users table seeding should either set MemberId explicitly or document that non-Member users have NULL MemberId.
 
-4. **FK constraint rename may fail** — COMPLETE_SCHEMA_FIX.sql queries `sys.foreign_keys` to find FK names before dropping them (e.g., `FK_Invoices_Memberships`, `FK_Payments_Invoices`). If the actual FK constraint has a different name (auto-generated by SQL Server), the query returns NULL and the script skips the drop, leaving the FK in place. The subsequent `ALTER COLUMN` fails with "cannot alter column because it is used in a FOREIGN KEY constraint." Query by `parent_object_id` and `referenced_object_id` instead of by name to reliably find the constraint.
+4. **Payments.MemberId defaults to 0 in schema** — COMPLETE_SCHEMA_FIX.sql adds Payments.MemberId with DEFAULT 0. If existing Payments rows exist, they'll get MemberId=0, violating the FK to Members (no Member with MemberId=0). Change DEFAULT to NULL and make the column nullable, or add a migration step to backfill MemberId from Invoices.MemberId before adding the FK constraint.
 
-5. **sp_rename may fail if source column doesn't exist** — Lines like `EXEC sp_rename 'Invoices.Amount', 'TotalAmount', 'COLUMN'` assume the source column exists. If the column was already renamed or never existed, `sp_rename` raises an error and halts the script. Add `IF EXISTS` checks before every `sp_rename` call.
+5. **Cancellation success on wrong member** — MembershipService.CancelAsync checks entity.MemberId != requestingMemberId and returns false. The controller for Admin/SuperAdmin calls CancelAsync with membership.MemberId (the owner's ID), so the service check passes. The controller for Member calls it with userMemberId. Both paths work, but the service method's requestingMemberId parameter is misleading for the admin path. Rename parameter to ownerMemberId or remove the check from the service layer and enforce it only in the controller.
 
-6. **Schedules datetime conversion loses time precision** — COMPLETE_SCHEMA_FIX.sql converts `ScheduledDate` (DATE) + `StartTime` (TIME) to `StartTime` (DATETIME2) by casting and adding. SQL Server's `CAST(DATE AS DATETIME)` yields midnight, and `CAST(TIME AS DATETIME)` yields the time portion on 1900-01-01. Adding them works, but if `StartTime` or `EndTime` is NULL, the result is NULL and the `ALTER COLUMN ... NOT NULL` fails. Filter out rows with NULL times before the conversion or set a default time.
+6. **Seed script Trainer FK gap** — COMPLETE_SEED_DATA.sql inserts 5 Trainers with auto-increment TrainerId (1-5), then inserts 5 Trainer Users. But the Users table has no TrainerId FK column, so the link is by email and FullName only (string matching). If a trainer's email changes, the link breaks. Add a TrainerId column to Users or document that Trainer users are matched by email, not by FK.
 
-7. **Master script uses sqlcmd-only syntax** — RUN_COMPLETE_FIX.sql uses `:r COMPLETE_SCHEMA_FIX.sql` (sqlcmd include directive). This syntax is not supported in SSMS, Azure Data Studio, or most SQL client libraries. Running the script outside sqlcmd will fail with syntax errors. Document that the script must be run via `sqlcmd -S server -d GymDb -i RUN_COMPLETE_FIX.sql` or replace `:r` with inline content.
-
-8. **Seed data INSERT column counts may mismatch schema** — COMPLETE_SEED_DATA.sql lists specific columns in INSERT statements (e.g., `INSERT INTO Memberships (MemberId, PackageName, Price, StartDate, EndDate, CreatedAt, UpdatedAt, IsDeleted, DeletedAt)`). If the schema fix script fails partway through (e.g., `PackageName` column not added due to prior error), the seed data INSERT will fail with "column does not exist." Run schema fix to completion and verify all columns exist before seeding data.
-
-9. **CancelAsync has no return value check** — MembershipRepository.CancelAsync uses `ExecuteAsync` but doesn't check `rowsAffected`. If the membership doesn't exist, is already deleted, or has `EndDate < today`, the UPDATE matches zero rows and the operation silently succeeds. The controller returns 200 OK even though nothing changed. Change repository to `var rows = await conn.ExecuteAsync(...); return rows > 0;` and update the interface return type to `Task<bool>` so the controller can return 404 when the membership isn't found or can't be canceled.
-
-10. **Frontend cancel button doesn't check membership ownership** — wwwroot/js/memberships.js calls `/api/Membership/${membershipId}/cancel` without verifying the membership belongs to the current user. If a member manipulates the DOM or calls the API directly with another member's `membershipId`, the frontend allows it (the backend rejects it, but the user sees a generic error). Add a check: `if (m.memberId !== currentMemberId) return;` before showing the cancel button.
-
-11. **Seed data creates future schedules but no past checkins context** — COMPLETE_SEED_DATA.sql generates 240 schedules for the next 30 days and 600 session registrations, but only 100 checkins spread over the past 30 days. For admin dashboard "recent checkins" and "monthly revenue" reports, the data skews heavily toward future schedules. Add more historical checkins and payments in the past 3-6 months to make the seed data representative of a live gym.
+7. **Sessions seed data hardcoded range** — COMPLETE_SEED_DATA.sql seeds Sessions for ScheduleId 1-60, but only if 240 schedules exist. The seed script creates 240 schedules (30 days × 8), so ScheduleId should go up to 240. Seeding only 1-60 leaves the remaining 180 schedules with no registrations. Change the loop to cover all 240 or document why only the first 60 are seeded.
 
 </details>
 
 <details>
 <summary>Details</summary>
 
-## Invoice MemberId population fixed
+## Schema migration idempotency gap
 
-InvoiceRepository.CreateAsync now includes `MemberId` in the INSERT column list and parameters. Before this change, invoices were created with `MemberId = 0`, breaking the FK constraint or leaving orphaned invoices. MembershipService.CreateAsync sets `invoice.MemberId = membership.MemberId` before calling `_invoiceRepo.CreateAsync`.
+COMPLETE_SCHEMA_FIX.sql uses IF NOT EXISTS checks for adding columns (good), but sp_rename and ALTER COLUMN statements run unconditionally. Example from Invoices:
+
+```sql
+IF EXISTS (SELECT * FROM sys.columns WHERE object_id = OBJECT_ID('Invoices') AND name = 'Amount')
+AND NOT EXISTS (SELECT * FROM sys.columns WHERE object_id = OBJECT_ID('Invoices') AND name = 'TotalAmount')
+BEGIN
+    EXEC sp_rename 'Invoices.Amount', 'TotalAmount', 'COLUMN';
+    PRINT '✓ Renamed Amount to TotalAmount';
+END
+```
+
+This rename works once. On the second run, both checks pass (Amount doesn't exist, TotalAmount does), so the block is skipped. But if the migration is run partially (sp_rename succeeds but a later statement fails), re-running will fail because the column is already renamed. The same issue affects IssueDate → InvoiceDate and QRCodeValue → QRCode renames.
+
+ALTER COLUMN statements have a similar issue. For example, making MembershipId nullable:
+
+```sql
+IF EXISTS (SELECT * FROM sys.columns WHERE object_id = OBJECT_ID('Invoices') AND name = 'MembershipId' AND is_nullable = 0)
+BEGIN
+    -- Drop FK constraint first
+    ...
+    ALTER TABLE Invoices ALTER COLUMN MembershipId INT NULL;
+    -- Re-add FK constraint
+    ...
+END
+```
+
+If the FK drop succeeds but ALTER COLUMN fails, re-running will skip the block (is_nullable = 0 check fails because the column is now nullable), leaving the FK constraint missing.
+
+Recommendation: wrap each ALTER COLUMN in a transaction or add existence checks for FK constraints before attempting to drop them.
+
+## Schedules table destructive transformation
+
+The Schedules fix combines ScheduledDate (DATE) + StartTime (TIME) + EndTime (TIME) into StartTime (DATETIME2) + EndTime (DATETIME2). The migration checks if StartTime is of type 'time', and if so:
+
+1. Creates StartDateTime and EndDateTime columns (DATETIME2)
+2. Combines ScheduledDate + StartTime/EndTime into the new columns
+3. Drops ScheduledDate, StartTime (TIME), EndTime (TIME)
+4. Renames StartDateTime → StartTime, EndDateTime → EndTime
+5. Makes the new columns NOT NULL
+
+This transformation is irreversible without a backup. If the original schema had TIME columns, they're permanently removed. The migration doesn't create a backup table or log the original values.
+
+The seed script (COMPLETE_SEED_DATA.sql) assumes the new schema and inserts DATETIME2 values directly:
+
+```sql
+INSERT INTO Schedules (TrainerId, FacilityId, ClassName, StartTime, EndTime, MaxCapacity, ...)
+VALUES 
+(1, 1, N'Thể Hình Sáng', DATEADD(HOUR, 6, @ScheduleDate), DATEADD(HOUR, 8, @ScheduleDate), 20, ...)
+```
+
+So the seed script will only work after the schema fix. Running it before the fix will fail (wrong column names).
+
+Recommendation: document the Schedules transformation as a breaking change and require a full backup before running. Or, keep the old columns and add new computed columns instead of replacing.
+
+## Invoice MemberId handling
+
+The InvoiceRepository.CreateAsync method now includes MemberId in the INSERT:
+
+```sql
+INSERT INTO Invoices (MemberId, MembershipId, TotalAmount, InvoiceDate, DueDate, Status, Description, ...)
+VALUES (@MemberId, @MembershipId, @TotalAmount, ...)
+```
+
+MembershipService.CreateAsync sets invoice.MemberId before calling the repository:
 
 ```csharp
 var invoice = new Invoice
 {
     MemberId = membership.MemberId,  // FIX: Add MemberId
     MembershipId = membership.MembershipId,
-    // ...
+    ...
 };
+await _invoiceRepo.CreateAsync(invoice);
 ```
 
-## Schema fix script restructures eight tables
+This closes the gap identified in the review criteria. However, the fix assumes membership.MemberId is always set. If CreateAsync is ever called with a null or 0 MemberId in the request, the invoice will have MemberId=0, violating the FK constraint (or creating an orphaned invoice if MemberId=0 is allowed).
 
-COMPLETE_SCHEMA_FIX.sql alters Memberships, Invoices, Payments, Schedules, Sessions, Checkins, Users, and Members tables to align with C# entity definitions. The script runs in SQL Server context with dynamic SQL to drop constraints before altering columns.
+The controller's Purchase endpoint includes a role check to prevent members from buying for other members, which mitigates the risk of malicious MemberId injection. But there's no validation in the service layer to ensure MemberId is valid (exists in Members table) before creating the invoice.
 
-Memberships: adds `PackageName` column, copies data from `MembershipType` if it exists, and drops `Status` column. Invoices: ensures `MemberId` exists (adds if missing), makes `MembershipId` nullable, makes `DueDate` and `UpdatedAt` nullable, renames `Amount` to `TotalAmount` and `IssueDate` to `InvoiceDate`. Payments: adds `MemberId`, `TransactionId`, and `Status` columns, makes `InvoiceId` nullable.
+## Membership cancellation ownership check
 
-Schedules: removes `MemberId` (schedules are shared classes, not personal appointments), adds `ClassName` and `MaxCapacity`, converts `ScheduledDate` + `StartTime`/`EndTime` (DATE + TIME) to `StartTime`/`EndTime` (DATETIME2) by combining them, removes `Notes`. Sessions: removes `ActualStartTime`/`ActualEndTime`/`Notes`, adds `MemberId`, `RegistrationDate`, and `Status`. Checkins: removes `SessionId` and `CheckinMethod`, adds `CheckoutTime`.
+MembershipService.CancelAsync checks ownership:
 
-Users: adds `LastLoginAt` and `MemberId` columns, updates `Role` CHECK constraint to include 'SuperAdmin'. Members: renames `QRCodeValue` to `QRCode`, removes `Status` and `JoinDate`.
+```csharp
+public async Task<bool> CancelAsync(int membershipId, int requestingMemberId)
+{
+    var entity = await _repo.GetByIdAsync(membershipId);
+    if (entity is null) return false;
+    if (entity.MemberId != requestingMemberId) return false; // Security check
+    var cancelled = await _repo.CancelAsync(membershipId);
+    return cancelled;
+}
+```
 
-The script uses `IF NOT EXISTS` guards for ADD COLUMN and `IF EXISTS` guards for some DROP COLUMN operations. However, several DROP COLUMN statements lack conditionals (Memberships.Status, Schedules.MemberId, Sessions.ActualStartTime, etc.), so re-running the script fails with "column does not exist" errors.
+The controller calls this method differently for Member vs Admin:
 
-Constraint drops query `sys.foreign_keys` and `sys.check_constraints` by name, which works if the constraint names match the script's assumptions (`FK_Invoices_Members`, `CK_Users_Role`, etc.). If SQL Server auto-generated different names, the query returns NULL and the constraint stays in place, causing subsequent ALTER COLUMN statements to fail. Querying by `parent_object_id` and `referenced_object_id` instead of by name would be more robust.
+- **Member**: passes userMemberId (from JWT claim) as requestingMemberId → service checks entity.MemberId == userMemberId → member can only cancel own
+- **Admin**: fetches membership, then passes membership.MemberId as requestingMemberId → service checks entity.MemberId == membership.MemberId → always passes (same ID)
 
-The Schedules datetime conversion assumes `ScheduledDate`, `StartTime`, and `EndTime` columns exist and are not NULL. If any rows have NULL values, `CAST(CAST(ScheduledDate AS DATETIME) + CAST(StartTime AS DATETIME) AS DATETIME2)` yields NULL, and the subsequent `ALTER COLUMN StartTime DATETIME2 NOT NULL` fails. Filtering or defaulting NULL times would prevent this.
+So the admin path bypasses the ownership check by design. The service method's parameter name "requestingMemberId" is misleading in the admin case — it's actually the owner's ID, not the requester's ID.
+
+This isn't a security bug (the controller enforces role checks), but the API design is confusing. A clearer approach: remove the ownership check from the service layer entirely, and enforce it only in the controller. Or, add a separate CancelAsync overload for admin use that doesn't take requestingMemberId.
+
+## Payments.MemberId default value risk
+
+COMPLETE_SCHEMA_FIX.sql adds Payments.MemberId with DEFAULT 0:
 
 ```sql
--- Unsafe: no IF EXISTS guard
-IF EXISTS (SELECT * FROM sys.columns WHERE object_id = OBJECT_ID('Memberships') AND name = 'Status')
+IF NOT EXISTS (SELECT * FROM sys.columns WHERE object_id = OBJECT_ID('Payments') AND name = 'MemberId')
 BEGIN
-    -- Drop CHECK constraint first
-    DECLARE @StatusConstraint NVARCHAR(200);
-    SELECT @StatusConstraint = name 
-    FROM sys.check_constraints 
-    WHERE parent_object_id = OBJECT_ID('Memberships') 
-    AND parent_column_id = (SELECT column_id FROM sys.columns WHERE object_id = OBJECT_ID('Memberships') AND name = 'Status');
-    
-    IF @StatusConstraint IS NOT NULL
-        EXEC('ALTER TABLE Memberships DROP CONSTRAINT ' + @StatusConstraint);
-    
-    ALTER TABLE Memberships DROP COLUMN Status;
-    PRINT '✓ Removed Status column (not in C# entity)';
+    ALTER TABLE Payments ADD MemberId INT NOT NULL DEFAULT 0;
+    ...
+    ALTER TABLE Payments ADD CONSTRAINT FK_Payments_Members FOREIGN KEY (MemberId) REFERENCES Members(MemberId);
 END
 ```
 
-This block has the IF EXISTS guard. Other DROP COLUMN blocks in the same script do not.
+If the Payments table already has rows when this migration runs, all existing rows will get MemberId=0. If no Member with MemberId=0 exists, the FK constraint will fail. If MemberId=0 is allowed (e.g., a placeholder member), existing payments will incorrectly link to that placeholder.
 
-## Seed data BCrypt hash and time skew risks
+The seed script (COMPLETE_SEED_DATA.sql) avoids this by clearing all data before seeding:
 
-COMPLETE_SEED_DATA.sql clears existing data in FK dependency order, resets identity seeds to 0 with `DBCC CHECKIDENT`, and inserts new rows: 1 SuperAdmin, 5 trainers, 30 members, 50 memberships (25 active, 25 expired), 20 facilities, 240 schedules (30 days × 8 classes/day), 600 session registrations, 100 checkins, 50 invoices, 50 payments.
-
-Password hashes are hardcoded BCrypt strings with WorkFactor 10 (`$2a$10$`):
-- SuperAdmin: `$2a$10$92IXUNpkjO0rOQ5byMi.Ye4oKoEa3Ro9llC/.og/at2.uheWG/igi` (claimed to be 'Gym@2026')
-- Trainer: `$2a$10$N9qo8uLOickgx2ZMRZoMye/y5jL8KeOMZPRq.v9jWTWyZIBPXQEE.` (claimed to be 'Trainer@123')
-- Member: `$2a$10$CwTycUXWue0Thq9StjUM0uJ8Y0P8K9P.qKE3eXjHjB8JMCvKB9aYG` (claimed to be 'Member@123')
-
-If the application's BCrypt configuration uses a different WorkFactor or algorithm (e.g., `$2b$12$`), login will fail for all seeded users.
-
-The seed data skews toward future schedules and recent activity. There are 240 future schedules but only 100 historical checkins, which may make admin dashboard stats look sparse.
-
-## Cancel membership authorization bypass and silent failure
-
-MembershipRepository.CancelAsync sets `EndDate = CAST(GETDATE() AS DATE)` for the given `membershipId`. The method uses `ExecuteAsync` and ignores the returned `rowsAffected` count, so it can't signal whether the operation succeeded. The service and controller can't distinguish "membership not found" from "membership already canceled" from "membership successfully canceled."
-
-```csharp
-public async Task CancelAsync(int membershipId)
-{
-    using var conn = _db.CreateConnection();
-    var sql = @"
-        UPDATE Memberships 
-        SET EndDate = CAST(GETDATE() AS DATE),
-            UpdatedAt = GETDATE()
-        WHERE MembershipId = @MembershipId AND IsDeleted = 0";
-    await conn.ExecuteAsync(sql, new { MembershipId = membershipId });
-}
+```sql
+DELETE FROM Payments;
+DELETE FROM Invoices;
+...
 ```
 
-MembershipService.CancelAsync takes `membershipId` and `requestingMemberId`, fetches the membership, checks `entity.MemberId != requestingMemberId`, and returns `false` if the check fails. This prevents members from canceling each other's memberships.
+So the DEFAULT 0 is only used during the migration, not during normal operation. But if the schema fix is run against a database with existing data, it will fail.
 
-MembershipController.Cancel checks the user's role and `MemberId` claim. The controller's authorization logic has a gap: it calls `int.TryParse(userMemberIdStr, out int userMemberId)` and returns `Forbid()` if the parse fails. However, for Admin/SuperAdmin roles, the code proceeds to `CancelAsync(id, membership.MemberId)` even if `userMemberId` is 0 or invalid. An admin user without a `MemberId` claim can call the endpoint, and the service layer's check `entity.MemberId != requestingMemberId` will pass (because `requestingMemberId` is 0 and `entity.MemberId` is nonzero), allowing cancellation.
+Recommendation: either make Payments.MemberId nullable (DEFAULT NULL), or add a migration step to backfill MemberId from Invoices before adding the FK constraint:
 
-```csharp
-if (!int.TryParse(userMemberIdStr, out int userMemberId))
-    return Forbid();
-
-// Admin can cancel any; Member can only cancel own
-if (userRole == "Member")
-{
-    var ok = await _service.CancelAsync(id, userMemberId);
-    return ok ? Ok(new { message = "Hủy gói tập thành công." }) : NotFound();
-}
-else if (userRole == "Admin" || userRole == "SuperAdmin")
-{
-    var membership = await _service.GetByIdAsync(id);
-    if (membership == null) return NotFound();
-    var ok = await _service.CancelAsync(id, membership.MemberId);  // BUG: passes membership.MemberId as requestingMemberId
-    return ok ? Ok(new { message = "Hủy gói tập thành công." }) : NotFound();
-}
+```sql
+ALTER TABLE Payments ADD MemberId INT NULL;
+UPDATE Payments SET MemberId = (SELECT TOP 1 MemberId FROM Invoices WHERE Invoices.InvoiceId = Payments.InvoiceId);
+ALTER TABLE Payments ALTER COLUMN MemberId INT NOT NULL;
+ALTER TABLE Payments ADD CONSTRAINT FK_Payments_Members FOREIGN KEY (MemberId) REFERENCES Members(MemberId);
 ```
 
-For admins, the code fetches `membership.MemberId` and passes it as `requestingMemberId`, which makes the ownership check always pass. This is the intended behavior for admins (they should be able to cancel any membership), but the code should explicitly skip the ownership check for admin roles rather than passing a fake `requestingMemberId`.
+## Seed data Users.MemberId consistency
 
-## Frontend cancel button lacks ownership check
+COMPLETE_SEED_DATA.sql creates Users for SuperAdmin, Trainers, and Members. Only Member users set the MemberId column:
 
-wwwroot/js/memberships.js renders a cancel button for active memberships and calls `apiFetch('/api/Membership/${membershipId}/cancel', { method: 'POST' })` on confirm. The frontend doesn't verify that the membership belongs to the current user before showing the cancel button. If a member inspects the DOM and finds another member's `membershipId`, they can call `cancelMembership(otherMembershipId)`. The backend rejects the request, but the user sees a generic "Lỗi hủy gói" message rather than a clear ownership error.
+```sql
+-- SuperAdmin (no MemberId)
+INSERT INTO Users (Username, PasswordHash, FullName, Email, Role, IsActive, ...)
+VALUES ('gymadmin', '$2a$10$...', N'System Administrator', 'admin@gym.com', 'SuperAdmin', 1, ...);
 
-## Master run script uses sqlcmd include directive
+-- Trainers (no MemberId)
+INSERT INTO Users (Username, PasswordHash, FullName, Email, Role, IsActive, ...)
+VALUES ('trainer1', '$2a$10$...', N'Nguyễn Văn Hùng', 'hung.trainer@gym.com', 'Trainer', 1, ...);
 
-RUN_COMPLETE_FIX.sql uses `:r COMPLETE_SCHEMA_FIX.sql` and `:r COMPLETE_SEED_DATA.sql` to include the other scripts. This is sqlcmd-specific syntax. SQL Server Management Studio, Azure Data Studio, and most SQL client libraries don't support this syntax and will fail with "syntax error near ':'". The script must be run via `sqlcmd -S localhost -d GymDb -i RUN_COMPLETE_FIX.sql`.
+-- Members (with MemberId)
+INSERT INTO Users (Username, PasswordHash, FullName, Email, Role, IsActive, MemberId, ...)
+VALUES ('member1', '$2a$10$...', N'Nguyễn Thị Hoa', 'hoa.nguyen@gmail.com', 'Member', 1, 1, ...);
+```
+
+The schema fix (COMPLETE_SCHEMA_FIX.sql) adds Users.MemberId as nullable:
+
+```sql
+IF NOT EXISTS (SELECT * FROM sys.columns WHERE object_id = OBJECT_ID('Users') AND name = 'MemberId')
+BEGIN
+    ALTER TABLE Users ADD MemberId INT NULL;
+END
+```
+
+No FK constraint is added between Users.MemberId and Members.MemberId (intentional — not all users are members). If code elsewhere assumes Users.MemberId is always set (e.g., reading it from JWT claims without null checks), it will break for non-member users.
+
+## Frontend cancel button integration
+
+The cancel button only appears for active memberships (EndDate >= today), matching the backend's cancellation logic (UPDATE ... WHERE EndDate > today). If a membership expires between page load and button click, the backend returns false (no rows updated), and the frontend shows a generic "Lỗi hủy gói: ..." message with no indication the membership was already expired. The controller could return a more specific error for this case.
 
 </details>
 
+## File map
+
 <details>
-<summary>File Map</summary>
+<summary>Changed files</summary>
 
-- **SQL2/COMPLETE_SCHEMA_FIX.sql** — Alters eight tables to align schema with C# entities (Memberships, Invoices, Payments, Schedules, Sessions, Checkins, Users, Members)
-- **SQL2/COMPLETE_SEED_DATA.sql** — Clears existing data and seeds 30 members, 50 memberships, 5 trainers, 20 facilities, 240 schedules, 600 sessions, 100 checkins, 50 invoices, 50 payments
-- **SQL2/RUN_COMPLETE_FIX.sql** — Master script using sqlcmd `:r` directive to run schema fix and seed data in order
-- **DAL/Repositories/Implementations/InvoiceRepository.cs** — CreateAsync now includes MemberId in INSERT statement
-- **DAL/Repositories/Implementations/MembershipRepository.cs** — Added CancelAsync method to set EndDate to today
-- **DAL/Repositories/Interfaces/IMembershipRepository.cs** — Added CancelAsync method signature
-- **Service/BUS/Implementations/MembershipService.cs** — CreateAsync sets invoice.MemberId; added CancelAsync with ownership check
-- **Service/BUS/Interfaces/IMembershipService.cs** — Added CancelAsync method signature
-- **Controllers/MembershipController.cs** — Added POST {id}/cancel endpoint with role-based authorization
-- **wwwroot/js/memberships.js** — Added cancel button and cancelMembership function calling the API
+**SQL2/COMPLETE_SCHEMA_FIX.sql** — Schema migration script: adds/removes/renames columns in Memberships, Invoices, Payments, Schedules, Sessions, Checkins, Members, Users to match C# entities. Includes destructive Schedules transformation (DATE+TIME → DATETIME2).
 
-Full diff: Compare SQL2/ scripts against prior schema (01_SCHEMA_SIMPLIFIED.sql, prior seed scripts) and C# changes against prior repository/service/controller implementations.
+**SQL2/COMPLETE_SEED_DATA.sql** — Development seed data: clears tables and inserts 1 SuperAdmin, 5 trainers, 30 members, 50 memberships, 240 schedules, 600 sessions, 100 checkins, matching invoices/payments.
+
+**SQL2/RUN_COMPLETE_FIX.sql** — Master script: runs COMPLETE_SCHEMA_FIX.sql then COMPLETE_SEED_DATA.sql using :r directives.
+
+**DAL/Repositories/Implementations/InvoiceRepository.cs** — Added MemberId to INSERT statement in CreateAsync method.
+
+**Service/BUS/Implementations/MembershipService.cs** — Set invoice.MemberId = membership.MemberId in CreateAsync before calling repository. Added CancelAsync method with ownership check.
+
+**DAL/Repositories/Implementations/MembershipRepository.cs** — Added CancelAsync method: UPDATE Memberships SET EndDate = today WHERE MembershipId = @id AND EndDate > today.
+
+**DAL/Repositories/Interfaces/IMembershipRepository.cs** — Added CancelAsync method signature.
+
+**Service/BUS/Interfaces/IMembershipService.cs** — Added CancelAsync method signature.
+
+**Controllers/MembershipController.cs** — Added POST {id}/cancel endpoint: Admin can cancel any membership, Member can only cancel own (verified by ownership check in service).
+
+**wwwroot/js/memberships.js** — Added cancelMembership function: confirms with user, calls POST /api/Membership/{id}/cancel, reloads membership list on success.
+
+[Full diff: `git diff main` in project root]
 
 </details>

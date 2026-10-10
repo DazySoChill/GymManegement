@@ -147,15 +147,23 @@ GO
 -- ============================================================
 PRINT 'Fixing Payments table...';
 
--- Add MemberId column
+-- Add MemberId column (nullable to avoid FK violations on existing data)
 IF NOT EXISTS (SELECT * FROM sys.columns WHERE object_id = OBJECT_ID('Payments') AND name = 'MemberId')
 BEGIN
-    ALTER TABLE Payments ADD MemberId INT NOT NULL DEFAULT 0;
+    ALTER TABLE Payments ADD MemberId INT NULL;
+    
+    -- Backfill MemberId from Invoices for existing payments
+    UPDATE Payments 
+    SET MemberId = (SELECT TOP 1 MemberId FROM Invoices WHERE Invoices.InvoiceId = Payments.InvoiceId)
+    WHERE InvoiceId IS NOT NULL AND MemberId IS NULL;
+    
+    -- Now make it NOT NULL
+    ALTER TABLE Payments ALTER COLUMN MemberId INT NOT NULL;
     
     IF NOT EXISTS (SELECT * FROM sys.foreign_keys WHERE name = 'FK_Payments_Members')
         ALTER TABLE Payments ADD CONSTRAINT FK_Payments_Members FOREIGN KEY (MemberId) REFERENCES Members(MemberId);
     
-    PRINT '✓ Added MemberId column';
+    PRINT '✓ Added MemberId column with backfill';
 END
 
 -- Add TransactionId column
