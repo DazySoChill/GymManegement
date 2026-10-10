@@ -345,7 +345,7 @@ async function loadSessions() {
         
         // If week filter is active, fetch all sessions (pagination doesn't work well with client-side filtering)
         if (currentWeekFilter) {
-            const allData = await apiFetch(`/api/Session?pageNumber=1&pageSize=1000`);
+            const allData = await apiFetch(`/api/Session?pageNumber=1&pageSize=10000`);
             const filtered = filterSessionsByWeek(allData.items || [], currentWeekFilter.start, currentWeekFilter.end);
             
             hideLoading();

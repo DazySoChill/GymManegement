@@ -8,6 +8,10 @@ let checkinsPageSize = 10;
 // Member name cache to avoid duplicate API calls
 const checkinMemberNameCache = {};
 
+// Cache for full checkin dataset and calculated counts
+let fullCheckinsCache = null;
+let checkinsCountsCache = null;
+
 async function fetchCheckinMemberName(memberId) {
     if (checkinMemberNameCache[memberId]) {
         return checkinMemberNameCache[memberId];
@@ -163,7 +167,9 @@ async function processQRCheckin(memberId) {
         
         hideLoading();
         showToast('✅ Check-in thành công!', 'success');
-        reloadCurrentPage();
+        
+        // Clear cache and reload to recalculate counts
+        reloadCheckinsData();
         
     } catch (error) {
         hideLoading();
@@ -197,8 +203,8 @@ async function quickCheckin(memberId) {
         hideLoading();
         showToast('✅ Check-in thành công!', 'success');
         
-        // Reload checkins list
-        reloadCurrentPage();
+        // Clear cache and reload to recalculate counts
+        reloadCheckinsData();
         
     } catch (error) {
         hideLoading();
@@ -315,24 +321,31 @@ async function loadCheckins() {
     try {
         showLoading();
         
-        // Fetch ALL checkins to calculate counts accurately
-        // We'll still paginate the display, but need full dataset for counts
-        const allData = await apiFetch(`/api/Checkin?pageNumber=1&pageSize=10000`);
-        
-        // Calculate counts
-        const countsMap = calculateCheckinCounts(allData.items || []);
+        // Fetch ALL checkins once and cache for count calculation
+        if (!fullCheckinsCache) {
+            const allData = await apiFetch(`/api/Checkin?pageNumber=1&pageSize=10000`);
+            fullCheckinsCache = allData.items || [];
+            checkinsCountsCache = calculateCheckinCounts(fullCheckinsCache);
+        }
         
         // For display, use the requested page
         const data = await apiFetch(`/api/Checkin?pageNumber=${checkinsCurrentPage}&pageSize=${checkinsPageSize}`);
         
         hideLoading();
         
-        await renderCheckinsTable(data, countsMap);
+        await renderCheckinsTable(data, checkinsCountsCache);
         renderCheckinsPagination(data);
     } catch (error) {
         hideLoading();
         showError('Lỗi tải danh sách check-in: ' + error.message);
     }
+}
+
+// Function to clear cache and reload (call after new checkin)
+function reloadCheckinsData() {
+    fullCheckinsCache = null;
+    checkinsCountsCache = null;
+    loadCheckins();
 }
 
 async function loadCheckinsByDate() {
@@ -347,15 +360,18 @@ async function loadCheckinsByDate() {
     try {
         showLoading();
         
-        // Fetch all checkins for count calculation
-        const allData = await apiFetch(`/api/Checkin?pageNumber=1&pageSize=10000`);
-        const countsMap = calculateCheckinCounts(allData.items || []);
+        // Ensure we have the full dataset cached for count calculation
+        if (!fullCheckinsCache) {
+            const allData = await apiFetch(`/api/Checkin?pageNumber=1&pageSize=10000`);
+            fullCheckinsCache = allData.items || [];
+            checkinsCountsCache = calculateCheckinCounts(fullCheckinsCache);
+        }
         
         // Fetch filtered data
         const data = await apiFetch(`/api/Checkin/date/${date}`);
         hideLoading();
         
-        await renderCheckinsTable({ items: data, pageNumber: 1, totalPages: 1 }, countsMap);
+        await renderCheckinsTable({ items: data, pageNumber: 1, totalPages: 1 }, checkinsCountsCache);
     } catch (error) {
         hideLoading();
         showError('Lỗi tải check-in: ' + error.message);
@@ -375,10 +391,8 @@ async function renderCheckinsTable(data, countsMap = {}) {
     const memberIds = [...new Set(checkins.map(c => c.memberId))];
     await Promise.all(memberIds.map(id => fetchCheckinMemberName(id)));
     
-    // If countsMap is empty (e.g., from date filter), calculate for current set
-    if (Object.keys(countsMap).length === 0) {
-        countsMap = calculateCheckinCounts(checkins);
-    }
+    // Note: Do NOT recalculate counts from filtered set - this breaks continuity
+    // Always use the passed countsMap which represents full dataset counts
     
     let html = `
         <table>
