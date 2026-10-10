@@ -99,9 +99,28 @@ function ensureModalStyles() {
             width: 90%;
             box-shadow: 0 4px 20px rgba(0, 0, 0, 0.2);
         }
+        .gym-modal-header {
+            margin-bottom: 20px;
+        }
+        .gym-modal-header h3 {
+            margin: 0;
+            color: #2c3e50;
+        }
         .gym-modal h3 {
             margin-top: 0;
             margin-bottom: 20px;
+            color: #2c3e50;
+        }
+        .gym-modal-body {
+            margin-bottom: 0;
+        }
+        .gym-modal-body .form-group {
+            margin-bottom: 16px;
+        }
+        .gym-modal-body .form-group label {
+            display: block;
+            margin-bottom: 6px;
+            font-weight: 500;
             color: #2c3e50;
         }
         .gym-modal-buttons {
@@ -139,22 +158,36 @@ function ensureModalStyles() {
 }
 
 /**
- * Quick check-in without QR code modal
- * Uses QR endpoint with auto-generated QR code
+ * Quick check-in - simple button click
+ * Validates: only 1 check-in per day
  */
 async function quickCheckin(memberId) {
     try {
         showLoading();
         
-        // Generate simple QR code value
-        const qrCode = `MEMBER_${memberId}_${Date.now()}`;
+        // Check if already checked in today
+        const checkins = await apiFetch(`/api/Checkin/member/${memberId}`);
+        const today = new Date();
+        today.setHours(0, 0, 0, 0);
         
-        // Use QR checkin endpoint
-        const result = await apiFetch('/api/Checkin/qr', {
+        const todayCheckin = checkins.find(c => {
+            const checkinDate = new Date(c.checkinTime);
+            checkinDate.setHours(0, 0, 0, 0);
+            return checkinDate.getTime() === today.getTime() && !c.checkoutTime;
+        });
+        
+        if (todayCheckin) {
+            hideLoading();
+            showError('Bạn đã check-in hôm nay rồi! Mỗi ngày chỉ được check-in 1 lần.');
+            return;
+        }
+        
+        // Create manual check-in
+        const result = await apiFetch('/api/Checkin/manual', {
             method: 'POST',
             body: JSON.stringify({
-                qrCode: qrCode,
-                memberId: memberId
+                memberId: memberId,
+                checkinTime: new Date().toISOString()
             })
         });
         
@@ -178,9 +211,10 @@ async function quickCheckin(memberId) {
         
     } catch (error) {
         hideLoading();
-        const errorMsg = error.message.toLowerCase();
-        if (errorMsg.includes('already') || errorMsg.includes('đã check-in')) {
-            showError('Bạn đã check-in rồi. Vui lòng checkout trước.');
+        
+        // Handle 403 Forbidden error
+        if (error.message.includes('403') || error.message.includes('Forbidden')) {
+            showError('Bạn không có quyền check-in. Vui lòng liên hệ Admin/Trainer.');
         } else {
             showError('Lỗi check-in: ' + error.message);
         }
@@ -447,6 +481,106 @@ async function loadMemberCheckinsByDateRange(memberId) {
     }
 }
 
-function showManualCheckinModal() {
-    showError('Chức năng check-in thủ công chưa được triển khai đầy đủ');
+async function showManualCheckinModal() {
+    try {
+        showLoading();
+        
+        // Fetch members list
+        const membersData = await apiFetch('/api/Member?pageNumber=1&pageSize=100');
+        
+        hideLoading();
+        
+        ensureModalStyles();
+        
+        const modal = document.createElement('div');
+        modal.className = 'gym-modal-overlay';
+        modal.innerHTML = `
+            <div class="gym-modal">
+                <div class="gym-modal-header" style="display: flex; justify-content: space-between; align-items: center;">
+                    <h3>Check-in Thủ Công</h3>
+                    <button class="gym-modal-close" onclick="this.closest('.gym-modal-overlay').remove()" style="background: none; border: none; font-size: 24px; cursor: pointer; color: #999;">&times;</button>
+                </div>
+                <div class="gym-modal-body">
+                    <form id="manualCheckinForm">
+                        <div class="form-group">
+                            <label for="memberSelect">Chọn Member:</label>
+                            <select id="memberSelect" name="memberId" required style="width:100%;padding:8px;border:1px solid #ddd;border-radius:6px;">
+                                <option value="">-- Chọn member --</option>
+                                ${membersData.items.map(m => `
+                                    <option value="${m.memberId}">
+                                        ${escapeHtml(m.fullName || m.name || 'N/A')} (ID: ${m.memberId})
+                                    </option>
+                                `).join('')}
+                            </select>
+                        </div>
+                        
+                        <div class="form-group">
+                            <label for="checkinTimeInput">Thời gian check-in:</label>
+                            <input type="datetime-local" id="checkinTimeInput" name="checkinTime" required style="width:100%;padding:8px;border:1px solid #ddd;border-radius:6px;">
+                        </div>
+                        
+                        <div class="gym-modal-buttons">
+                            <button type="button" class="btn btn-secondary" onclick="this.closest('.gym-modal-overlay').remove()">Hủy</button>
+                            <button type="submit" class="btn btn-primary">✅ Check-in</button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        `;
+        
+        document.body.appendChild(modal);
+        
+        // Set default time to now
+        const now = new Date();
+        const offset = now.getTimezoneOffset() * 60000;
+        const localISOTime = (new Date(now - offset)).toISOString().slice(0, 16);
+        document.getElementById('checkinTimeInput').value = localISOTime;
+        
+        // Handle form submission
+        document.getElementById('manualCheckinForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            await submitManualCheckin();
+        });
+        
+    } catch (error) {
+        hideLoading();
+        showError('Lỗi tải danh sách member: ' + error.message);
+    }
+}
+
+// Submit manual check-in form
+async function submitManualCheckin() {
+    const form = document.getElementById('manualCheckinForm');
+    const memberId = parseInt(form.querySelector('#memberSelect').value);
+    const checkinTime = form.querySelector('#checkinTimeInput').value;
+    
+    if (!memberId || !checkinTime) {
+        showError('Vui lòng điền đầy đủ thông tin');
+        return;
+    }
+    
+    try {
+        showLoading();
+        
+        await apiFetch('/api/Checkin/manual', {
+            method: 'POST',
+            body: JSON.stringify({
+                memberId: memberId,
+                checkinTime: new Date(checkinTime).toISOString()
+            })
+        });
+        
+        hideLoading();
+        showToast('✅ Check-in thành công!', 'success');
+        
+        // Close modal
+        document.querySelector('.gym-modal-overlay').remove();
+        
+        // Reload checkins
+        reloadCheckinsData();
+        
+    } catch (error) {
+        hideLoading();
+        showError('Lỗi check-in: ' + error.message);
+    }
 }

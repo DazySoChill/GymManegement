@@ -115,7 +115,15 @@ function saveNoteFromModal(sessionId) {
     const note = document.getElementById('noteTextarea')?.value || '';
     saveSessionNote(sessionId, note);
     showToast('💾 Đã lưu ghi chú', 'success');
-    reloadCurrentPage();
+    
+    // Reload current view
+    const role = getRole();
+    const memberId = getMemberId();
+    if (role === 'Member' && memberId) {
+        loadMemberSessionsData(memberId, mySessionWeekFilter);
+    } else {
+        loadSessions();
+    }
 }
 
 // Week calculation utilities
@@ -308,7 +316,7 @@ async function renderMemberSessionsTable(sessions) {
     const scheduleIds = [...new Set(sessions.map(s => s.scheduleId))];
     await Promise.all(scheduleIds.map(id => fetchScheduleDetails(id)));
     
-    let html = '<table><thead><tr><th>ID</th><th>Lớp</th><th>HLV</th><th>Thời gian tập</th><th>Ngày đăng ký</th><th>Trạng thái</th><th>Ghi chú</th></tr></thead><tbody>';
+    let html = '<table><thead><tr><th>ID</th><th>Lớp</th><th>HLV</th><th>Thời gian tập</th><th>Ngày đăng ký</th><th>Trạng thái</th><th>Ghi chú</th><th>Thao tác</th></tr></thead><tbody>';
     
     for (const s of sessions) {
         const scheduleDetails = await fetchScheduleDetails(s.scheduleId);
@@ -321,6 +329,9 @@ async function renderMemberSessionsTable(sessions) {
         
         const badge = s.status === 'Attended' ? 'badge-success' :
                      s.status === 'Cancelled' ? 'badge-danger' : 'badge-info';
+        
+        // Member can only cancel "Registered" sessions
+        const canCancel = s.status === 'Registered';
         
         html += `
             <tr>
@@ -336,6 +347,12 @@ async function renderMemberSessionsTable(sessions) {
                             title="${hasNote ? 'Xem/Sửa ghi chú' : 'Thêm ghi chú'}">
                         ${hasNote ? '📝' : '📄'}
                     </button>
+                </td>
+                <td>
+                    ${canCancel 
+                        ? `<button class="btn btn-sm btn-danger" onclick="cancelMySession(${s.sessionId})" title="Hủy đăng ký">❌ Hủy</button>`
+                        : '<span style="color:#999;">-</span>'
+                    }
                 </td>
             </tr>
         `;
@@ -509,23 +526,285 @@ function changeSessionsPage(page) {
 async function updateSessionStatus(sessionId, status) {
     try {
         showLoading();
-        await apiFetch(`/api/Session/${sessionId}/status`, {
+        
+        // Use PUT /api/Session/{id} endpoint to update status
+        // UpdateSessionRequest only requires Status field
+        await apiFetch(`/api/Session/${sessionId}`, {
             method: 'PUT',
-            body: JSON.stringify({ status })
+            body: JSON.stringify({
+                status: status
+            })
         });
+        
         hideLoading();
-        showSuccess('Cập nhật trạng thái thành công');
-        loadSessions();
+        showToast('✅ Cập nhật trạng thái thành công', 'success');
+        
+        // Reload appropriate view
+        const role = getRole();
+        const memberId = getMemberId();
+        if (role === 'Member' && memberId) {
+            loadMemberSessionsData(memberId, mySessionWeekFilter);
+        } else {
+            loadSessions();
+        }
     } catch (error) {
         hideLoading();
         showError('Lỗi cập nhật: ' + error.message);
     }
 }
 
-function showCreateSessionModal() {
-    showError('Chức năng tạo session chưa được triển khai đầy đủ');
+// Get session by ID (helper function) - NO LONGER NEEDED
+// async function getSessionById(sessionId) {
+//     try {
+//         const response = await apiFetch(`/api/Session/${sessionId}`);
+//         return response;
+//     } catch (error) {
+//         console.error('Error fetching session:', error);
+//         return null;
+//     }
+// }
+
+// Show modal for member to register for a class (create session)
+async function showRegisterSessionModal() {
+    const memberId = getMemberId();
+    if (!memberId) {
+        showError('Không tìm thấy thông tin member');
+        return;
+    }
+    
+    try {
+        showLoading();
+        
+        // Fetch available schedules (upcoming only)
+        const allSchedules = await apiFetch('/api/Schedule?pageNumber=1&pageSize=100');
+        const now = new Date();
+        const upcomingSchedules = allSchedules.items.filter(s => new Date(s.startTime) > now);
+        
+        hideLoading();
+        
+        if (upcomingSchedules.length === 0) {
+            showError('Không có lớp học nào sắp tới');
+            return;
+        }
+        
+        // Create modal with schedule list
+        const modal = document.createElement('div');
+        modal.className = 'gym-modal-overlay';
+        modal.innerHTML = `
+            <div class="gym-modal">
+                <div class="gym-modal-header">
+                    <h3>Đăng Ký Lớp Học</h3>
+                    <button class="gym-modal-close" onclick="this.closest('.gym-modal-overlay').remove()">✕</button>
+                </div>
+                <div class="gym-modal-body">
+                    <form id="registerSessionForm">
+                        <div class="form-group">
+                            <label for="scheduleSelect">Chọn lớp học:</label>
+                            <select id="scheduleSelect" name="scheduleId" required style="width:100%;padding:8px;border:1px solid #ddd;border-radius:6px;">
+                                <option value="">-- Chọn lớp --</option>
+                                ${upcomingSchedules.map(s => `
+                                    <option value="${s.scheduleId}">
+                                        ${escapeHtml(s.className)} - ${escapeHtml(s.trainerName || 'N/A')} 
+                                        (${formatDateTime(s.startTime)})
+                                    </option>
+                                `).join('')}
+                            </select>
+                        </div>
+                        
+                        <div class="gym-modal-actions">
+                            <button type="button" class="btn btn-secondary" onclick="this.closest('.gym-modal-overlay').remove()">Hủy</button>
+                            <button type="submit" class="btn btn-primary">✅ Đăng Ký</button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        `;
+        
+        document.body.appendChild(modal);
+        
+        // Handle form submission
+        document.getElementById('registerSessionForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            await submitSessionRegistration(memberId);
+        });
+        
+    } catch (error) {
+        hideLoading();
+        showError('Lỗi tải danh sách lớp: ' + error.message);
+    }
 }
 
-function showRegisterSessionModal() {
-    showError('Chức năng đăng ký lớp chưa được triển khai đầy đủ');
+// Submit session registration
+async function submitSessionRegistration(memberId) {
+    const form = document.getElementById('registerSessionForm');
+    const scheduleId = parseInt(form.querySelector('#scheduleSelect').value);
+    
+    if (!scheduleId) {
+        showError('Vui lòng chọn lớp học');
+        return;
+    }
+    
+    try {
+        showLoading();
+        
+        // Create session with status "Registered"
+        await apiFetch('/api/Session', {
+            method: 'POST',
+            body: JSON.stringify({
+                scheduleId: scheduleId,
+                memberId: memberId,
+                status: 'Registered'
+            })
+        });
+        
+        hideLoading();
+        showToast('✅ Đăng ký lớp học thành công! Vui lòng chờ Trainer/Admin duyệt.', 'success');
+        
+        // Close modal
+        document.querySelector('.gym-modal-overlay').remove();
+        
+        // Reload member sessions
+        await loadMemberSessionsData(memberId, mySessionWeekFilter);
+        
+    } catch (error) {
+        hideLoading();
+        
+        // Handle specific errors
+        if (error.message.includes('403') || error.message.includes('Forbidden')) {
+            showError('Bạn không có quyền đăng ký lớp. Vui lòng liên hệ Admin/Trainer.');
+        } else if (error.message.includes('already registered') || error.message.includes('duplicate')) {
+            showError('Bạn đã đăng ký lớp này rồi!');
+        } else {
+            showError('Lỗi đăng ký lớp: ' + error.message);
+        }
+    }
 }
+
+// Member cancels their own session
+async function cancelMySession(sessionId) {
+    if (!confirm('Bạn có chắc muốn hủy đăng ký lớp này?')) {
+        return;
+    }
+    
+    await updateSessionStatus(sessionId, 'Cancelled');
+}
+
+// Admin/Trainer creates session for a member
+async function showCreateSessionModal() {
+    try {
+        showLoading();
+        
+        // Fetch available schedules and members
+        const [schedulesData, membersData] = await Promise.all([
+            apiFetch('/api/Schedule?pageNumber=1&pageSize=100'),
+            apiFetch('/api/Member?pageNumber=1&pageSize=100')
+        ]);
+        
+        hideLoading();
+        
+        const modal = document.createElement('div');
+        modal.className = 'gym-modal-overlay';
+        modal.innerHTML = `
+            <div class="gym-modal">
+                <div class="gym-modal-header">
+                    <h3>Tạo Session Mới</h3>
+                    <button class="gym-modal-close" onclick="this.closest('.gym-modal-overlay').remove()">✕</button>
+                </div>
+                <div class="gym-modal-body">
+                    <form id="createSessionForm">
+                        <div class="form-group">
+                            <label for="memberSelect">Member:</label>
+                            <select id="memberSelect" name="memberId" required style="width:100%;padding:8px;border:1px solid #ddd;border-radius:6px;">
+                                <option value="">-- Chọn member --</option>
+                                ${membersData.items.map(m => `
+                                    <option value="${m.memberId}">
+                                        ${escapeHtml(m.fullName || m.name || 'N/A')} (ID: ${m.memberId})
+                                    </option>
+                                `).join('')}
+                            </select>
+                        </div>
+                        
+                        <div class="form-group">
+                            <label for="scheduleSelect2">Lớp học:</label>
+                            <select id="scheduleSelect2" name="scheduleId" required style="width:100%;padding:8px;border:1px solid #ddd;border-radius:6px;">
+                                <option value="">-- Chọn lớp --</option>
+                                ${schedulesData.items.map(s => `
+                                    <option value="${s.scheduleId}">
+                                        ${escapeHtml(s.className)} - ${escapeHtml(s.trainerName || 'N/A')} 
+                                        (${formatDateTime(s.startTime)})
+                                    </option>
+                                `).join('')}
+                            </select>
+                        </div>
+                        
+                        <div class="form-group">
+                            <label for="statusSelect">Trạng thái:</label>
+                            <select id="statusSelect" name="status" required style="width:100%;padding:8px;border:1px solid #ddd;border-radius:6px;">
+                                <option value="Registered">Registered</option>
+                                <option value="Attended">Attended</option>
+                                <option value="Cancelled">Cancelled</option>
+                            </select>
+                        </div>
+                        
+                        <div class="gym-modal-actions">
+                            <button type="button" class="btn btn-secondary" onclick="this.closest('.gym-modal-overlay').remove()">Hủy</button>
+                            <button type="submit" class="btn btn-primary">💾 Tạo</button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        `;
+        
+        document.body.appendChild(modal);
+        
+        // Handle form submission
+        document.getElementById('createSessionForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            await submitCreateSession();
+        });
+        
+    } catch (error) {
+        hideLoading();
+        showError('Lỗi tải dữ liệu: ' + error.message);
+    }
+}
+
+// Submit create session form
+async function submitCreateSession() {
+    const form = document.getElementById('createSessionForm');
+    const memberId = parseInt(form.querySelector('#memberSelect').value);
+    const scheduleId = parseInt(form.querySelector('#scheduleSelect2').value);
+    const status = form.querySelector('#statusSelect').value;
+    
+    if (!memberId || !scheduleId || !status) {
+        showError('Vui lòng điền đầy đủ thông tin');
+        return;
+    }
+    
+    try {
+        showLoading();
+        
+        await apiFetch('/api/Session', {
+            method: 'POST',
+            body: JSON.stringify({
+                scheduleId: scheduleId,
+                memberId: memberId,
+                status: status
+            })
+        });
+        
+        hideLoading();
+        showToast('✅ Tạo session thành công!', 'success');
+        
+        // Close modal
+        document.querySelector('.gym-modal-overlay').remove();
+        
+        // Reload sessions
+        await loadSessions();
+        
+    } catch (error) {
+        hideLoading();
+        showError('Lỗi tạo session: ' + error.message);
+    }
+}
+

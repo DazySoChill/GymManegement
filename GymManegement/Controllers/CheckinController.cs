@@ -38,12 +38,28 @@ namespace GymManegement.Controllers
         public async Task<IActionResult> GetByDate(DateTime date)
             => Ok(await _service.GetByDateAsync(date));
 
-        /// <summary>Check-in thủ công bởi Admin/Trainer</summary>
+        /// <summary>Check-in thủ công bởi Admin/Trainer hoặc Member tự check-in</summary>
         [HttpPost("manual")]
-        [Authorize(Roles = "SuperAdmin,Admin,Trainer")]
         public async Task<IActionResult> CreateManual([FromBody] CreateCheckinRequest request)
         {
             if (!ModelState.IsValid) return BadRequest(ModelState);
+            
+            // Member can only check-in for themselves
+            if (User.IsInRole("Member"))
+            {
+                var userMemberIdStr = User.FindFirst("memberId")?.Value;
+                if (!int.TryParse(userMemberIdStr, out int userMemberId))
+                {
+                    return Forbid();
+                }
+                
+                // Ensure member is checking in for themselves
+                if (userMemberId != request.MemberId)
+                {
+                    return Forbid();
+                }
+            }
+            
             var result = await _service.CreateManualAsync(request);
             return CreatedAtAction(nameof(GetById), new { id = result.CheckinId }, result);
         }

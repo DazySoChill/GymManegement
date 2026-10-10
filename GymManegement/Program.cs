@@ -23,6 +23,7 @@ builder.Services.AddScoped<ICheckinRepository,    CheckinRepository>();
 builder.Services.AddScoped<IInvoiceRepository,    InvoiceRepository>();
 builder.Services.AddScoped<IPaymentRepository,    PaymentRepository>();
 builder.Services.AddScoped<IUserRepository,       UserRepository>();
+builder.Services.AddScoped<IMemberSchedulePreferenceRepository, MemberSchedulePreferenceRepository>();
 
 // ── Business Services ─────────────────────────────────────────
 builder.Services.AddScoped<IMemberService,     MemberService>();
@@ -37,6 +38,7 @@ builder.Services.AddScoped<IPaymentService,    PaymentService>();
 builder.Services.AddScoped<IReportService,     ReportService>();
 builder.Services.AddScoped<IAuthService,       AuthService>();
 builder.Services.AddScoped<IExportService,     ExportService>();
+builder.Services.AddScoped<IMemberSchedulePreferenceService, MemberSchedulePreferenceService>();
 
 
 builder.Services.AddScoped<IEmailService, EmailService>();
