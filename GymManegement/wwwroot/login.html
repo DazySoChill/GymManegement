@@ -187,6 +187,7 @@
                 return;
             }
             
+            let registerSuccess = false;
             try {
                 showLoading();
                 const response = await apiFetch('/api/Auth/register', {
@@ -198,6 +199,7 @@
                         email
                     })
                 });
+                registerSuccess = true;
                 hideLoading();
                 
                 if (response) {
@@ -214,8 +216,10 @@
                 }
             } catch (error) {
                 hideLoading();
-                errorDiv.textContent = error.message || 'Đăng ký thất bại. Tên đăng nhập hoặc email có thể đã tồn tại.';
-                errorDiv.style.display = 'block';
+                if (!registerSuccess) {
+                    errorDiv.textContent = error.message || 'Đăng ký thất bại. Tên đăng nhập hoặc email có thể đã tồn tại.';
+                    errorDiv.style.display = 'block';
+                }
             }
         });
     </script>

@@ -6,7 +6,7 @@
 const allowedPagesByRole = {
     'Admin': ['dashboard', 'members', 'memberships', 'trainers', 'facilities', 'schedules', 'sessions', 'checkins', 'invoices', 'payments', 'reports', 'users', 'profile'],
     'Trainer': ['dashboard', 'schedules', 'sessions', 'checkins', 'profile'],
-    'Member': ['dashboard', 'schedules', 'memberships', 'checkins', 'profile']
+    'Member': ['dashboard', 'memberships', 'schedules', 'sessions', 'checkins', 'member-schedule', 'profile']
 };
 
 // Page metadata
@@ -16,13 +16,14 @@ const pageMetadata = {
     'memberships': { title: 'Gói tập', icon: '🎫' },
     'trainers': { title: 'Huấn luyện viên', icon: '🏋️' },
     'facilities': { title: 'Cơ sở vật chất', icon: '🏢' },
-    'schedules': { title: 'Lịch tập', icon: '📅' },
-    'sessions': { title: 'Buổi tập', icon: '💪' },
+    'schedules': { title: 'Lịch Class', icon: '📅' },
+    'sessions': { title: 'Đăng ký Class', icon: '💪' },
     'checkins': { title: 'Check-in', icon: '✅' },
     'invoices': { title: 'Hóa đơn', icon: '🧾' },
     'payments': { title: 'Thanh toán', icon: '💳' },
     'reports': { title: 'Báo cáo', icon: '📈' },
     'users': { title: 'Quản lý Users', icon: '👤' },
+    'member-schedule': { title: 'Lịch Tập Của Tôi', icon: '📅' },
     'profile': { title: 'Cá nhân', icon: '⚙️' }
 };
 
@@ -163,6 +164,9 @@ async function loadPage(pageId) {
                 break;
             case 'users':
                 await renderUsers(container);
+                break;
+            case 'member-schedule':
+                await renderMemberSchedule(container);
                 break;
             case 'profile':
                 await renderProfile(container);
