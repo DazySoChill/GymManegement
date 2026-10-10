@@ -7,9 +7,10 @@ let membershipsPageSize = 10;
 
 // Available packages for purchase
 const AVAILABLE_PACKAGES = [
-  { id: 'basic', name: 'Gói Cơ Bản', price: 299000, durationDays: 30, description: '1 tháng - Sử dụng tất cả thiết bị' },
-  { id: 'standard', name: 'Gói Tiêu Chuẩn', price: 599000, durationDays: 90, description: '3 tháng - Bao gồm 2 buổi PT/tháng' },
-  { id: 'premium', name: 'Gói Premium', price: 999000, durationDays: 180, description: '6 tháng - Không giới hạn PT + dinh dưỡng' }
+  { id: 'basic', name: 'Gói Cơ Bản', price: 500000, durationDays: 30, description: '1 tháng - Sử dụng tất cả thiết bị' },
+  { id: 'advanced', name: 'Gói Nâng Cao', price: 1200000, durationDays: 90, description: '3 tháng - Bao gồm 2 buổi PT/tháng' },
+  { id: 'vip', name: 'Gói VIP', price: 2000000, durationDays: 180, description: '6 tháng - Không giới hạn PT + dinh dưỡng' },
+  { id: 'annual', name: 'Gói Năm', price: 3500000, durationDays: 365, description: '12 tháng - Tất cả dịch vụ cao cấp' }
 ];
 
 // Inject modal styles once
@@ -62,6 +63,53 @@ function injectModalStyles() {
             margin: 20px auto;
             border-radius: 8px;
         }
+        .date-picker-group {
+            margin: 16px 0;
+        }
+        .date-picker-group label {
+            display: block;
+            margin-bottom: 8px;
+            font-weight: 600;
+            color: #2c3e50;
+        }
+        .date-picker-group input[type="date"] {
+            width: 100%;
+            padding: 10px;
+            border: 2px solid #ddd;
+            border-radius: 6px;
+            font-size: 14px;
+        }
+        .date-display {
+            margin-top: 12px;
+            padding: 12px;
+            background: #f8f9fa;
+            border-radius: 6px;
+            color: #495057;
+        }
+        .confirm-input-group {
+            margin: 20px 0;
+        }
+        .confirm-input-group label {
+            display: block;
+            margin-bottom: 8px;
+            font-weight: 600;
+            color: #2c3e50;
+        }
+        .confirm-input-group input {
+            width: 100%;
+            padding: 10px;
+            border: 2px solid #ddd;
+            border-radius: 6px;
+            font-size: 14px;
+        }
+        .warning-text {
+            background: #fff3cd;
+            border: 1px solid #ffc107;
+            padding: 12px;
+            border-radius: 6px;
+            color: #856404;
+            margin: 16px 0;
+        }
     `;
     document.head.appendChild(style);
 }
@@ -101,6 +149,11 @@ function renderAvailablePackages(memberId) {
 function showPurchaseModal(pkg, memberId) {
     injectModalStyles();
     
+    const today = new Date().toISOString().split('T')[0];
+    const oneYearFromNow = new Date();
+    oneYearFromNow.setFullYear(oneYearFromNow.getFullYear() + 1);
+    const maxDate = oneYearFromNow.toISOString().split('T')[0];
+    
     const modal = document.createElement('div');
     modal.className = 'gym-modal-overlay';
     modal.innerHTML = `
@@ -115,14 +168,44 @@ function showPurchaseModal(pkg, memberId) {
             <div style="margin-bottom: 16px;">
                 <strong>Thời hạn:</strong> ${pkg.durationDays} ngày
             </div>
+            <div class="date-picker-group">
+                <label for="startDatePicker">Ngày bắt đầu:</label>
+                <input type="date" id="startDatePicker" value="${today}" min="${today}" max="${maxDate}">
+            </div>
+            <div class="date-display" id="endDateDisplay">
+                <strong>Ngày kết thúc:</strong> <span id="endDateValue">Đang tính toán...</span>
+            </div>
             <div class="gym-modal-buttons">
                 <button class="btn btn-secondary" onclick="this.closest('.gym-modal-overlay').remove()">Hủy</button>
-                <button class="btn btn-success" onclick="processPurchase(${JSON.stringify(pkg).replace(/"/g, '&quot;')}, ${memberId}, 'Cash'); this.closest('.gym-modal-overlay').remove();">💵 Tiền Mặt</button>
-                <button class="btn btn-primary" onclick="showQRPaymentModal(${JSON.stringify(pkg).replace(/"/g, '&quot;')}, ${memberId}); this.closest('.gym-modal-overlay').remove();">📱 Thanh Toán QR</button>
+                <button class="btn btn-success" onclick="processPurchaseWithDate(${JSON.stringify(pkg).replace(/"/g, '&quot;')}, ${memberId}, 'Cash'); this.closest('.gym-modal-overlay').remove();">💵 Tiền Mặt</button>
+                <button class="btn btn-primary" onclick="showQRPaymentModalWithDate(${JSON.stringify(pkg).replace(/"/g, '&quot;')}, ${memberId}); this.closest('.gym-modal-overlay').remove();">📱 Thanh Toán QR</button>
             </div>
         </div>
     `;
     document.body.appendChild(modal);
+    
+    // Update end date when start date changes
+    const startDatePicker = document.getElementById('startDatePicker');
+    const updateEndDate = () => {
+        const startDate = startDatePicker.value;
+        const endDate = calculateEndDate(startDate, pkg.durationDays);
+        document.getElementById('endDateValue').textContent = formatDate(endDate);
+    };
+    startDatePicker.addEventListener('change', updateEndDate);
+    updateEndDate(); // Initial calculation
+}
+
+function calculateEndDate(startDate, durationDays) {
+    const start = new Date(startDate);
+    const end = new Date(start);
+    end.setDate(start.getDate() + durationDays - 1); // -1 because if you start on day 1 of a 30-day package, it ends on day 30
+    return end.toISOString().split('T')[0];
+}
+
+function processPurchaseWithDate(pkg, memberId, paymentMethod) {
+    const startDatePicker = document.getElementById('startDatePicker');
+    const startDate = startDatePicker ? startDatePicker.value : new Date().toISOString().split('T')[0];
+    processPurchase(pkg, memberId, paymentMethod, startDate);
 }
 
 function showQRPaymentModal(pkg, memberId) {
@@ -139,22 +222,54 @@ function showQRPaymentModal(pkg, memberId) {
             </div>
             <div class="gym-modal-buttons">
                 <button class="btn btn-secondary" onclick="this.closest('.gym-modal-overlay').remove()">Hủy</button>
-                <button class="btn btn-success" onclick="processPurchase(${JSON.stringify(pkg).replace(/"/g, '&quot;')}, ${memberId}); this.closest('.gym-modal-overlay').remove();">✅ Xác Nhận Đã Thanh Toán</button>
+                <button class="btn btn-success" onclick="processPurchase(${JSON.stringify(pkg).replace(/"/g, '&quot;')}, ${memberId}, 'QRCode'); this.closest('.gym-modal-overlay').remove();">✅ Xác Nhận Đã Thanh Toán</button>
             </div>
         </div>
     `;
     document.body.appendChild(modal);
 }
 
-async function processPurchase(pkg, memberId, method = 'QRCode') {
+function showQRPaymentModalWithDate(pkg, memberId) {
+    const startDatePicker = document.getElementById('startDatePicker');
+    const startDate = startDatePicker ? startDatePicker.value : new Date().toISOString().split('T')[0];
+    
+    injectModalStyles();
+    
+    const modal = document.createElement('div');
+    modal.className = 'gym-modal-overlay';
+    modal.innerHTML = `
+        <div class="gym-modal">
+            <h3>Thanh Toán QR</h3>
+            <div class="qr-placeholder">📱</div>
+            <div style="text-align: center; margin: 16px 0; font-size: 16px; color: #2c3e50;">
+                Quét mã QR để thanh toán <strong>${formatCurrency(pkg.price)}</strong>
+            </div>
+            <div class="gym-modal-buttons">
+                <button class="btn btn-secondary" onclick="this.closest('.gym-modal-overlay').remove()">Hủy</button>
+                <button class="btn btn-success" onclick="processPurchase(${JSON.stringify(pkg).replace(/"/g, '&quot;')}, ${memberId}, 'QRCode', '${startDate}'); this.closest('.gym-modal-overlay').remove();">✅ Xác Nhận Đã Thanh Toán</button>
+            </div>
+        </div>
+    `;
+    document.body.appendChild(modal);
+}
+
+async function processPurchase(pkg, memberId, method = 'QRCode', startDate = null) {
     try {
         showLoading();
+        
+        // Use provided start date or default to today
+        const start = startDate ? new Date(startDate) : new Date();
+        const end = new Date(start);
+        end.setDate(start.getDate() + pkg.durationDays - 1);
+        // Set end time to end of day
+        end.setHours(23, 59, 59, 999);
         
         // Step 1: Create payment record (using /process endpoint for Members)
         const paymentData = {
             memberId: memberId,
             amount: pkg.price,
             paymentMethod: method,
+            paymentDate: new Date().toISOString(),
             transactionId: (method === 'Cash' ? 'CASH_' : 'QR_') + Date.now(),
             status: 'Completed'
         };
@@ -165,15 +280,12 @@ async function processPurchase(pkg, memberId, method = 'QRCode') {
         });
         
         // Step 2: Create membership (using /purchase endpoint for Members)
-        const startDate = new Date();
-        const endDate = new Date(startDate.getTime() + pkg.durationDays * 86400000);
-        
         const membershipData = {
             memberId: memberId,
             packageName: pkg.name,
             price: pkg.price,
-            startDate: startDate.toISOString(),
-            endDate: endDate.toISOString()
+            startDate: start.toISOString(),
+            endDate: end.toISOString()
         };
         
         await apiFetch('/api/Membership/purchase', {
@@ -185,11 +297,29 @@ async function processPurchase(pkg, memberId, method = 'QRCode') {
         showToast('Mua gói tập thành công!', 'success');
         
         // Reload to show new membership
-        reloadCurrentPage();
+        setTimeout(() => {
+            reloadCurrentPage();
+        }, 1500);
         
     } catch (error) {
         hideLoading();
-        showToast('Lỗi mua gói tập: ' + error.message, 'error');
+        let errorMessage = 'Đã xảy ra lỗi hệ thống. Vui lòng thử lại sau.';
+        
+        // Check for specific error messages
+        if (error.message) {
+            if (error.message.toLowerCase().includes('active membership') || 
+                error.message.toLowerCase().includes('đã có gói tập')) {
+                errorMessage = 'Bạn đã có gói tập đang hoạt động. Vui lòng hủy gói hiện tại trước khi mua gói mới.';
+            } else if (error.message.toLowerCase().includes('payment')) {
+                errorMessage = 'Lỗi thanh toán. Vui lòng thử lại sau.';
+            } else if (error.message.toLowerCase().includes('membership')) {
+                errorMessage = 'Lỗi tạo gói tập. Vui lòng liên hệ quản trị viên.';
+            } else {
+                errorMessage = error.message;
+            }
+        }
+        
+        showToast('Lỗi mua gói tập: ' + errorMessage, 'error');
     }
 }
 
@@ -376,8 +506,39 @@ function showEditMembershipModal(id) {
 }
 
 async function cancelMembership(membershipId) {
-    if (!confirm('Bạn có chắc muốn hủy gói tập này? Gói tập sẽ kết thúc ngay hôm nay.')) return;
+    // Show custom confirmation modal
+    injectModalStyles();
     
+    const modal = document.createElement('div');
+    modal.className = 'gym-modal-overlay';
+    modal.innerHTML = `
+        <div class="gym-modal">
+            <h3>Xác Nhận Hủy Gói Tập</h3>
+            <div class="warning-text">
+                ⚠️ Gói tập sẽ kết thúc ngay hôm nay. Hành động này không thể hoàn tác.
+            </div>
+            <div class="confirm-input-group">
+                <label for="cancelConfirmInput">Nhập "Xác Nhận" để tiếp tục:</label>
+                <input type="text" id="cancelConfirmInput" placeholder='Nhập "Xác Nhận"'>
+            </div>
+            <div class="gym-modal-buttons">
+                <button class="btn btn-secondary" onclick="this.closest('.gym-modal-overlay').remove()">Hủy Bỏ</button>
+                <button class="btn btn-danger" id="confirmCancelBtn" disabled onclick="executeCancelMembership(${membershipId}); this.closest('.gym-modal-overlay').remove();">Hủy Gói Tập</button>
+            </div>
+        </div>
+    `;
+    document.body.appendChild(modal);
+    
+    // Enable button only when exact text is entered
+    const input = document.getElementById('cancelConfirmInput');
+    const confirmBtn = document.getElementById('confirmCancelBtn');
+    input.addEventListener('input', () => {
+        confirmBtn.disabled = input.value !== 'Xác Nhận';
+    });
+    input.focus();
+}
+
+async function executeCancelMembership(membershipId) {
     try {
         showLoading();
         await apiFetch(`/api/Membership/${membershipId}/cancel`, { method: 'POST' });
