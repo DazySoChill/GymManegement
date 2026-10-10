@@ -2,9 +2,13 @@
 {
     public class CreateSessionRequest
     {
+        public int MemberId { get; set; }
         public int ScheduleId { get; set; }
-        public DateTime SessionDate { get; set; }
-        /// <summary>Scheduled | Completed | Cancelled</summary>
-        public string Status { get; set; } = "Scheduled";
+        
+        /// <summary>Registration date/time. Defaults to current UTC time if not provided</summary>
+        public DateTime RegistrationDate { get; set; } = DateTime.UtcNow;
+        
+        /// <summary>Status: Registered | Attended | Cancelled</summary>
+        public string Status { get; set; } = "Registered";
     }
 }
