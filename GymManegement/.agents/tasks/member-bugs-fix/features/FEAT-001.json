@@ -1,0 +1,24 @@
+{
+  "id": "FEAT-001",
+  "type": "fix",
+  "description": "Fix dashboard.js 'isAdmin is not defined' error by adding isAdmin() helper function to auth.js. The function should return true if getRole() === 'Admin', false otherwise. Dashboard.js line 8 calls isAdmin() but it doesn't exist.",
+  "status": "completed",
+  "steps": [
+    "Read wwwroot/js/auth.js to confirm isAdmin() is missing",
+    "Add function isAdmin() at end of auth.js that returns getRole() === 'Admin'",
+    "Add JSDoc comment: @returns {boolean} - True if current user is Admin"
+  ],
+  "acceptance_criteria": [
+    "isAdmin() function exists in auth.js",
+    "Function returns boolean based on role check",
+    "Dashboard page loads for Member without console error"
+  ],
+  "verification": [
+    "Login as member01/password",
+    "Navigate to Dashboard (#dashboard)",
+    "Open browser console - verify no 'isAdmin is not defined' error",
+    "Page renders successfully with member dashboard stats"
+  ],
+  "blocked_reason": null,
+  "findings": "Added isAdmin() function to auth.js that returns boolean based on getRole() === 'Admin' check. Function includes JSDoc comment. Dashboard.js line 8 will now successfully call isAdmin() without 'is not defined' error."
+}

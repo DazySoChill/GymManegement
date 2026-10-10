@@ -99,3 +99,11 @@ function getMemberId() {
 function getToken() {
     return localStorage.getItem('gym_token');
 }
+
+/**
+ * Check if current user is Admin
+ * @returns {boolean} - True if current user is Admin
+ */
+function isAdmin() {
+    return getRole() === 'Admin';
+}
