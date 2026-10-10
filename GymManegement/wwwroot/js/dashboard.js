@@ -70,9 +70,10 @@ async function renderAdminDashboard(container) {
  */
 async function loadActiveMembersCount() {
     try {
-        const result = await apiFetch('/api/Member?pageNumber=1&pageSize=1');
-        // Backend returns PagedResult with PascalCase: { Data, Total, PageNumber, PageSize, TotalPages }
-        const count = result?.Total || 0;
+        // Use optimized Report endpoint that counts at database level
+        const result = await apiFetch('/api/Report/active-members');
+        // Backend returns { ActiveMemberCount: number }
+        const count = result?.ActiveMemberCount || 0;
         document.getElementById('activeMembersCount').textContent = count;
     } catch (error) {
         console.error('Error loading active members:', error);
@@ -87,39 +88,18 @@ async function loadActiveMembersCount() {
 
 /**
  * Load Monthly Revenue
- * Fetches all payments across all pages and filters client-side for current month.
+ * Uses optimized Report endpoint that aggregates at database level.
  */
 async function loadMonthlyRevenue() {
     try {
         const now = new Date();
-        const currentMonth = now.getMonth();
+        const currentMonth = now.getMonth() + 1; // JavaScript month is 0-indexed, API expects 1-12
         const currentYear = now.getFullYear();
         
-        // Fetch all pages to ensure complete data
-        let allPayments = [];
-        let pageNumber = 1;
-        let totalPages = 1;
-        
-        do {
-            const result = await apiFetch(`/api/Payment?pageNumber=${pageNumber}&pageSize=100`);
-            // Backend returns PagedResult with PascalCase: { Data, Total, PageNumber, PageSize, TotalPages }
-            if (result?.Data) {
-                allPayments = allPayments.concat(result.Data);
-            }
-            totalPages = result?.TotalPages || 1;
-            pageNumber++;
-        } while (pageNumber <= totalPages);
-        
-        // Filter payments for current month using backend field name: PaymentDate (PascalCase)
-        const filtered = allPayments.filter(p => {
-            if (!p.PaymentDate) return false;
-            
-            const date = new Date(p.PaymentDate);
-            return date.getMonth() === currentMonth && date.getFullYear() === currentYear;
-        });
-        
-        // Sum the amounts using backend field name: Amount (PascalCase)
-        const total = filtered.reduce((sum, p) => sum + (p.Amount || 0), 0);
+        // Use optimized Report endpoint that aggregates in SQL
+        const result = await apiFetch(`/api/Report/revenue?month=${currentMonth}&year=${currentYear}`);
+        // Backend returns { TotalRevenue: number, InvoiceCount: number }
+        const total = result?.TotalRevenue || 0;
         document.getElementById('monthlyRevenue').textContent = formatCurrency(total);
     } catch (error) {
         console.error('Error loading monthly revenue:', error);
@@ -134,35 +114,17 @@ async function loadMonthlyRevenue() {
 
 /**
  * Load Today's Checkins Count
- * Fetches all checkins across all pages and filters client-side for today.
+ * Uses date-specific endpoint instead of fetching all checkins.
  */
 async function loadTodayCheckins() {
     try {
-        const today = new Date().toISOString().split('T')[0];
+        const today = new Date().toISOString().split('T')[0]; // Format: YYYY-MM-DD
         
-        // Fetch all pages to ensure complete data
-        let allCheckins = [];
-        let pageNumber = 1;
-        let totalPages = 1;
-        
-        do {
-            const result = await apiFetch(`/api/Checkin?pageNumber=${pageNumber}&pageSize=100`);
-            // Backend returns PagedResult with PascalCase: { Data, Total, PageNumber, PageSize, TotalPages }
-            if (result?.Data) {
-                allCheckins = allCheckins.concat(result.Data);
-            }
-            totalPages = result?.TotalPages || 1;
-            pageNumber++;
-        } while (pageNumber <= totalPages);
-        
-        // Filter checkins for today using backend field name: CheckinTime (PascalCase)
-        const filtered = allCheckins.filter(c => {
-            if (!c.CheckinTime) return false;
-            const checkinDate = new Date(c.CheckinTime).toISOString().split('T')[0];
-            return checkinDate === today;
-        });
-        
-        document.getElementById('todayCheckins').textContent = filtered.length;
+        // Use date-specific endpoint that filters at database level
+        const result = await apiFetch(`/api/Checkin/date/${today}`);
+        // Backend returns array of CheckinResponse objects
+        const count = Array.isArray(result) ? result.length : 0;
+        document.getElementById('todayCheckins').textContent = count;
     } catch (error) {
         console.error('Error loading today checkins:', error);
         const errorMsg = error.message?.includes('401') || error.message?.includes('403') 
