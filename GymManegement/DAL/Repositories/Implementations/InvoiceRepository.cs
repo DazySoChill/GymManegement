@@ -62,10 +62,9 @@ namespace GymManegement.DAL.Repositories.Implementations
         {
             using var conn = _db.CreateConnection();
             return await conn.QueryAsync<Invoice>(@"
-                SELECT i.* FROM Invoices i
-                INNER JOIN Memberships m ON i.MembershipId = m.MembershipId
-                WHERE m.MemberId = @MemberId AND i.IsDeleted = 0
-                ORDER BY i.InvoiceDate DESC",
+                SELECT * FROM Invoices 
+                WHERE MemberId = @MemberId AND IsDeleted = 0 
+                ORDER BY InvoiceDate DESC",
                 new { MemberId = memberId });
         }
         public async Task<IEnumerable<Invoice>> GetByStatusAsync(string status)
@@ -108,11 +107,12 @@ namespace GymManegement.DAL.Repositories.Implementations
         {
             using var conn = _db.CreateConnection();
             var sql = @"
-                INSERT INTO Invoices (MembershipId, TotalAmount, InvoiceDate, DueDate, Status, Description, CreatedAt, UpdatedAt, IsDeleted)
-                VALUES (@MembershipId, @TotalAmount, @InvoiceDate, @DueDate, @Status, @Description, GETDATE(), GETDATE(), 0);
+                INSERT INTO Invoices (MemberId, MembershipId, TotalAmount, InvoiceDate, DueDate, Status, Description, CreatedAt, UpdatedAt, IsDeleted)
+                VALUES (@MemberId, @MembershipId, @TotalAmount, @InvoiceDate, @DueDate, @Status, @Description, GETDATE(), GETDATE(), 0);
                 SELECT CAST(SCOPE_IDENTITY() AS INT);";
             var id = await conn.QuerySingleAsync<int>(sql, new
             {
+                entity.MemberId,
                 entity.MembershipId,
                 entity.TotalAmount,
                 entity.InvoiceDate,

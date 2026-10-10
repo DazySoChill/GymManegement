@@ -169,5 +169,16 @@ namespace GymManegement.DAL.Repositories.Implementations
             
             await conn.ExecuteAsync(sql, new { MembershipId = id, DeletedAt = DateTime.UtcNow });
         }
+
+        public async Task CancelAsync(int membershipId)
+        {
+            using var conn = _db.CreateConnection();
+            var sql = @"
+                UPDATE Memberships 
+                SET EndDate = CAST(GETDATE() AS DATE),
+                    UpdatedAt = GETDATE()
+                WHERE MembershipId = @MembershipId AND IsDeleted = 0";
+            await conn.ExecuteAsync(sql, new { MembershipId = membershipId });
+        }
     }
 }

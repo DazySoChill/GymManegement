@@ -62,6 +62,7 @@ namespace GymManegement.Service.BUS.Implementations
         {
             var entity = new Invoice
             {
+                MemberId = request.MemberId,  // Add this
                 MembershipId = request.MembershipId,
                 TotalAmount = request.TotalAmount,
                 InvoiceDate = request.InvoiceDate,
@@ -94,14 +95,14 @@ namespace GymManegement.Service.BUS.Implementations
         private static InvoiceResponse ToResponse(Invoice i) => new InvoiceResponse
         {
             InvoiceId = i.InvoiceId,
-            MembershipId = i.MembershipId,
+            MembershipId = i.MembershipId ?? 0,  // Handle nullable
             TotalAmount = i.TotalAmount,
             InvoiceDate = i.InvoiceDate,
-            DueDate = i.DueDate,
+            DueDate = i.DueDate ?? DateTime.MinValue,  // Handle nullable
             Status = i.Status,
             Description = i.Description,
             CreatedAt = i.CreatedAt,
-            UpdatedAt = i.UpdatedAt
+            UpdatedAt = i.UpdatedAt ?? DateTime.MinValue  // Handle nullable
         };
     }
 }

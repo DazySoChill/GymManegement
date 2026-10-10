@@ -33,6 +33,26 @@ namespace GymManegement.Controllers
         public async Task<IActionResult> GetByMember(int memberId)
             => Ok(await _service.GetByMemberIdAsync(memberId));
 
+        [HttpPost("process")]
+        [Authorize] // Allow all authenticated users (including Members)
+        public async Task<IActionResult> Process([FromBody] CreatePaymentRequest request)
+        {
+            // Members can only create payment for themselves
+            var userRole = User.FindFirst(System.Security.Claims.ClaimTypes.Role)?.Value;
+            if (userRole == "Member")
+            {
+                var userMemberIdStr = User.FindFirst("MemberId")?.Value;
+                if (int.TryParse(userMemberIdStr, out int userMemberId) && userMemberId != request.MemberId)
+                {
+                    return Forbid();
+                }
+            }
+            
+            if (!ModelState.IsValid) return BadRequest(ModelState);
+            var result = await _service.CreateAsync(request);
+            return CreatedAtAction(nameof(GetById), new { id = result.PaymentId }, result);
+        }
+
         [HttpPost]
         [Authorize(Roles = "SuperAdmin,Admin")]
         public async Task<IActionResult> Create([FromBody] CreatePaymentRequest request)

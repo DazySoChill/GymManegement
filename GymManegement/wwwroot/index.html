@@ -91,6 +91,7 @@
     <script src="js/payments.js"></script>
     <script src="js/reports.js"></script>
     <script src="js/users.js"></script>
+    <script src="js/profile.js"></script>
     
     <script>
         // Initialize app on page load
@@ -155,7 +156,7 @@
                     })
                 });
                 hideLoading();
-                showSuccess('Đổi mật khẩu thành công');
+                showToast('Đổi mật khẩu thành công', 'success');
                 closeGlobalChangePasswordModal();
             } catch (error) {
                 hideLoading();

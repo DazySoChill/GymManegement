@@ -3,11 +3,15 @@
     public class PaymentResponse
     {
         public int PaymentId { get; set; }
-        public int InvoiceId { get; set; }
+        public int? InvoiceId { get; set; }
+        public int MemberId { get; set; }
         public decimal Amount { get; set; }
         public DateTime PaymentDate { get; set; }
         public string PaymentMethod { get; set; } = string.Empty;
+        public string? TransactionId { get; set; }
+        public string Status { get; set; } = string.Empty;
         public DateTime CreatedAt { get; set; }
-        public DateTime UpdatedAt { get; set; }
+        public DateTime? UpdatedAt { get; set; }
     }
 }
+

@@ -70,12 +70,10 @@ namespace GymManegement.DAL.Repositories.Implementations
         {
             using var conn = _db.CreateConnection();
             var sql = @"
-                SELECT p.* FROM Payments p
-                INNER JOIN Invoices i ON p.InvoiceId = i.InvoiceId
-                INNER JOIN Memberships m ON i.MembershipId = m.MembershipId
-                WHERE m.MemberId = @MemberId
-                  AND p.IsDeleted = 0
-                ORDER BY p.PaymentDate DESC";
+                SELECT * FROM Payments 
+                WHERE MemberId = @MemberId
+                  AND IsDeleted = 0
+                ORDER BY PaymentDate DESC";
             return await conn.QueryAsync<Payment>(sql, new { MemberId = memberId });
         }
 
@@ -90,15 +88,18 @@ namespace GymManegement.DAL.Repositories.Implementations
         {
             using var conn = _db.CreateConnection();
             var sql = @"
-                INSERT INTO Payments (InvoiceId, Amount, PaymentDate, PaymentMethod, CreatedAt, UpdatedAt, IsDeleted)
-                VALUES (@InvoiceId, @Amount, @PaymentDate, @PaymentMethod, GETDATE(), GETDATE(), 0);
+                INSERT INTO Payments (InvoiceId, MemberId, Amount, PaymentDate, PaymentMethod, TransactionId, Status, CreatedAt, IsDeleted)
+                VALUES (@InvoiceId, @MemberId, @Amount, @PaymentDate, @PaymentMethod, @TransactionId, @Status, GETDATE(), 0);
                 SELECT CAST(SCOPE_IDENTITY() AS INT);";
             var id = await conn.QuerySingleAsync<int>(sql, new
             {
                 entity.InvoiceId,
+                entity.MemberId,
                 entity.Amount,
                 entity.PaymentDate,
-                entity.PaymentMethod
+                entity.PaymentMethod,
+                entity.TransactionId,
+                entity.Status
             });
             entity.PaymentId = id;
             return entity;

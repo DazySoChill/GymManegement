@@ -44,6 +44,27 @@ namespace GymManegement.Controllers
         public async Task<IActionResult> GetExpiring([FromQuery] int daysAhead = 7)
             => Ok(await _service.GetExpiringSoonAsync(daysAhead));
 
+        [HttpPost("purchase")]
+        [Authorize] // Allow all authenticated users (including Members)
+        public async Task<IActionResult> Purchase([FromBody] CreateMembershipRequest request)
+        {
+            // Members can only purchase for themselves
+            var userRole = User.FindFirst(System.Security.Claims.ClaimTypes.Role)?.Value;
+            if (userRole == "Member")
+            {
+                // Verify memberId matches current user
+                var userMemberIdStr = User.FindFirst("MemberId")?.Value;
+                if (int.TryParse(userMemberIdStr, out int userMemberId) && userMemberId != request.MemberId)
+                {
+                    return Forbid(); // Member can only buy for themselves
+                }
+            }
+            
+            if (!ModelState.IsValid) return BadRequest(ModelState);
+            var result = await _service.CreateAsync(request);
+            return CreatedAtAction(nameof(GetById), new { id = result.MembershipId }, result);
+        }
+
         [HttpPost]
         [Authorize(Roles = "SuperAdmin,Admin")]
         public async Task<IActionResult> Create([FromBody] CreateMembershipRequest request)
@@ -83,6 +104,34 @@ namespace GymManegement.Controllers
             
             var result = await _service.CreateAsync(request);
             return CreatedAtAction(nameof(GetById), new { id = result.MembershipId }, result);
+        }
+
+        /// <summary>Cancel membership - sets EndDate to today</summary>
+        [HttpPost("{id:int}/cancel")]
+        [Authorize]
+        public async Task<IActionResult> Cancel(int id)
+        {
+            var userRole = User.FindFirst(System.Security.Claims.ClaimTypes.Role)?.Value;
+            var userMemberIdStr = User.FindFirst("MemberId")?.Value;
+            
+            if (!int.TryParse(userMemberIdStr, out int userMemberId))
+                return Forbid();
+            
+            // Admin can cancel any; Member can only cancel own
+            if (userRole == "Member")
+            {
+                var ok = await _service.CancelAsync(id, userMemberId);
+                return ok ? Ok(new { message = "Hủy gói tập thành công." }) : NotFound();
+            }
+            else if (userRole == "Admin" || userRole == "SuperAdmin")
+            {
+                var membership = await _service.GetByIdAsync(id);
+                if (membership == null) return NotFound();
+                var ok = await _service.CancelAsync(id, membership.MemberId);
+                return ok ? Ok(new { message = "Hủy gói tập thành công." }) : NotFound();
+            }
+            
+            return Forbid();
         }
     }
 }

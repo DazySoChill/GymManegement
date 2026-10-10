@@ -78,6 +78,7 @@ namespace GymManegement.Service.BUS.Implementations
             // 2. AUTO CREATE Invoice
             var invoice = new Invoice
             {
+                MemberId = membership.MemberId,  // FIX: Add MemberId
                 MembershipId = membership.MembershipId,
                 InvoiceDate = DateTime.Today,
                 DueDate = membership.EndDate,
@@ -108,6 +109,15 @@ namespace GymManegement.Service.BUS.Implementations
             var entity = await _repo.GetByIdAsync(id);
             if (entity is null) return false;
             await _repo.DeleteAsync(id);
+            return true;
+        }
+
+        public async Task<bool> CancelAsync(int membershipId, int requestingMemberId)
+        {
+            var entity = await _repo.GetByIdAsync(membershipId);
+            if (entity is null) return false;
+            if (entity.MemberId != requestingMemberId) return false; // Security check: member can only cancel own
+            await _repo.CancelAsync(membershipId);
             return true;
         }
 

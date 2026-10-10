@@ -1,5 +1,5 @@
 admin - gymadmin
-	gym@123
+	Gym@2026
 
 member - yourname
 	 yourname

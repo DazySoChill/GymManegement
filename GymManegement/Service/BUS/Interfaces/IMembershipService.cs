@@ -14,5 +14,7 @@ namespace GymManegement.Service.BUS.Interfaces
         Task<MembershipResponse> CreateAsync(CreateMembershipRequest request);
         Task<MembershipResponse?> UpdateAsync(int id, UpdateMembershipRequest request);
         Task<bool> DeleteAsync(int id);
+        /// <summary>Cancel membership - sets EndDate to today</summary>
+        Task<bool> CancelAsync(int membershipId, int requestingMemberId);
     }
 }

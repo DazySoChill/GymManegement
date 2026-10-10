@@ -54,42 +54,65 @@ namespace GymManegement.Service.BUS.Implementations
         }
 
         /// <summary>
-        /// CreateAsync: Tạo Payment và AUTO UPDATE Invoice.Status
+        /// CreateAsync: Tạo Payment và AUTO UPDATE Invoice.Status (if invoice exists)
         /// </summary>
         public async Task<PaymentResponse> CreateAsync(CreatePaymentRequest request)
         {
-            // 1. Get Invoice
-            var invoice = await _invoiceRepo.GetByIdAsync(request.InvoiceId);
-            if (invoice is null)
-                throw new InvalidOperationException("Invoice không tồn tại.");
-
-            // 2. Create Payment
-            var payment = new Payment
+            // Support 2 cases:
+            // Case 1: Payment with Invoice (Admin creates invoice first, then payment)
+            // Case 2: Direct payment without invoice (Member purchase)
+            
+            Payment payment;
+            
+            if (request.InvoiceId.HasValue && request.InvoiceId.Value > 0)
             {
-                InvoiceId = request.InvoiceId,
-                Amount = request.Amount,
-                PaymentDate = request.PaymentDate,
-                PaymentMethod = request.PaymentMethod
-            };
-            await _repo.CreateAsync(payment);
+                // Case 1: Payment for existing invoice
+                var invoice = await _invoiceRepo.GetByIdAsync(request.InvoiceId.Value);
+                if (invoice is null)
+                    throw new InvalidOperationException("Invoice không tồn tại.");
 
-            // 3. AUTO UPDATE Invoice.Status
-            // Calculate total paid
-            var allPayments = await _repo.GetByInvoiceIdAsync(invoice.InvoiceId);
-            var totalPaid = allPayments.Sum(p => p.Amount);
+                payment = new Payment
+                {
+                    InvoiceId = request.InvoiceId.Value,
+                    MemberId = invoice.MemberId,  // Get from invoice
+                    Amount = request.Amount,
+                    PaymentDate = request.PaymentDate,
+                    PaymentMethod = request.PaymentMethod,
+                    TransactionId = request.TransactionId,
+                    Status = request.Status
+                };
+                await _repo.CreateAsync(payment);
 
-            if (totalPaid >= invoice.TotalAmount)
-            {
-                // Full payment → Mark as Paid
-                invoice.Status = "Paid";
+                // AUTO UPDATE Invoice.Status
+                var allPayments = await _repo.GetByInvoiceIdAsync(invoice.InvoiceId);
+                var totalPaid = allPayments.Sum(p => p.Amount);
+
+                if (totalPaid >= invoice.TotalAmount)
+                {
+                    invoice.Status = "Paid";
+                }
+                else if (totalPaid > 0)
+                {
+                    invoice.Status = "Pending";
+                }
+
+                await _invoiceRepo.UpdateAsync(invoice);
             }
-            else if (totalPaid > 0)
+            else
             {
-                // Partial payment → Keep as Pending
-                invoice.Status = "Pending";
+                // Case 2: Direct payment without invoice (e.g., membership purchase)
+                payment = new Payment
+                {
+                    InvoiceId = null,
+                    MemberId = request.MemberId,
+                    Amount = request.Amount,
+                    PaymentDate = request.PaymentDate,
+                    PaymentMethod = request.PaymentMethod,
+                    TransactionId = request.TransactionId,
+                    Status = request.Status
+                };
+                await _repo.CreateAsync(payment);
             }
-
-            await _invoiceRepo.UpdateAsync(invoice);
 
             return ToResponse(payment);
         }
@@ -115,9 +138,12 @@ namespace GymManegement.Service.BUS.Implementations
         {
             PaymentId = p.PaymentId,
             InvoiceId = p.InvoiceId,
+            MemberId = p.MemberId,
             Amount = p.Amount,
             PaymentDate = p.PaymentDate,
             PaymentMethod = p.PaymentMethod,
+            TransactionId = p.TransactionId,
+            Status = p.Status,
             CreatedAt = p.CreatedAt,
             UpdatedAt = p.UpdatedAt
         };
