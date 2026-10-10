@@ -5,7 +5,7 @@
 async function renderDashboard(container) {
     const role = getRole();
     
-    if (role === 'Admin') {
+    if (isAdmin()) {
         await renderAdminDashboard(container);
     } else if (role === 'Trainer') {
         await renderTrainerDashboard(container);
@@ -70,10 +70,10 @@ async function renderAdminDashboard(container) {
  */
 async function loadActiveMembersCount() {
     try {
-        // Use optimized Report endpoint that counts at database level
-        const result = await apiFetch('/api/Report/active-members');
-        // Backend returns { ActiveMemberCount: number }
-        const count = result?.ActiveMemberCount || 0;
+        // Fetch first page to get Total count from PagedResult
+        const result = await apiFetch('/api/Member?pageNumber=1&pageSize=1');
+        // Backend returns PagedResult with PascalCase: { Data, Total, PageNumber, PageSize, TotalPages }
+        const count = result?.Total || 0;
         document.getElementById('activeMembersCount').textContent = count;
     } catch (error) {
         console.error('Error loading active members:', error);
@@ -88,19 +88,29 @@ async function loadActiveMembersCount() {
 
 /**
  * Load Monthly Revenue
- * Uses optimized Report endpoint that aggregates at database level.
+ * Fetches payments and filters client-side for current month (October 2026).
  */
 async function loadMonthlyRevenue() {
     try {
         const now = new Date();
-        const currentMonth = now.getMonth() + 1; // JavaScript month is 0-indexed, API expects 1-12
-        const currentYear = now.getFullYear();
+        const currentMonth = now.getMonth(); // 0-indexed (October = 9)
+        const currentYear = now.getFullYear(); // 2026
         
-        // Use optimized Report endpoint that aggregates in SQL
-        const result = await apiFetch(`/api/Report/revenue?month=${currentMonth}&year=${currentYear}`);
-        // Backend returns { TotalRevenue: number, InvoiceCount: number }
-        const total = result?.TotalRevenue || 0;
-        document.getElementById('monthlyRevenue').textContent = formatCurrency(total);
+        // Fetch payments (up to 1000 records - sufficient for most gyms)
+        const result = await apiFetch('/api/Payment?pageNumber=1&pageSize=1000');
+        // Backend returns PagedResult with PascalCase: { Data, Total, PageNumber, PageSize, TotalPages }
+        const payments = result?.Data || [];
+        
+        // Filter by current month and sum Amount
+        const monthlyTotal = payments
+            .filter(p => {
+                const paymentDate = new Date(p.PaymentDate);
+                return paymentDate.getMonth() === currentMonth && 
+                       paymentDate.getFullYear() === currentYear;
+            })
+            .reduce((sum, p) => sum + (p.Amount || 0), 0);
+        
+        document.getElementById('monthlyRevenue').textContent = formatCurrency(monthlyTotal);
     } catch (error) {
         console.error('Error loading monthly revenue:', error);
         const errorMsg = error.message?.includes('401') || error.message?.includes('403') 
@@ -114,17 +124,25 @@ async function loadMonthlyRevenue() {
 
 /**
  * Load Today's Checkins Count
- * Uses date-specific endpoint instead of fetching all checkins.
+ * Fetches checkins and filters client-side for today (2026-10-09).
  */
 async function loadTodayCheckins() {
     try {
-        const today = new Date().toISOString().split('T')[0]; // Format: YYYY-MM-DD
+        const today = new Date();
+        const todayStr = today.toISOString().split('T')[0]; // Format: YYYY-MM-DD
         
-        // Use date-specific endpoint that filters at database level
-        const result = await apiFetch(`/api/Checkin/date/${today}`);
-        // Backend returns array of CheckinResponse objects
-        const count = Array.isArray(result) ? result.length : 0;
-        document.getElementById('todayCheckins').textContent = count;
+        // Fetch checkins (up to 1000 records - sufficient for most gyms)
+        const result = await apiFetch('/api/Checkin?pageNumber=1&pageSize=1000');
+        // Backend returns PagedResult with PascalCase: { Data, Total, PageNumber, PageSize, TotalPages }
+        const checkins = result?.Data || [];
+        
+        // Filter by today's date
+        const todayCount = checkins.filter(c => {
+            const checkinDate = new Date(c.CheckinTime).toISOString().split('T')[0];
+            return checkinDate === todayStr;
+        }).length;
+        
+        document.getElementById('todayCheckins').textContent = todayCount;
     } catch (error) {
         console.error('Error loading today checkins:', error);
         const errorMsg = error.message?.includes('401') || error.message?.includes('403') 
@@ -212,6 +230,10 @@ async function renderMemberDashboard(container) {
                 <div class="stat-label">Số Ngày Còn Lại</div>
                 <div class="stat-value" id="daysRemaining">-</div>
             </div>
+            <div class="stat-card">
+                <div class="stat-label">Buổi Tập Sắp Tới</div>
+                <div class="stat-value" id="nextWorkoutInfo">-</div>
+            </div>
         </div>
         
         <div class="card">
@@ -250,6 +272,9 @@ async function renderMemberDashboard(container) {
         // Load upcoming sessions
         const sessions = await apiFetch(`/api/Session/member/${memberId}`);
         renderUpcomingSessions(sessions);
+        
+        // Load next workout from schedule preferences
+        await loadNextWorkout(memberId);
         
     } catch (error) {
         showError('Lỗi tải dữ liệu: ' + error.message);
@@ -342,3 +367,58 @@ function renderUpcomingSessions(sessions) {
     html += '</tbody></table>';
     container.innerHTML = html;
 }
+
+function parseTimeToMinutes(timeSpan) {
+    const parts = timeSpan.split(':');
+    return parseInt(parts[0]) * 60 + parseInt(parts[1]);
+}
+
+function formatTimeSpan(timeSpan) {
+    if (typeof timeSpan === 'string') {
+        const parts = timeSpan.split(':');
+        return parts[0] + ':' + parts[1];
+    }
+    return String(timeSpan);
+}
+
+async function loadNextWorkout(memberId) {
+    const el = document.getElementById('nextWorkoutInfo');
+    if (!el) return;
+    try {
+        const schedules = await apiFetch('/api/MemberSchedulePreference/member/' + memberId);
+        if (!schedules || schedules.length === 0) {
+            el.innerHTML = '<small>Chưa có lịch</small>';
+            return;
+        }
+        const now = new Date();
+        const currentDay = now.getDay();
+        const currentTime = now.getHours() * 60 + now.getMinutes();
+        const activeSchedules = schedules.filter(s => s.isActive !== false);
+        let nextSchedule = null;
+        let minDiff = Infinity;
+        activeSchedules.forEach(function(schedule) {
+            const scheduleDay = schedule.dayOfWeek;
+            const scheduleTime = parseTimeToMinutes(schedule.startTime);
+            let daysUntil = scheduleDay - currentDay;
+            if (daysUntil < 0) daysUntil += 7;
+            if (daysUntil === 0 && scheduleTime < currentTime) daysUntil = 7;
+            const totalMinutes = daysUntil * 24 * 60 + (scheduleTime - currentTime);
+            if (totalMinutes < minDiff) {
+                minDiff = totalMinutes;
+                nextSchedule = schedule;
+            }
+        });
+        if (nextSchedule) {
+            const startTime = formatTimeSpan(nextSchedule.startTime);
+            const endTime = formatTimeSpan(nextSchedule.endTime);
+            const dayName = nextSchedule.dayOfWeekName || ('Thứ ' + (nextSchedule.dayOfWeek === 0 ? 'CN' : (nextSchedule.dayOfWeek + 1)));
+            el.innerHTML = '<small>' + dayName + '<br>' + startTime + ' - ' + endTime + '</small>';
+        } else {
+            el.innerHTML = '<small>Chưa có lịch</small>';
+        }
+    } catch (error) {
+        console.error('Error loading next workout:', error);
+        el.innerHTML = '<small>Lỗi tải</small>';
+    }
+}
+

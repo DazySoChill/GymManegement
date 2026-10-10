@@ -138,40 +138,19 @@ function ensureModalStyles() {
     document.head.appendChild(style);
 }
 
-function showQRCheckinModal(memberId) {
-    ensureModalStyles();
-    
-    const qrValue = `MEMBER_${memberId}_${Date.now()}`;
-    
-    const modal = document.createElement('div');
-    modal.className = 'gym-modal-overlay';
-    modal.innerHTML = `
-        <div class="gym-modal">
-            <h3>Check-in bằng QR</h3>
-            <div class="qr-placeholder">📱</div>
-            <div class="qr-code-display">${escapeHtml(qrValue)}</div>
-            <input id="qrCodeInput" type="text" value="${escapeHtml(qrValue)}" placeholder="Nhập hoặc scan QR code" style="width:100%;padding:8px;margin:12px 0;border:1px solid #ddd;border-radius:6px;">
-            <div class="gym-modal-buttons">
-                <button class="btn btn-secondary" onclick="this.closest('.gym-modal-overlay').remove()">Hủy</button>
-                <button class="btn btn-success" onclick="processQRCheckin(${memberId}); this.closest('.gym-modal-overlay').remove();">✅ Xác Nhận Check-in</button>
-            </div>
-        </div>
-    `;
-    document.body.appendChild(modal);
-}
-
-async function processQRCheckin(memberId) {
-    const qrCode = document.getElementById('qrCodeInput')?.value?.trim();
-    
-    if (!qrCode) {
-        showError('Vui lòng nhập mã QR');
-        return;
-    }
-    
+/**
+ * Quick check-in without QR code modal
+ * Uses QR endpoint with auto-generated QR code
+ */
+async function quickCheckin(memberId) {
     try {
         showLoading();
         
-        await apiFetch('/api/Checkin/qr', {
+        // Generate simple QR code value
+        const qrCode = `MEMBER_${memberId}_${Date.now()}`;
+        
+        // Use QR checkin endpoint
+        const result = await apiFetch('/api/Checkin/qr', {
             method: 'POST',
             body: JSON.stringify({
                 qrCode: qrCode,
@@ -182,43 +161,20 @@ async function processQRCheckin(memberId) {
         hideLoading();
         showToast('✅ Check-in thành công!', 'success');
         
-        // Clear cache and reload to recalculate counts
-        reloadCheckinsData();
-        
-    } catch (error) {
-        hideLoading();
-        const errorMsg = error.message.toLowerCase();
-        if (errorMsg.includes('already') || errorMsg.includes('đã check-in')) {
-            showError('Bạn đã check-in rồi. Vui lòng checkout trước.');
+        // Reload member checkins view
+        const role = getRole();
+        if (role === 'Member') {
+            // Re-render member view
+            const container = document.getElementById('main-content');
+            if (container) {
+                await renderMemberCheckins(container, memberId);
+            }
         } else {
-            showError('Lỗi check-in: ' + error.message);
+            // Clear cache and reload admin view
+            fullCheckinsCache = null;
+            checkinsCountsCache = null;
+            loadCheckins();
         }
-    }
-}
-
-/**
- * Quick check-in without QR code
- * Creates a check-in record immediately
- */
-async function quickCheckin(memberId) {
-    try {
-        showLoading();
-        
-        // Create checkin record with current timestamp
-        const result = await apiFetch('/api/Checkin', {
-            method: 'POST',
-            body: JSON.stringify({
-                memberId: memberId,
-                checkinTime: new Date().toISOString(),
-                checkoutTime: null
-            })
-        });
-        
-        hideLoading();
-        showToast('✅ Check-in thành công!', 'success');
-        
-        // Clear cache and reload to recalculate counts
-        reloadCheckinsData();
         
     } catch (error) {
         hideLoading();
@@ -252,7 +208,6 @@ async function renderMemberCheckins(container, memberId) {
                 <div style="display: flex; gap: 8px;">
                     <button class="btn btn-secondary" onclick="renderMemberCheckins(document.getElementById('main-content'), ${memberId})" title="Làm mới dữ liệu">🔄</button>
                     <button class="btn btn-success" onclick="quickCheckin(${memberId})">✅ Check In</button>
-                    <button class="btn btn-primary" onclick="showQRCheckinModal(${memberId})">📱 Check-in QR</button>
                 </div>
             </div>
             
@@ -281,6 +236,7 @@ async function renderMemberCheckins(container, memberId) {
 
 function renderMemberCheckinsTable(checkins) {
     const container = document.getElementById('myCheckinsContainer');
+    if (!container) return;
     
     if (!checkins || checkins.length === 0) {
         container.innerHTML = '<div class="empty-state"><div class="empty-state-icon">✅</div><div class="empty-state-text">Chưa có check-in nào</div></div>';
@@ -342,7 +298,7 @@ async function loadCheckins() {
         // Fetch ALL checkins once and cache for count calculation
         if (!fullCheckinsCache) {
             const allData = await apiFetch(`/api/Checkin?pageNumber=1&pageSize=10000`);
-            fullCheckinsCache = allData.items || [];
+            fullCheckinsCache = allData.data || [];
             checkinsCountsCache = calculateCheckinCounts(fullCheckinsCache);
         }
         
@@ -381,7 +337,7 @@ async function loadCheckinsByDate() {
         // Ensure we have the full dataset cached for count calculation
         if (!fullCheckinsCache) {
             const allData = await apiFetch(`/api/Checkin?pageNumber=1&pageSize=10000`);
-            fullCheckinsCache = allData.items || [];
+            fullCheckinsCache = allData.data || [];
             checkinsCountsCache = calculateCheckinCounts(fullCheckinsCache);
         }
         
@@ -389,7 +345,7 @@ async function loadCheckinsByDate() {
         const data = await apiFetch(`/api/Checkin/date/${date}`);
         hideLoading();
         
-        await renderCheckinsTable({ items: data, pageNumber: 1, totalPages: 1 }, checkinsCountsCache);
+        await renderCheckinsTable({ data: data, pageNumber: 1, totalPages: 1 }, checkinsCountsCache);
     } catch (error) {
         hideLoading();
         showError('Lỗi tải check-in: ' + error.message);
@@ -398,14 +354,15 @@ async function loadCheckinsByDate() {
 
 async function renderCheckinsTable(data, countsMap = {}) {
     const container = document.getElementById('checkinsTableContainer');
+    if (!container) return;
     
-    if (!data || !data.items || data.items.length === 0) {
+    if (!data || !data.data || data.data.length === 0) {
         container.innerHTML = '<div class="empty-state"><div class="empty-state-icon">✅</div><div class="empty-state-text">Không có check-in nào</div></div>';
         return;
     }
     
     // Fetch all member names in parallel
-    const checkins = data.items;
+    const checkins = data.data;
     const memberIds = [...new Set(checkins.map(c => c.memberId))];
     await Promise.all(memberIds.map(id => fetchCheckinMemberName(id)));
     
