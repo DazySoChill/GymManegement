@@ -123,32 +123,67 @@
         // Handle login form submission
         document.getElementById('loginForm').addEventListener('submit', async (e) => {
             e.preventDefault();
+            e.stopPropagation();
             
             const username = document.getElementById('loginUsername').value.trim();
             const password = document.getElementById('loginPassword').value;
             const errorDiv = document.getElementById('loginError');
             
+            // Clear previous error
+            errorDiv.style.display = 'none';
+            errorDiv.textContent = '';
+            
+            // Validation
             if (!username || !password) {
-                errorDiv.textContent = 'Vui lòng nhập đầy đủ thông tin';
+                errorDiv.textContent = '⚠️ Vui lòng nhập đầy đủ thông tin';
                 errorDiv.style.display = 'block';
-                return;
+                return false;
             }
             
             try {
-                errorDiv.style.display = 'none';
                 showLoading();
+                
                 const result = await login(username, password);
+                
                 hideLoading();
                 
-                if (result) {
+                if (result && result.token) {
+                    // Show success message briefly
+                    errorDiv.textContent = '';
+                    errorDiv.style.display = 'none';
+                    
                     // Redirect to main app
                     window.location.href = 'index.html';
+                } else {
+                    throw new Error('Invalid response');
                 }
             } catch (error) {
                 hideLoading();
-                errorDiv.textContent = 'Tên đăng nhập hoặc mật khẩu không đúng';
+                
+                console.error('Login failed:', error);
+                
+                // Show specific error message
+                let errorMessage = '❌ Đăng nhập thất bại';
+                
+                if (error.message.includes('401') || error.message.includes('Unauthorized')) {
+                    errorMessage = '❌ Tên đăng nhập hoặc mật khẩu không đúng';
+                } else if (error.message.includes('404')) {
+                    errorMessage = '❌ Không tìm thấy tài khoản';
+                } else if (error.message.includes('network') || error.message.includes('fetch')) {
+                    errorMessage = '❌ Lỗi kết nối. Vui lòng thử lại.';
+                } else if (error.message) {
+                    errorMessage = '❌ ' + error.message;
+                }
+                
+                errorDiv.textContent = errorMessage;
                 errorDiv.style.display = 'block';
+                
+                // Clear password field for retry
+                document.getElementById('loginPassword').value = '';
+                document.getElementById('loginPassword').focus();
             }
+            
+            return false;
         });
         
         // Handle register form submission

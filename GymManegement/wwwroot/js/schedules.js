@@ -223,22 +223,39 @@ async function renderSchedules(container) {
     const canManage = role === 'Admin' || role === 'Trainer';
     
     if (role === 'Member') {
-        // Member view - Show registered sessions (approved classes)
+        // Member view - Show both personal schedule preferences and registered classes
         container.innerHTML = `
             <div class="card">
                 <div class="card-header">
                     <h2 class="card-title">Lịch Tập</h2>
                 </div>
                 
-                <div id="mySchedulesContainer">
-                    <div style="text-align: center; padding: 20px;">
-                        <div class="spinner"></div>
+                <!-- Personal Schedule Preferences -->
+                <div style="padding: 20px; border-bottom: 2px solid #e0e0e0;">
+                    <h3 style="margin: 0 0 16px 0; color: #2c3e50;">📅 Lịch Tập Cá Nhân</h3>
+                    <div id="personalSchedulesContainer">
+                        <div style="text-align: center; padding: 20px;">
+                            <div class="spinner"></div>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Registered Classes -->
+                <div style="padding: 20px;">
+                    <h3 style="margin: 0 0 16px 0; color: #2c3e50;">🏋️ Lớp Đã Đăng Ký</h3>
+                    <div id="registeredClassesContainer">
+                        <div style="text-align: center; padding: 20px;">
+                            <div class="spinner"></div>
+                        </div>
                     </div>
                 </div>
             </div>
         `;
         
-        await loadMemberSchedules(memberId);
+        await Promise.all([
+            loadPersonalSchedules(memberId),
+            loadRegisteredClasses(memberId)
+        ]);
         
     } else {
         // Admin/Trainer view
@@ -263,14 +280,77 @@ async function renderSchedules(container) {
     }
 }
 
-// Load member's registered schedules (sessions that are approved/attended)
-async function loadMemberSchedules(memberId) {
-    const container = document.getElementById('mySchedulesContainer');
+// Load personal schedule preferences (recurring by day of week)
+async function loadPersonalSchedules(memberId) {
+    const container = document.getElementById('personalSchedulesContainer');
     if (!container) return;
     
     try {
-        showLoading();
+        const preferences = await apiFetch(`/api/MemberSchedulePreference/member/${memberId}`);
         
+        if (!preferences || preferences.length === 0) {
+            container.innerHTML = `
+                <div class="empty-state">
+                    <div class="empty-state-icon">📅</div>
+                    <div class="empty-state-text">Chưa có lịch tập cá nhân. Vào trang "Lịch tập của tôi" để tạo.</div>
+                </div>`;
+            return;
+        }
+        
+        // Group by day of week
+        const grouped = {};
+        preferences.forEach(pref => {
+            if (!grouped[pref.dayOfWeek]) {
+                grouped[pref.dayOfWeek] = [];
+            }
+            grouped[pref.dayOfWeek].push(pref);
+        });
+        
+        // Sort days (Monday=1 first, Sunday=0 last)
+        const sortedDays = Object.keys(grouped).map(Number).sort((a, b) => {
+            if (a === 0) return 1; // Sunday to end
+            if (b === 0) return -1;
+            return a - b;
+        });
+        
+        let html = '<div class="personal-schedules" style="display: grid; gap: 12px;">';
+        
+        sortedDays.forEach(day => {
+            const dayName = getDayOfWeekName(day);
+            html += `<div class="day-group" style="background: #f8f9fa; padding: 12px; border-radius: 6px; border-left: 4px solid #3498db;">`;
+            html += `<strong style="color: #2c3e50;">${dayName}</strong><div style="margin-top: 8px; display: flex; flex-wrap: wrap; gap: 8px;">`;
+            
+            grouped[day].forEach(pref => {
+                const startTime = formatTime(pref.startTime);
+                const endTime = formatTime(pref.endTime);
+                html += `
+                    <span style="background: white; padding: 6px 12px; border-radius: 4px; border: 1px solid #ddd; font-size: 0.9em;">
+                        ⏰ ${startTime} - ${endTime}
+                    </span>
+                `;
+            });
+            
+            html += '</div></div>';
+        });
+        
+        html += '</div>';
+        container.innerHTML = html;
+        
+    } catch (error) {
+        container.innerHTML = `
+            <div class="empty-state">
+                <div class="empty-state-icon">⚠️</div>
+                <div class="empty-state-text">Lỗi tải lịch cá nhân: ${error.message}</div>
+            </div>`;
+    }
+}
+
+// Load registered classes (specific sessions)
+async function loadRegisteredClasses(memberId) {
+    const container = document.getElementById('registeredClassesContainer');
+    if (!container) return;
+    
+    try {
         // Get all sessions for this member
         const sessions = await apiFetch(`/api/Session/member/${memberId}`);
         
@@ -282,10 +362,9 @@ async function loadMemberSchedules(memberId) {
         if (!activeSessions || activeSessions.length === 0) {
             container.innerHTML = `
                 <div class="empty-state">
-                    <div class="empty-state-icon">📅</div>
-                    <div class="empty-state-text">Bạn chưa có lịch tập nào</div>
+                    <div class="empty-state-icon">🏋️</div>
+                    <div class="empty-state-text">Chưa đăng ký lớp nào. Vào trang "Đăng ký class" để đăng ký.</div>
                 </div>`;
-            hideLoading();
             return;
         }
         
@@ -310,10 +389,8 @@ async function loadMemberSchedules(memberId) {
             return new Date(scheduleA.startTime) - new Date(scheduleB.startTime);
         });
         
-        hideLoading();
-        
         // Render as cards
-        let html = '<div class="schedules-list" style="display: grid; gap: 16px;">';
+        let html = '<div class="registered-classes" style="display: grid; gap: 12px;">';
         
         activeSessions.forEach(session => {
             const schedule = scheduleMap[session.scheduleId];
@@ -330,39 +407,27 @@ async function loadMemberSchedules(memberId) {
                               session.status === 'Registered' ? 'Đã đăng ký' : session.status;
             
             html += `
-                <div class="schedule-card" style="background: white; border: 1px solid #e0e0e0; border-radius: 8px; padding: 20px; ${isPast ? 'opacity: 0.7;' : ''}">
-                    <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 12px;">
-                        <h3 style="margin: 0; color: #2c3e50; font-size: 1.2em;">${escapeHtml(schedule.className)}</h3>
-                        <span class="badge ${statusBadge}">${statusText}</span>
+                <div class="class-card" style="background: white; border: 1px solid #e0e0e0; border-radius: 6px; padding: 16px; ${isPast ? 'opacity: 0.6;' : ''}">
+                    <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 10px;">
+                        <h4 style="margin: 0; color: #2c3e50;">${escapeHtml(schedule.className)}</h4>
+                        <span class="badge ${statusBadge}" style="font-size: 0.85em;">${statusText}</span>
                     </div>
                     
-                    <div style="color: #666; line-height: 1.8;">
-                        <div style="margin-bottom: 6px;">
-                            <strong>🏋️ Huấn luyện viên:</strong> ${escapeHtml(schedule.trainerName || '-')}
-                        </div>
-                        <div style="margin-bottom: 6px;">
-                            <strong>📍 Phòng:</strong> ${escapeHtml(schedule.facilityName || '-')}
-                        </div>
-                        <div style="margin-bottom: 6px;">
-                            <strong>🕐 Thời gian:</strong> ${formatDateTime(schedule.startTime)} - ${formatDateTime(schedule.endTime)}
-                        </div>
-                        <div style="margin-bottom: 6px;">
-                            <strong>👥 Sức chứa:</strong> ${schedule.maxCapacity} người
-                        </div>
-                        <div>
-                            <strong>📅 Đăng ký lúc:</strong> ${formatDateTime(session.registrationDate)}
-                        </div>
+                    <div style="color: #666; font-size: 0.9em; line-height: 1.6;">
+                        <div><strong>🏋️ HLV:</strong> ${escapeHtml(schedule.trainerName || '-')}</div>
+                        <div><strong>📍 Phòng:</strong> ${escapeHtml(schedule.facilityName || '-')}</div>
+                        <div><strong>🕐 Thời gian:</strong> ${formatDateTime(schedule.startTime)}</div>
                     </div>
                     
                     ${session.status === 'Registered' && !isPast ? `
-                        <div style="margin-top: 16px; padding-top: 16px; border-top: 1px solid #e0e0e0;">
-                            <button class="btn btn-sm btn-danger" onclick="cancelMySchedule(${session.sessionId})" style="width: 100%;">
+                        <div style="margin-top: 12px; padding-top: 12px; border-top: 1px solid #e0e0e0;">
+                            <button class="btn btn-sm btn-danger" onclick="cancelRegisteredClass(${session.sessionId})" style="width: 100%;">
                                 ❌ Hủy đăng ký
                             </button>
                         </div>
                     ` : ''}
                     
-                    ${isPast ? '<div style="margin-top: 12px; color: #999; font-size: 0.9em;">⏱️ Đã qua</div>' : ''}
+                    ${isPast ? '<div style="margin-top: 8px; color: #999; font-size: 0.85em;">⏱️ Đã qua</div>' : ''}
                 </div>
             `;
         });
@@ -371,18 +436,17 @@ async function loadMemberSchedules(memberId) {
         container.innerHTML = html;
         
     } catch (error) {
-        hideLoading();
         container.innerHTML = `
             <div class="empty-state">
                 <div class="empty-state-icon">⚠️</div>
-                <div class="empty-state-text">Lỗi tải lịch tập: ${error.message}</div>
+                <div class="empty-state-text">Lỗi tải lớp đã đăng ký: ${error.message}</div>
             </div>`;
     }
 }
 
-// Member cancels their registered schedule
-async function cancelMySchedule(sessionId) {
-    if (!confirm('Bạn có chắc muốn hủy lịch tập này?')) {
+// Member cancels their registered class
+async function cancelRegisteredClass(sessionId) {
+    if (!confirm('Bạn có chắc muốn hủy lớp này?')) {
         return;
     }
     
@@ -397,17 +461,17 @@ async function cancelMySchedule(sessionId) {
         });
         
         hideLoading();
-        showToast('✅ Đã hủy lịch tập!', 'success');
+        showToast('✅ Đã hủy lớp!', 'success');
         
         // Reload
         const memberId = getMemberId();
         if (memberId) {
-            await loadMemberSchedules(memberId);
+            await loadRegisteredClasses(memberId);
         }
         
     } catch (error) {
         hideLoading();
-        showError('Lỗi hủy lịch: ' + error.message);
+        showError('Lỗi hủy lớp: ' + error.message);
     }
 }
 
@@ -449,23 +513,11 @@ async function loadSchedulesByDate() {
 async function renderSchedulesTable(data) {
     const container = document.getElementById('schedulesTableContainer');
     const role = getRole();
-    const memberId = getMemberId();
     const canManage = role === 'Admin' || role === 'Trainer';
-    const isMember = role === 'Member';
     
     if (!data || !data.items || data.items.length === 0) {
         container.innerHTML = '<div class="empty-state"><div class="empty-state-icon">📅</div><div class="empty-state-text">Không có lịch tập nào</div></div>';
         return;
-    }
-    
-    // For members, load their registered sessions
-    let memberSessions = [];
-    if (isMember && memberId) {
-        try {
-            memberSessions = await apiFetch(`/api/Session/member/${memberId}`);
-        } catch (error) {
-            console.error('Error loading member sessions:', error);
-        }
     }
     
     let html = `
@@ -480,19 +532,12 @@ async function renderSchedulesTable(data) {
                     <th>Kết thúc</th>
                     <th>Sức chứa</th>
                     ${canManage ? '<th>Thao tác</th>' : ''}
-                    ${isMember ? '<th>Đăng Ký</th>' : ''}
                 </tr>
             </thead>
             <tbody>
     `;
     
     data.items.forEach(schedule => {
-        // Check if member already registered for this schedule
-        const existingSession = memberSessions.find(s => 
-            s.scheduleId === schedule.scheduleId && s.status !== 'Cancelled'
-        );
-        const isRegistered = !!existingSession;
-        
         html += `
             <tr>
                 <td>${schedule.scheduleId}</td>
@@ -507,14 +552,6 @@ async function renderSchedulesTable(data) {
                         <div class="action-buttons">
                             <button class="btn btn-sm btn-info" onclick="showEditScheduleModal(${schedule.scheduleId})">✏️</button>
                         </div>
-                    </td>
-                ` : ''}
-                ${isMember ? `
-                    <td>
-                        ${isRegistered 
-                            ? `<button class="btn btn-sm btn-warning" onclick="unregisterFromSchedule(${existingSession.sessionId})">❌ Hủy</button>`
-                            : `<button class="btn btn-sm btn-success" onclick="registerForSchedule(${schedule.scheduleId}, ${memberId})">✅ Đăng Ký</button>`
-                        }
                     </td>
                 ` : ''}
             </tr>
@@ -551,68 +588,5 @@ function showCreateScheduleModal() {
 
 function showEditScheduleModal(id) {
     showError('Chức năng sửa lịch chưa được triển khai đầy đủ');
-}
-
-// Member registers for a schedule (creates a session)
-async function registerForSchedule(scheduleId, memberId) {
-    if (!confirm('Bạn có chắc muốn đăng ký lớp này?')) {
-        return;
-    }
-    
-    try {
-        showLoading();
-        
-        await apiFetch('/api/Session', {
-            method: 'POST',
-            body: JSON.stringify({
-                scheduleId: scheduleId,
-                memberId: memberId,
-                status: 'Registered'
-            })
-        });
-        
-        hideLoading();
-        showToast('✅ Đăng ký thành công! Vui lòng chờ Admin/Trainer duyệt.', 'success');
-        
-        // Reload schedules
-        await loadSchedules();
-        
-    } catch (error) {
-        hideLoading();
-        
-        if (error.message.includes('403') || error.message.includes('Forbidden')) {
-            showError('Bạn không có quyền đăng ký. Vui lòng liên hệ Admin/Trainer.');
-        } else {
-            showError('Lỗi đăng ký: ' + error.message);
-        }
-    }
-}
-
-// Member unregisters from a schedule (cancels the session)
-async function unregisterFromSchedule(sessionId) {
-    if (!confirm('Bạn có chắc muốn hủy đăng ký lớp này?')) {
-        return;
-    }
-    
-    try {
-        showLoading();
-        
-        await apiFetch(`/api/Session/${sessionId}`, {
-            method: 'PUT',
-            body: JSON.stringify({
-                status: 'Cancelled'
-            })
-        });
-        
-        hideLoading();
-        showToast('✅ Đã hủy đăng ký!', 'success');
-        
-        // Reload schedules
-        await loadSchedules();
-        
-    } catch (error) {
-        hideLoading();
-        showError('Lỗi hủy đăng ký: ' + error.message);
-    }
 }
 

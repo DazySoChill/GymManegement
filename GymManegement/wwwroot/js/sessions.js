@@ -269,22 +269,223 @@ async function renderMemberSessions(container, memberId) {
     container.innerHTML = `
         <div class="card">
             <div class="card-header">
-                <h2 class="card-title">Buổi Tập Của Tôi</h2>
-                <button class="btn btn-primary" onclick="showRegisterSessionModal()">➕ Đăng ký lớp</button>
+                <h2 class="card-title">Đăng Ký Class</h2>
             </div>
             
-            <div class="filters" style="display:flex;gap:12px;flex-wrap:wrap;align-items:center;">
-                <button class="btn btn-info" onclick="filterMySessionsByWeek('current')">📅 Tuần Này</button>
-                <button class="btn btn-info" onclick="filterMySessionsByWeek('next')">📅 Tuần Sau</button>
-                <button class="btn btn-secondary" onclick="filterMySessionsByWeek('all')">✖️ Tất cả</button>
-                <span id="myWeekFilterDisplay" style="margin-left:12px;color:#666;font-size:14px;"></span>
+            <!-- Available Classes to Register -->
+            <div style="padding: 20px; border-bottom: 2px solid #e0e0e0;">
+                <h3 style="margin: 0 0 16px 0; color: #2c3e50;">📚 Lớp Có Thể Đăng Ký</h3>
+                <div id="availableClassesContainer">
+                    <div style="text-align: center; padding: 20px;">
+                        <div class="spinner"></div>
+                    </div>
+                </div>
             </div>
             
-            <div id="mySessionsContainer"></div>
+            <!-- My Registered Sessions -->
+            <div style="padding: 20px;">
+                <h3 style="margin: 0 0 16px 0; color: #2c3e50;">📝 Lớp Đã Đăng Ký</h3>
+                <div class="filters" style="display:flex;gap:12px;flex-wrap:wrap;align-items:center;margin-bottom:16px;">
+                    <button class="btn btn-sm btn-info" onclick="filterMySessionsByWeek('current')">📅 Tuần Này</button>
+                    <button class="btn btn-sm btn-info" onclick="filterMySessionsByWeek('next')">📅 Tuần Sau</button>
+                    <button class="btn btn-sm btn-secondary" onclick="filterMySessionsByWeek('all')">✖️ Tất cả</button>
+                    <span id="myWeekFilterDisplay" style="margin-left:12px;color:#666;font-size:14px;"></span>
+                </div>
+                <div id="mySessionsContainer">
+                    <div style="text-align: center; padding: 20px;">
+                        <div class="spinner"></div>
+                    </div>
+                </div>
+            </div>
         </div>
     `;
     
-    await loadMemberSessionsData(memberId, null);
+    await Promise.all([
+        loadAvailableClasses(memberId),
+        loadMemberSessionsData(memberId, null)
+    ]);
+}
+
+// Load available classes that member can register
+async function loadAvailableClasses(memberId) {
+    const container = document.getElementById('availableClassesContainer');
+    if (!container) return;
+    
+    try {
+        showLoading();
+        
+        // Get all upcoming schedules
+        console.log('[DEBUG] Fetching schedules...');
+        const allSchedules = await apiFetch('/api/Schedule?pageNumber=1&pageSize=100');
+        console.log('[DEBUG] Raw API response:', allSchedules);
+        
+        // Handle different response formats
+        // API returns PagedResult<T> with structure: { data: [...], total, pageNumber, pageSize, totalPages }
+        let schedulesList = [];
+        if (Array.isArray(allSchedules)) {
+            schedulesList = allSchedules;
+            console.log('[DEBUG] Response is array');
+        } else if (allSchedules && Array.isArray(allSchedules.data)) {
+            schedulesList = allSchedules.data;
+            console.log('[DEBUG] Response has data property (PagedResult format)');
+        } else if (allSchedules && Array.isArray(allSchedules.items)) {
+            schedulesList = allSchedules.items;
+            console.log('[DEBUG] Response has items property');
+        } else {
+            console.error('[DEBUG] Unknown response format:', allSchedules);
+            schedulesList = []; // Ensure it's an array
+        }
+        
+        console.log('[DEBUG] Schedules list:', schedulesList);
+        console.log('[DEBUG] Number of schedules:', schedulesList ? schedulesList.length : 0);
+        
+        const now = new Date();
+        const upcomingSchedules = schedulesList.filter(s => {
+            const startTime = new Date(s.startTime);
+            const isFuture = startTime > now;
+            console.log(`[DEBUG] Schedule ${s.scheduleId}: ${s.className}, StartTime: ${s.startTime}, IsFuture: ${isFuture}`);
+            return isFuture;
+        });
+        
+        console.log('[DEBUG] Upcoming schedules:', upcomingSchedules.length);
+        
+        // Get member's sessions to check what's already registered
+        const memberSessions = await apiFetch(`/api/Session/member/${memberId}`);
+        console.log('[DEBUG] Member sessions:', memberSessions);
+        
+        const registeredScheduleIds = memberSessions
+            .filter(s => s.status !== 'Cancelled')
+            .map(s => s.scheduleId);
+        
+        console.log('[DEBUG] Registered schedule IDs:', registeredScheduleIds);
+        
+        hideLoading();
+        
+        if (!upcomingSchedules || upcomingSchedules.length === 0) {
+            container.innerHTML = `
+                <div class="empty-state">
+                    <div class="empty-state-icon">📚</div>
+                    <div class="empty-state-text">Hiện không có lớp nào sắp diễn ra</div>
+                </div>`;
+            return;
+        }
+        
+        // Sort by start time (nearest first)
+        upcomingSchedules.sort((a, b) => new Date(a.startTime) - new Date(b.startTime));
+        
+        let html = '<div class="available-classes" style="display: grid; gap: 12px;">';
+        
+        upcomingSchedules.forEach(schedule => {
+            const isRegistered = registeredScheduleIds.includes(schedule.scheduleId);
+            const registeredSession = isRegistered ? memberSessions.find(s => s.scheduleId === schedule.scheduleId && s.status !== 'Cancelled') : null;
+            
+            html += `
+                <div class="class-card" style="background: white; border: 1px solid #e0e0e0; border-radius: 6px; padding: 16px; display: flex; justify-content: space-between; align-items: center;">
+                    <div style="flex: 1;">
+                        <h4 style="margin: 0 0 8px 0; color: #2c3e50;">${escapeHtml(schedule.className)}</h4>
+                        <div style="color: #666; font-size: 0.9em; line-height: 1.6;">
+                            <div><strong>🏋️ HLV:</strong> ${escapeHtml(schedule.trainerName || '-')}</div>
+                            <div><strong>📍 Phòng:</strong> ${escapeHtml(schedule.facilityName || '-')}</div>
+                            <div><strong>🕐 Thời gian:</strong> ${formatDateTime(schedule.startTime)}</div>
+                            <div><strong>👥 Sức chứa:</strong> ${schedule.maxCapacity} người</div>
+                        </div>
+                    </div>
+                    <div style="margin-left: 16px;">
+                        ${isRegistered 
+                            ? `<button class="btn btn-sm btn-warning" onclick="quickUnregisterClass(${registeredSession.sessionId})" style="min-width: 100px;">❌ Hủy</button>`
+                            : `<button class="btn btn-sm btn-success" onclick="quickRegisterClass(${schedule.scheduleId}, ${memberId})" style="min-width: 100px;">✅ Đăng Ký</button>`
+                        }
+                    </div>
+                </div>
+            `;
+        });
+        
+        html += '</div>';
+        container.innerHTML = html;
+        
+    } catch (error) {
+        hideLoading();
+        console.error('[DEBUG] Error loading available classes:', error);
+        container.innerHTML = `
+            <div class="empty-state">
+                <div class="empty-state-icon">⚠️</div>
+                <div class="empty-state-text">Lỗi tải danh sách lớp: ${error.message}</div>
+            </div>`;
+    }
+}
+
+// Quick register for a class (without modal)
+async function quickRegisterClass(scheduleId, memberId) {
+    if (!confirm('Bạn có chắc muốn đăng ký lớp này?')) {
+        return;
+    }
+    
+    try {
+        showLoading();
+        
+        await apiFetch('/api/Session', {
+            method: 'POST',
+            body: JSON.stringify({
+                scheduleId: scheduleId,
+                memberId: memberId,
+                status: 'Registered'
+            })
+        });
+        
+        hideLoading();
+        showToast('✅ Đăng ký thành công! Vui lòng chờ duyệt.', 'success');
+        
+        // Reload both sections
+        await Promise.all([
+            loadAvailableClasses(memberId),
+            loadMemberSessionsData(memberId, mySessionWeekFilter)
+        ]);
+        
+    } catch (error) {
+        hideLoading();
+        
+        if (error.message.includes('403') || error.message.includes('Forbidden')) {
+            showError('Bạn không có quyền đăng ký. Vui lòng liên hệ Admin/Trainer.');
+        } else if (error.message.includes('already') || error.message.includes('duplicate')) {
+            showError('Bạn đã đăng ký lớp này rồi!');
+        } else {
+            showError('Lỗi đăng ký: ' + error.message);
+        }
+    }
+}
+
+// Quick unregister from a class
+async function quickUnregisterClass(sessionId) {
+    if (!confirm('Bạn có chắc muốn hủy đăng ký lớp này?')) {
+        return;
+    }
+    
+    try {
+        showLoading();
+        
+        await apiFetch(`/api/Session/${sessionId}`, {
+            method: 'PUT',
+            body: JSON.stringify({
+                status: 'Cancelled'
+            })
+        });
+        
+        hideLoading();
+        showToast('✅ Đã hủy đăng ký!', 'success');
+        
+        // Reload both sections
+        const memberId = getMemberId();
+        if (memberId) {
+            await Promise.all([
+                loadAvailableClasses(memberId),
+                loadMemberSessionsData(memberId, mySessionWeekFilter)
+            ]);
+        }
+        
+    } catch (error) {
+        hideLoading();
+        showError('Lỗi hủy: ' + error.message);
+    }
 }
 
 async function loadMemberSessionsData(memberId, weekFilter) {

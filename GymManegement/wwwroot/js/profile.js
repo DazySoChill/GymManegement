@@ -57,25 +57,35 @@ async function renderProfile(container) {
 async function handleChangePassword(e) {
     e.preventDefault();
     
-    const oldPassword = document.getElementById('oldPassword').value;
-    const newPassword = document.getElementById('newPassword').value;
-    const confirmPassword = document.getElementById('confirmPassword').value;
+    const oldPassword = document.getElementById('oldPassword').value.trim();
+    const newPassword = document.getElementById('newPassword').value.trim();
+    const confirmPassword = document.getElementById('confirmPassword').value.trim();
     
     // Validation
+    if (!oldPassword) {
+        showToast('⚠️ Vui lòng nhập mật khẩu cũ', 'error');
+        return;
+    }
+    
     if (newPassword.length < 6) {
-        showToast('Mật khẩu mới phải có ít nhất 6 ký tự', 'error');
+        showToast('⚠️ Mật khẩu mới phải có ít nhất 6 ký tự', 'error');
         return;
     }
     
     if (newPassword !== confirmPassword) {
-        showToast('Mật khẩu xác nhận không khớp', 'error');
+        showToast('⚠️ Mật khẩu xác nhận không khớp', 'error');
+        return;
+    }
+    
+    if (oldPassword === newPassword) {
+        showToast('⚠️ Mật khẩu mới phải khác mật khẩu cũ', 'error');
         return;
     }
     
     try {
         showLoading();
         
-        const response = await apiFetch('/api/Auth/change-password', {
+        await apiFetch('/api/Auth/change-password', {
             method: 'POST',
             body: JSON.stringify({
                 oldPassword: oldPassword,
@@ -85,16 +95,37 @@ async function handleChangePassword(e) {
         
         hideLoading();
         
-        if (response && response.message) {
-            showToast(response.message, 'success');
-            document.getElementById('changePasswordForm').reset();
-        } else {
-            showToast('Đổi mật khẩu thành công!', 'success');
-            document.getElementById('changePasswordForm').reset();
-        }
+        // Success
+        showToast('✅ Đổi mật khẩu thành công!', 'success');
+        
+        // Reset form
+        document.getElementById('changePasswordForm').reset();
+        
+        // Optional: Logout after 2 seconds
+        setTimeout(() => {
+            if (confirm('Đổi mật khẩu thành công! Bạn có muốn đăng nhập lại với mật khẩu mới không?')) {
+                logout();
+            }
+        }, 1500);
         
     } catch (error) {
         hideLoading();
-        showToast('Lỗi đổi mật khẩu: ' + error.message, 'error');
+        
+        // Handle specific errors
+        let errorMessage = 'Lỗi đổi mật khẩu';
+        
+        if (error.message.includes('401') || error.message.includes('Unauthorized')) {
+            errorMessage = '❌ Mật khẩu cũ không đúng';
+        } else if (error.message.includes('400') || error.message.includes('Bad Request')) {
+            errorMessage = '❌ Dữ liệu không hợp lệ';
+        } else if (error.message) {
+            errorMessage = '❌ ' + error.message;
+        }
+        
+        showToast(errorMessage, 'error');
+        
+        // Clear old password field for retry
+        document.getElementById('oldPassword').value = '';
+        document.getElementById('oldPassword').focus();
     }
 }
