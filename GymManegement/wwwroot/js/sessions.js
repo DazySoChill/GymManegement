@@ -693,6 +693,8 @@ async function renderSessionsTable(data) {
                         <div class="action-buttons">
                             <button class="btn btn-sm btn-success" onclick="updateSessionStatus(${s.sessionId}, 'Attended')">✓</button>
                             <button class="btn btn-sm btn-danger" onclick="updateSessionStatus(${s.sessionId}, 'Cancelled')">✗</button>
+                            <button class="btn btn-sm btn-info" onclick="showEditSessionModal(${s.sessionId})">✏️</button>
+                            <button class="btn btn-sm btn-danger" onclick="deleteSession(${s.sessionId})">🗑️</button>
                         </div>
                     </td>
                 ` : ''}
@@ -1009,3 +1011,121 @@ async function submitCreateSession() {
     }
 }
 
+// Admin/Trainer edits session status
+async function showEditSessionModal(sessionId) {
+    try {
+        showLoading();
+        const session = await apiFetch(`/api/Session/${sessionId}`);
+        hideLoading();
+        
+        if (!session) {
+            showError('Không tìm thấy session');
+            return;
+        }
+        
+        const modal = document.createElement('div');
+        modal.className = 'gym-modal-overlay';
+        modal.innerHTML = `
+            <div class="gym-modal">
+                <div class="gym-modal-header">
+                    <h3>Sửa Session #${sessionId}</h3>
+                    <button class="gym-modal-close" onclick="this.closest('.gym-modal-overlay').remove()">✕</button>
+                </div>
+                <div class="gym-modal-body">
+                    <form id="editSessionForm">
+                        <div class="form-group">
+                            <label>Member ID:</label>
+                            <input type="text" value="${session.memberId}" disabled style="width:100%;padding:8px;background:#f5f5f5;border:1px solid #ddd;border-radius:6px;">
+                        </div>
+                        
+                        <div class="form-group">
+                            <label>Schedule ID:</label>
+                            <input type="text" value="${session.scheduleId}" disabled style="width:100%;padding:8px;background:#f5f5f5;border:1px solid #ddd;border-radius:6px;">
+                        </div>
+                        
+                        <div class="form-group">
+                            <label for="editStatusSelect">Trạng thái:</label>
+                            <select id="editStatusSelect" name="status" required style="width:100%;padding:8px;border:1px solid #ddd;border-radius:6px;">
+                                <option value="Registered" ${session.status === 'Registered' ? 'selected' : ''}>Registered</option>
+                                <option value="Attended" ${session.status === 'Attended' ? 'selected' : ''}>Attended</option>
+                                <option value="Cancelled" ${session.status === 'Cancelled' ? 'selected' : ''}>Cancelled</option>
+                            </select>
+                        </div>
+                        
+                        <div class="gym-modal-actions">
+                            <button type="button" class="btn btn-secondary" onclick="this.closest('.gym-modal-overlay').remove()">Hủy</button>
+                            <button type="submit" class="btn btn-primary">💾 Cập Nhật</button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        `;
+        
+        document.body.appendChild(modal);
+        
+        // Handle form submission
+        document.getElementById('editSessionForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            await submitEditSession(sessionId);
+        });
+        
+    } catch (error) {
+        hideLoading();
+        showError('Lỗi tải session: ' + error.message);
+    }
+}
+
+// Submit edit session form
+async function submitEditSession(sessionId) {
+    const form = document.getElementById('editSessionForm');
+    const status = form.querySelector('#editStatusSelect').value;
+    
+    if (!status) {
+        showError('Vui lòng chọn trạng thái');
+        return;
+    }
+    
+    try {
+        showLoading();
+        
+        await apiFetch(`/api/Session/${sessionId}`, {
+            method: 'PUT',
+            body: JSON.stringify({
+                status: status
+            })
+        });
+        
+        hideLoading();
+        showToast('✅ Cập nhật session thành công!', 'success');
+        
+        // Close modal
+        document.querySelector('.gym-modal-overlay').remove();
+        
+        // Reload sessions
+        await loadSessions();
+        
+    } catch (error) {
+        hideLoading();
+        showError('Lỗi cập nhật session: ' + error.message);
+    }
+}
+
+// Admin/Trainer deletes session
+async function deleteSession(sessionId) {
+    if (!confirm('Bạn có chắc chắn muốn xóa session này?')) {
+        return;
+    }
+    
+    try {
+        showLoading();
+        await apiFetch(`/api/Session/${sessionId}`, {
+            method: 'DELETE'
+        });
+        hideLoading();
+        showSuccess('Xóa session thành công!');
+        await loadSessions();
+    } catch (error) {
+        hideLoading();
+        showError('Lỗi xóa session: ' + error.message);
+    }
+}
