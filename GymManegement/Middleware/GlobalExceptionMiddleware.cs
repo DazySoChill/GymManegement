@@ -47,8 +47,7 @@ namespace GymManegement.Middleware
             var response = new
             {
                 statusCode,
-                message = statusCode == 500 ? "Đã xảy ra lỗi hệ thống. Vui lòng thử lại sau." : exception.Message,
-                detail = statusCode == 500 ? null : exception.Message
+                message = statusCode == 500 ? "Đã xảy ra lỗi hệ thống. Vui lòng thử lại sau." : exception.Message
             };
 
             await context.Response.WriteAsJsonAsync(response);

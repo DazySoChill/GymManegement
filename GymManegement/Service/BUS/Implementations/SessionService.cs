@@ -9,7 +9,13 @@ namespace GymManegement.Service.BUS.Implementations
     public class SessionService : ISessionService
     {
         private readonly ISessionRepository _repo;
-        public SessionService(ISessionRepository repo) => _repo = repo;
+        private readonly IMemberRepository _memberRepo;
+        
+        public SessionService(ISessionRepository repo, IMemberRepository memberRepo)
+        {
+            _repo = repo;
+            _memberRepo = memberRepo;
+        }
 
         public async Task<PagedResult<SessionResponse>> GetAllAsync(int pageNumber = 1, int pageSize = 10, string? searchTerm = null, string? sortBy = null, string? sortDir = null)
         {
@@ -46,6 +52,11 @@ namespace GymManegement.Service.BUS.Implementations
             // Validate MemberId is provided (not default 0)
             if (request.MemberId <= 0)
                 throw new InvalidOperationException("MemberId phải được cung cấp và lớn hơn 0.");
+
+            // Validate member exists
+            var member = await _memberRepo.GetByIdAsync(request.MemberId);
+            if (member is null)
+                throw new InvalidOperationException($"Hội viên với ID {request.MemberId} không tồn tại.");
 
             // Ensure RegistrationDate has a valid value (prevent SQL datetime out-of-range)
             var registrationDate = request.RegistrationDate == default || request.RegistrationDate == DateTime.MinValue

@@ -109,10 +109,10 @@ if (app.Environment.IsDevelopment())
 
 app.UseHttpsRedirection();
 
+app.UseCors();
+
 // Global exception handling middleware
 app.UseMiddleware<GymManegement.Middleware.GlobalExceptionMiddleware>();
-
-app.UseCors();
 
 // ── Serve frontend từ wwwroot/ ─────────────────────────────────
 app.UseDefaultFiles();
