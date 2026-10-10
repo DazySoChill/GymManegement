@@ -7,9 +7,19 @@ async function init_dashboard() {
     // Admin view: show all stats
     try {
       const [members, overdueList, revenue] = await Promise.all([
-        api.getActiveMembers().catch(() => ({ total: 0, data: [] })),
-        api.getOverdueInvoices().catch(() => []),
-        api.getRevenue(new Date().getMonth() + 1, new Date().getFullYear()).catch(() => ({ paidRevenue: 0 }))
+        api.getActiveMembers().catch(err => { 
+          // Let 401 propagate to trigger auto-logout
+          if (err.message === 'Phiên đăng nhập hết hạn') throw err;
+          return { total: 0, data: [] };
+        }),
+        api.getOverdueInvoices().catch(err => { 
+          if (err.message === 'Phiên đăng nhập hết hạn') throw err;
+          return [];
+        }),
+        api.getRevenue(new Date().getMonth() + 1, new Date().getFullYear()).catch(err => { 
+          if (err.message === 'Phiên đăng nhập hết hạn') throw err;
+          return { paidRevenue: 0 };
+        })
       ]);
 
       document.getElementById('stat-active').textContent = members.total ?? members.data?.length ?? 0;
@@ -35,6 +45,8 @@ async function init_dashboard() {
         `).join('');
       }
     } catch (e) {
+      // Don't swallow 401 errors - they trigger auto-logout in apiFetch
+      if (e.message === 'Phiên đăng nhập hết hạn') throw e;
       console.error('Dashboard error:', e);
       toast('Không tải được một số dữ liệu dashboard', 'warning');
     }
@@ -44,11 +56,17 @@ async function init_dashboard() {
       const memberId = user.memberId;
       
       // Load own membership
-      const membershipRes = await api.getMemberships(memberId).catch(() => ({ data: [] }));
+      const membershipRes = await api.getMemberships(memberId).catch(err => { 
+        if (err.message === 'Phiên đăng nhập hết hạn') throw err;
+        return { data: [] };
+      });
       const memberships = membershipRes.data ?? [];
       
       // Load recent checkins
-      const checkinRes = await api.getCheckins({ memberId: memberId, pageSize: 5 }).catch(() => ({ data: [] }));
+      const checkinRes = await api.getCheckins({ memberId: memberId, pageSize: 5 }).catch(err => { 
+        if (err.message === 'Phiên đăng nhập hết hạn') throw err;
+        return { data: [] };
+      });
       const checkins = checkinRes.data ?? [];
 
       // Update stats for member
@@ -88,6 +106,8 @@ async function init_dashboard() {
       document.querySelector('#overdue-list').closest('.card').querySelector('h2').textContent = '✅ Check-in gần đây';
 
     } catch (e) {
+      // Don't swallow 401 errors - they trigger auto-logout in apiFetch
+      if (e.message === 'Phiên đăng nhập hết hạn') throw e;
       console.error('Dashboard error:', e);
       toast('Không tải được dữ liệu dashboard', 'warning');
     }

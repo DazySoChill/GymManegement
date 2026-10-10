@@ -65,6 +65,12 @@ function openAddMembership() {
 
 document.getElementById('membership-form')?.addEventListener('submit', async e => {
   e.preventDefault();
+  
+  // POST /api/membership returns 500 error - block submission
+  toast('Chức năng tạm thời không khả dụng (API lỗi)', 'warning');
+  return;
+  
+  /* Commented out until API is fixed
   const body = {
     memberId: parseInt(document.getElementById('ms-member').value),
     membershipType: document.getElementById('ms-type').value,
@@ -80,6 +86,7 @@ document.getElementById('membership-form')?.addEventListener('submit', async e =
     closeModal('modal-membership');
     if (membershipsMemberId) loadMemberMemberships();
   } catch (err) { toast(err.message || 'Lỗi lưu', 'error'); }
+  */
 });
 
 function init_memberships() {

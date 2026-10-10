@@ -126,10 +126,13 @@ function isAllowedPage(pageId, role) {
 function navigateTo(pageId) {
   const user = getCurrentUser();
   
-  // Check route protection
+  // Check route protection BEFORE any rendering
   if (user && !isAllowedPage(pageId, user.role)) {
     toast('Bạn không có quyền truy cập trang này', 'error');
-    navigateTo('dashboard');
+    // Prevent recursion by only redirecting if not already on dashboard
+    if (pageId !== 'dashboard') {
+      navigateTo('dashboard');
+    }
     return;
   }
   
