@@ -26,6 +26,7 @@
                 <button id="menuToggle" class="menu-toggle">☰</button>
                 <div class="header-info">
                     <span id="userInfo" class="user-info"></span>
+                    <button id="changePasswordBtn" class="btn btn-sm btn-info" style="margin-right: 12px;">🔑 Đổi MK</button>
                     <button id="logoutBtn" class="btn-logout">Đăng xuất</button>
                 </div>
             </header>
@@ -45,6 +46,35 @@
         <div class="spinner"></div>
     </div>
     
+    <!-- Global Change Password Modal -->
+    <div id="globalChangePasswordModal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3 class="modal-title">Đổi Mật Khẩu</h3>
+                <button class="modal-close" onclick="closeGlobalChangePasswordModal()">×</button>
+            </div>
+            <form id="globalChangePasswordForm">
+                <div class="form-group">
+                    <label>Mật khẩu cũ</label>
+                    <input type="password" id="globalOldPassword" required minlength="6">
+                </div>
+                <div class="form-group">
+                    <label>Mật khẩu mới</label>
+                    <input type="password" id="globalNewPassword" required minlength="6">
+                </div>
+                <div class="form-group">
+                    <label>Xác nhận mật khẩu mới</label>
+                    <input type="password" id="globalConfirmNewPassword" required minlength="6">
+                </div>
+                <div id="globalChangePasswordError" class="error-message" style="display: none;"></div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-sm" onclick="closeGlobalChangePasswordModal()">Hủy</button>
+                    <button type="submit" class="btn btn-sm btn-primary">Đổi mật khẩu</button>
+                </div>
+            </form>
+        </div>
+    </div>
+    
     <!-- Load all JS files -->
     <script src="js/api.js"></script>
     <script src="js/auth.js"></script>
@@ -60,6 +90,7 @@
     <script src="js/invoices.js"></script>
     <script src="js/payments.js"></script>
     <script src="js/reports.js"></script>
+    <script src="js/users.js"></script>
     
     <script>
         // Initialize app on page load
@@ -72,10 +103,66 @@
         // Logout handler
         document.getElementById('logoutBtn').addEventListener('click', logout);
         
+        // Change password handler
+        document.getElementById('changePasswordBtn').addEventListener('click', showGlobalChangePasswordModal);
+        document.getElementById('globalChangePasswordForm').addEventListener('submit', handleGlobalChangePassword);
+        
         // Mobile menu toggle
         document.getElementById('menuToggle').addEventListener('click', () => {
             document.getElementById('sidebar').classList.toggle('active');
         });
+        
+        // Global change password functions
+        function showGlobalChangePasswordModal() {
+            document.getElementById('globalChangePasswordModal').classList.add('show');
+            document.getElementById('globalChangePasswordForm').reset();
+            document.getElementById('globalChangePasswordError').style.display = 'none';
+        }
+        
+        function closeGlobalChangePasswordModal() {
+            document.getElementById('globalChangePasswordModal').classList.remove('show');
+        }
+        
+        async function handleGlobalChangePassword(e) {
+            e.preventDefault();
+            
+            const oldPassword = document.getElementById('globalOldPassword').value;
+            const newPassword = document.getElementById('globalNewPassword').value;
+            const confirmPassword = document.getElementById('globalConfirmNewPassword').value;
+            const errorDiv = document.getElementById('globalChangePasswordError');
+            
+            errorDiv.style.display = 'none';
+            
+            if (newPassword !== confirmPassword) {
+                errorDiv.textContent = 'Mật khẩu xác nhận không khớp';
+                errorDiv.style.display = 'block';
+                return;
+            }
+            
+            if (newPassword.length < 6) {
+                errorDiv.textContent = 'Mật khẩu mới phải có ít nhất 6 ký tự';
+                errorDiv.style.display = 'block';
+                return;
+            }
+            
+            try {
+                showLoading();
+                await apiFetch('/api/Auth/change-password', {
+                    method: 'POST',
+                    body: JSON.stringify({
+                        oldPassword,
+                        newPassword
+                    })
+                });
+                hideLoading();
+                showSuccess('Đổi mật khẩu thành công');
+                closeGlobalChangePasswordModal();
+            } catch (error) {
+                hideLoading();
+                errorDiv.textContent = 'Đổi mật khẩu thất bại: ' + error.message;
+                errorDiv.style.display = 'block';
+            }
+        }
     </script>
 </body>
 </html>

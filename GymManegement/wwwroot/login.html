@@ -15,26 +15,71 @@
                 <p>Quản lý phòng gym chuyên nghiệp</p>
             </div>
             
-            <form id="loginForm" autocomplete="off">
+            <!-- Tab Switcher -->
+            <div class="auth-tabs">
+                <button class="auth-tab active" data-tab="login">Đăng nhập</button>
+                <button class="auth-tab" data-tab="register">Đăng ký</button>
+            </div>
+            
+            <!-- Login Form -->
+            <form id="loginForm" class="auth-form active" autocomplete="off">
                 <div class="form-group">
-                    <label for="username">Tên đăng nhập</label>
-                    <input type="text" id="username" name="username" required autocomplete="off">
+                    <label for="loginUsername">Tên đăng nhập</label>
+                    <input type="text" id="loginUsername" name="username" required autocomplete="off">
                 </div>
                 
                 <div class="form-group">
-                    <label for="password">Mật khẩu</label>
-                    <input type="password" id="password" name="password" required autocomplete="off">
+                    <label for="loginPassword">Mật khẩu</label>
+                    <input type="password" id="loginPassword" name="password" required autocomplete="off">
                 </div>
                 
-                <div id="errorMessage" class="error-message" style="display: none;"></div>
+                <div id="loginError" class="error-message" style="display: none;"></div>
                 
                 <button type="submit" class="btn-primary btn-block">Đăng nhập</button>
+            </form>
+            
+            <!-- Register Form -->
+            <form id="registerForm" class="auth-form" autocomplete="off" style="display: none;">
+                <div class="form-group">
+                    <label for="regFullName">Họ và tên *</label>
+                    <input type="text" id="regFullName" name="fullName" required autocomplete="off" maxlength="100">
+                </div>
+                
+                <div class="form-group">
+                    <label for="regEmail">Email *</label>
+                    <input type="email" id="regEmail" name="email" required autocomplete="off">
+                </div>
+                
+                <div class="form-group">
+                    <label for="regUsername">Tên đăng nhập *</label>
+                    <input type="text" id="regUsername" name="username" required autocomplete="off" maxlength="50">
+                </div>
+                
+                <div class="form-group">
+                    <label for="regPassword">Mật khẩu * (tối thiểu 6 ký tự)</label>
+                    <input type="password" id="regPassword" name="password" required autocomplete="off" minlength="6">
+                </div>
+                
+                <div class="form-group">
+                    <label for="regPasswordConfirm">Xác nhận mật khẩu *</label>
+                    <input type="password" id="regPasswordConfirm" name="passwordConfirm" required autocomplete="off">
+                </div>
+                
+                <div id="registerError" class="error-message" style="display: none;"></div>
+                <div id="registerSuccess" class="success-message" style="display: none;"></div>
+                
+                <button type="submit" class="btn-primary btn-block">Đăng ký</button>
             </form>
             
             <div class="login-footer">
                 <p>Hệ thống quản lý phòng gym hiện đại</p>
             </div>
         </div>
+    </div>
+    
+    <!-- Loading Spinner -->
+    <div id="loadingSpinner" class="loading-spinner" style="display: none;">
+        <div class="spinner"></div>
     </div>
     
     <script src="js/api.js"></script>
@@ -45,13 +90,43 @@
             window.location.href = 'index.html';
         }
         
+        // Tab switching
+        document.querySelectorAll('.auth-tab').forEach(tab => {
+            tab.addEventListener('click', function() {
+                const targetTab = this.getAttribute('data-tab');
+                
+                // Update active tab
+                document.querySelectorAll('.auth-tab').forEach(t => t.classList.remove('active'));
+                this.classList.add('active');
+                
+                // Show/hide forms
+                document.querySelectorAll('.auth-form').forEach(form => {
+                    form.style.display = 'none';
+                    form.classList.remove('active');
+                });
+                
+                if (targetTab === 'login') {
+                    document.getElementById('loginForm').style.display = 'block';
+                    document.getElementById('loginForm').classList.add('active');
+                } else {
+                    document.getElementById('registerForm').style.display = 'block';
+                    document.getElementById('registerForm').classList.add('active');
+                }
+                
+                // Clear error messages
+                document.getElementById('loginError').style.display = 'none';
+                document.getElementById('registerError').style.display = 'none';
+                document.getElementById('registerSuccess').style.display = 'none';
+            });
+        });
+        
         // Handle login form submission
         document.getElementById('loginForm').addEventListener('submit', async (e) => {
             e.preventDefault();
             
-            const username = document.getElementById('username').value.trim();
-            const password = document.getElementById('password').value;
-            const errorDiv = document.getElementById('errorMessage');
+            const username = document.getElementById('loginUsername').value.trim();
+            const password = document.getElementById('loginPassword').value;
+            const errorDiv = document.getElementById('loginError');
             
             if (!username || !password) {
                 errorDiv.textContent = 'Vui lòng nhập đầy đủ thông tin';
@@ -61,14 +136,85 @@
             
             try {
                 errorDiv.style.display = 'none';
+                showLoading();
                 const result = await login(username, password);
+                hideLoading();
                 
                 if (result) {
                     // Redirect to main app
                     window.location.href = 'index.html';
                 }
             } catch (error) {
+                hideLoading();
                 errorDiv.textContent = 'Tên đăng nhập hoặc mật khẩu không đúng';
+                errorDiv.style.display = 'block';
+            }
+        });
+        
+        // Handle register form submission
+        document.getElementById('registerForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            
+            const fullName = document.getElementById('regFullName').value.trim();
+            const email = document.getElementById('regEmail').value.trim();
+            const username = document.getElementById('regUsername').value.trim();
+            const password = document.getElementById('regPassword').value;
+            const passwordConfirm = document.getElementById('regPasswordConfirm').value;
+            
+            const errorDiv = document.getElementById('registerError');
+            const successDiv = document.getElementById('registerSuccess');
+            
+            // Hide previous messages
+            errorDiv.style.display = 'none';
+            successDiv.style.display = 'none';
+            
+            // Validation
+            if (!fullName || !email || !username || !password || !passwordConfirm) {
+                errorDiv.textContent = 'Vui lòng nhập đầy đủ thông tin';
+                errorDiv.style.display = 'block';
+                return;
+            }
+            
+            if (password.length < 6) {
+                errorDiv.textContent = 'Mật khẩu phải có ít nhất 6 ký tự';
+                errorDiv.style.display = 'block';
+                return;
+            }
+            
+            if (password !== passwordConfirm) {
+                errorDiv.textContent = 'Mật khẩu xác nhận không khớp';
+                errorDiv.style.display = 'block';
+                return;
+            }
+            
+            try {
+                showLoading();
+                const response = await apiFetch('/api/Auth/register', {
+                    method: 'POST',
+                    body: JSON.stringify({
+                        username,
+                        password,
+                        fullName,
+                        email
+                    })
+                });
+                hideLoading();
+                
+                if (response) {
+                    successDiv.textContent = 'Đăng ký thành công! Vui lòng đăng nhập.';
+                    successDiv.style.display = 'block';
+                    
+                    // Clear form
+                    document.getElementById('registerForm').reset();
+                    
+                    // Switch to login tab after 2 seconds
+                    setTimeout(() => {
+                        document.querySelector('.auth-tab[data-tab="login"]').click();
+                    }, 2000);
+                }
+            } catch (error) {
+                hideLoading();
+                errorDiv.textContent = error.message || 'Đăng ký thất bại. Tên đăng nhập hoặc email có thể đã tồn tại.';
                 errorDiv.style.display = 'block';
             }
         });

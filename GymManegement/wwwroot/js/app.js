@@ -4,7 +4,7 @@
 
 // Role-based page access control
 const allowedPagesByRole = {
-    'Admin': ['dashboard', 'members', 'memberships', 'trainers', 'facilities', 'schedules', 'sessions', 'checkins', 'invoices', 'payments', 'reports'],
+    'Admin': ['dashboard', 'members', 'memberships', 'trainers', 'facilities', 'schedules', 'sessions', 'checkins', 'invoices', 'payments', 'reports', 'users'],
     'Trainer': ['dashboard', 'schedules', 'sessions', 'checkins'],
     'Member': ['dashboard', 'schedules', 'memberships', 'checkins']
 };
@@ -21,7 +21,8 @@ const pageMetadata = {
     'checkins': { title: 'Check-in', icon: '✅' },
     'invoices': { title: 'Hóa đơn', icon: '🧾' },
     'payments': { title: 'Thanh toán', icon: '💳' },
-    'reports': { title: 'Báo cáo', icon: '📈' }
+    'reports': { title: 'Báo cáo', icon: '📈' },
+    'users': { title: 'Quản lý Users', icon: '👤' }
 };
 
 let currentPage = null;
@@ -158,6 +159,9 @@ async function loadPage(pageId) {
                 break;
             case 'reports':
                 await renderReports(container);
+                break;
+            case 'users':
+                await renderUsers(container);
                 break;
             default:
                 container.innerHTML = '<div class="empty-state"><div class="empty-state-icon">❌</div><div class="empty-state-text">Trang không tồn tại</div></div>';
