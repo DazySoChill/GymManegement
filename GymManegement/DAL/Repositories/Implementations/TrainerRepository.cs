@@ -25,8 +25,10 @@ namespace GymManegement.DAL.Repositories.Implementations
         {
             using var conn = _db.CreateConnection();
             
-            sortBy ??= "TrainerId";
-            sortDir ??= "ASC";
+            // Whitelist validation to prevent SQL injection
+            var allowedSortColumns = new[] { "TrainerId", "FullName", "Email", "Phone", "Specialization", "CreatedAt", "UpdatedAt" };
+            sortBy = !string.IsNullOrEmpty(sortBy) && allowedSortColumns.Contains(sortBy) ? sortBy : "TrainerId";
+            sortDir = sortDir?.ToUpperInvariant() == "DESC" ? "DESC" : "ASC";
             
             var whereClause = "WHERE IsDeleted = 0";
             if (!string.IsNullOrEmpty(searchTerm))
