@@ -177,40 +177,225 @@ async function loadActiveFacilities() {
 /**
  * Trainer Dashboard
  */
+
+// Cached trainerId to avoid repeated lookups
+let _cachedTrainerId = null;
+
+/**
+ * Gets the trainer's TrainerId (from Trainers table).
+ * Strategy: Fetch all trainers and match by email from JWT token.
+ * The JWT token includes user email but not trainerId.
+ */
+async function getTrainerId() {
+    if (_cachedTrainerId !== null) {
+        return _cachedTrainerId;
+    }
+    
+    try {
+        const user = getUser();
+        if (!user || !user.email) {
+            console.error('No user email found in JWT');
+            return null;
+        }
+        
+        // Fetch all trainers and find by email
+        const result = await apiFetch('/api/Trainer?pageNumber=1&pageSize=1000');
+        const trainers = result?.Data || [];
+        
+        const trainer = trainers.find(t => 
+            t.Email && t.Email.toLowerCase() === user.email.toLowerCase()
+        );
+        
+        if (trainer) {
+            _cachedTrainerId = trainer.TrainerId;
+            return trainer.TrainerId;
+        }
+        
+        console.error('No trainer found with email:', user.email);
+        return null;
+    } catch (error) {
+        console.error('Error fetching trainerId:', error);
+        return null;
+    }
+}
+
 async function renderTrainerDashboard(container) {
+    const trainerId = await getTrainerId();
+    
+    if (!trainerId) {
+        container.innerHTML = '<div class="empty-state"><div class="empty-state-icon">⚠️</div><div class="empty-state-text">Không tìm thấy thông tin trainer</div></div>';
+        return;
+    }
+    
     container.innerHTML = `
         <h1>Dashboard - Huấn Luyện Viên</h1>
         <div class="stats-grid">
             <div class="stat-card">
-                <div class="stat-label">Lịch Tập Hôm Nay</div>
-                <div class="stat-value" id="todaySchedules">-</div>
+                <div class="stat-label">Class Hôm Nay</div>
+                <div class="stat-value" id="trainerTodayClasses">Đang tải...</div>
             </div>
             <div class="stat-card">
-                <div class="stat-label">Buổi Tập Gần Đây</div>
-                <div class="stat-value" id="recentSessions">-</div>
+                <div class="stat-label">Học Viên Đã Attend (Tháng Này)</div>
+                <div class="stat-value" id="trainerMonthlyAttended">Đang tải...</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-label">Check-in Hôm Nay</div>
+                <div class="stat-value" id="trainerTodayCheckins">Đang tải...</div>
             </div>
         </div>
         
         <div class="card">
             <div class="card-header">
-                <h3 class="card-title">Lịch Tập Hôm Nay</h3>
+                <h3 class="card-title">Lịch Dạy Hôm Nay</h3>
             </div>
-            <div id="todaySchedulesList"></div>
+            <div id="todaySchedulesList">Đang tải...</div>
         </div>
     `;
     
     try {
-        const today = new Date().toISOString().split('T')[0];
-        const schedules = await apiFetch(`/api/Schedule/date/${today}`);
-        document.getElementById('todaySchedules').textContent = schedules ? schedules.length : 0;
-        
-        const sessions = await apiFetch('/api/Session?pageNumber=1&pageSize=10');
-        document.getElementById('recentSessions').textContent = sessions && sessions.items ? sessions.items.length : 0;
-        
-        renderSchedulesList(schedules);
+        await Promise.all([
+            loadTrainerTodayClasses(trainerId),
+            loadTrainerMonthlyAttended(trainerId),
+            loadTrainerTodayCheckins()
+        ]);
+        await loadTodaySchedulesList(trainerId);
     } catch (error) {
         showError('Lỗi tải dữ liệu: ' + error.message);
     }
+}
+
+async function loadTrainerTodayClasses(trainerId) {
+    try {
+        const result = await apiFetch('/api/Schedule?pageNumber=1&pageSize=1000');
+        const schedules = result?.Data || [];
+        
+        const today = new Date().toISOString().split('T')[0];
+        
+        const todayClasses = schedules.filter(s => {
+            const scheduleDate = new Date(s.StartTime).toISOString().split('T')[0];
+            return s.TrainerId === trainerId && scheduleDate === today;
+        });
+        
+        document.getElementById('trainerTodayClasses').textContent = todayClasses.length;
+    } catch (error) {
+        console.error('Error loading trainer today classes:', error);
+        document.getElementById('trainerTodayClasses').textContent = 'Lỗi';
+    }
+}
+
+async function loadTrainerMonthlyAttended(trainerId) {
+    try {
+        // Get all schedules for this trainer
+        const result = await apiFetch('/api/Schedule?pageNumber=1&pageSize=1000');
+        const schedules = result?.Data || [];
+        
+        const trainerSchedules = schedules.filter(s => s.TrainerId === trainerId);
+        const scheduleIds = trainerSchedules.map(s => s.ScheduleId);
+        
+        // Limit to 50 schedules to avoid overload
+        const limitedScheduleIds = scheduleIds.slice(0, 50);
+        
+        // Get current month/year
+        const now = new Date();
+        const currentMonth = now.getMonth();
+        const currentYear = now.getFullYear();
+        
+        let attendedCount = 0;
+        
+        // Fetch sessions for each schedule
+        for (const scheduleId of limitedScheduleIds) {
+            try {
+                const sessions = await apiFetch(`/api/Session/schedule/${scheduleId}`);
+                
+                // Handle different response shapes
+                const sessionArray = Array.isArray(sessions) ? sessions : 
+                                   sessions?.Data ? sessions.Data :
+                                   sessions?.data ? sessions.data : [];
+                
+                // Count attended sessions in current month
+                const attended = sessionArray.filter(session => {
+                    if (session.Status !== 'Attended') return false;
+                    
+                    const regDate = new Date(session.RegistrationDate);
+                    return regDate.getMonth() === currentMonth && 
+                           regDate.getFullYear() === currentYear;
+                });
+                
+                attendedCount += attended.length;
+            } catch (error) {
+                console.error(`Error fetching sessions for schedule ${scheduleId}:`, error);
+            }
+        }
+        
+        document.getElementById('trainerMonthlyAttended').textContent = attendedCount;
+    } catch (error) {
+        console.error('Error loading trainer monthly attended:', error);
+        document.getElementById('trainerMonthlyAttended').textContent = 'Lỗi';
+    }
+}
+
+async function loadTrainerTodayCheckins() {
+    try {
+        const result = await apiFetch('/api/Checkin?pageNumber=1&pageSize=1000');
+        const checkins = result?.Data || [];
+        
+        const today = new Date().toISOString().split('T')[0];
+        
+        const todayCheckins = checkins.filter(c => {
+            const checkinDate = new Date(c.CheckinTime).toISOString().split('T')[0];
+            return checkinDate === today;
+        });
+        
+        document.getElementById('trainerTodayCheckins').textContent = todayCheckins.length;
+    } catch (error) {
+        console.error('Error loading trainer today checkins:', error);
+        document.getElementById('trainerTodayCheckins').textContent = 'Lỗi';
+    }
+}
+
+async function loadTodaySchedulesList(trainerId) {
+    const container = document.getElementById('todaySchedulesList');
+    
+    try {
+        const result = await apiFetch('/api/Schedule?pageNumber=1&pageSize=1000');
+        const schedules = result?.Data || [];
+        
+        const today = new Date().toISOString().split('T')[0];
+        
+        const todaySchedules = schedules.filter(s => {
+            const scheduleDate = new Date(s.StartTime).toISOString().split('T')[0];
+            return s.TrainerId === trainerId && scheduleDate === today;
+        });
+        
+        if (todaySchedules.length === 0) {
+            container.innerHTML = '<p class="empty-state-text">Không có class nào hôm nay</p>';
+            return;
+        }
+        
+        let html = '<table><thead><tr><th>Tên Class</th><th>Thời Gian</th><th>Phòng</th></tr></thead><tbody>';
+        
+        todaySchedules.forEach(schedule => {
+            html += `
+                <tr>
+                    <td>${escapeHtml(schedule.ClassName)}</td>
+                    <td>${formatTime(schedule.StartTime)} - ${formatTime(schedule.EndTime)}</td>
+                    <td>${escapeHtml(schedule.FacilityName || '-')}</td>
+                </tr>
+            `;
+        });
+        
+        html += '</tbody></table>';
+        container.innerHTML = html;
+    } catch (error) {
+        console.error('Error loading today schedules list:', error);
+        container.innerHTML = '<p class="empty-state-text">Lỗi tải danh sách</p>';
+    }
+}
+
+function formatTime(datetime) {
+    if (!datetime) return '-';
+    const d = new Date(datetime);
+    return String(d.getHours()).padStart(2, '0') + ':' + String(d.getMinutes()).padStart(2, '0');
 }
 
 /**
@@ -223,6 +408,10 @@ async function renderMemberDashboard(container) {
         <h1>Dashboard - Member</h1>
         <div class="stats-grid">
             <div class="stat-card">
+                <div class="stat-label">Buổi tập sắp tới</div>
+                <div class="stat-value" id="nextWorkoutInfo">Đang tải...</div>
+            </div>
+            <div class="stat-card">
                 <div class="stat-label">Trạng Thái Gói Tập</div>
                 <div class="stat-value" id="membershipStatus">-</div>
             </div>
@@ -230,10 +419,13 @@ async function renderMemberDashboard(container) {
                 <div class="stat-label">Số Ngày Còn Lại</div>
                 <div class="stat-value" id="daysRemaining">-</div>
             </div>
-            <div class="stat-card">
-                <div class="stat-label">Buổi Tập Sắp Tới</div>
-                <div class="stat-value" id="nextWorkoutInfo">-</div>
+        </div>
+        
+        <div class="card">
+            <div class="card-header">
+                <h3 class="card-title">5 Lần Check-in Gần Nhất</h3>
             </div>
+            <div id="recentMemberCheckins">Đang tải...</div>
         </div>
         
         <div class="card">
@@ -241,13 +433,6 @@ async function renderMemberDashboard(container) {
                 <h3 class="card-title">Gói Tập Của Tôi</h3>
             </div>
             <div id="myMembership"></div>
-        </div>
-        
-        <div class="card">
-            <div class="card-header">
-                <h3 class="card-title">Buổi Tập Sắp Tới</h3>
-            </div>
-            <div id="upcomingSessions"></div>
         </div>
     `;
     
@@ -257,7 +442,20 @@ async function renderMemberDashboard(container) {
     }
     
     try {
-        // Load active membership
+        // Load all data in parallel
+        await Promise.all([
+            loadActiveMembership(memberId),
+            loadNextWorkout(memberId),
+            loadRecentMemberCheckins(memberId)
+        ]);
+        
+    } catch (error) {
+        showError('Lỗi tải dữ liệu: ' + error.message);
+    }
+}
+
+async function loadActiveMembership(memberId) {
+    try {
         const membership = await apiFetch(`/api/Membership/member/${memberId}/active`).catch(() => null);
         if (membership) {
             document.getElementById('membershipStatus').textContent = 'Đang hoạt động';
@@ -268,16 +466,53 @@ async function renderMemberDashboard(container) {
             document.getElementById('daysRemaining').textContent = '0';
             document.getElementById('myMembership').innerHTML = '<p>Bạn chưa có gói tập nào.</p>';
         }
+    } catch (error) {
+        console.error('Error loading membership:', error);
+        document.getElementById('membershipStatus').textContent = 'Lỗi tải';
+        document.getElementById('daysRemaining').textContent = '-';
+    }
+}
+
+async function loadRecentMemberCheckins(memberId) {
+    const container = document.getElementById('recentMemberCheckins');
+    if (!container) return;
+    
+    try {
+        const checkins = await apiFetch(`/api/Checkin/member/${memberId}`);
         
-        // Load upcoming sessions
-        const sessions = await apiFetch(`/api/Session/member/${memberId}`);
-        renderUpcomingSessions(sessions);
+        if (!checkins || checkins.length === 0) {
+            container.innerHTML = '<p class="empty-state-text">Chưa có check-in nào</p>';
+            return;
+        }
         
-        // Load next workout from schedule preferences
-        await loadNextWorkout(memberId);
+        // Sort by CheckinTime descending and take first 5
+        const recent5 = checkins
+            .sort((a, b) => new Date(b.checkinTime) - new Date(a.checkinTime))
+            .slice(0, 5);
+        
+        let html = '<table><thead><tr><th>STT</th><th>Thời gian vào</th><th>Thời gian ra</th><th>Trạng thái</th></tr></thead><tbody>';
+        
+        recent5.forEach((item, index) => {
+            const hasCheckedOut = item.checkoutTime && 
+                                 item.checkoutTime !== '' && 
+                                 !item.checkoutTime.startsWith('0001-01-01');
+            const status = hasCheckedOut ? 'Đã ra' : 'Đang tập';
+            const badgeClass = hasCheckedOut ? 'badge-secondary' : 'badge-success';
+            
+            html += `<tr>
+                <td>${index + 1}</td>
+                <td>${formatDateTimeWithSeconds(item.checkinTime)}</td>
+                <td>${hasCheckedOut ? formatDateTimeWithSeconds(item.checkoutTime) : 'Chưa ra'}</td>
+                <td><span class="badge ${badgeClass}">${status}</span></td>
+            </tr>`;
+        });
+        
+        html += '</tbody></table>';
+        container.innerHTML = html;
         
     } catch (error) {
-        showError('Lỗi tải dữ liệu: ' + error.message);
+        console.error('Error loading recent checkins:', error);
+        container.innerHTML = '<p class="empty-state-text">Lỗi tải check-in</p>';
     }
 }
 
@@ -387,13 +622,19 @@ async function loadNextWorkout(memberId) {
     try {
         const schedules = await apiFetch('/api/MemberSchedulePreference/member/' + memberId);
         if (!schedules || schedules.length === 0) {
-            el.innerHTML = '<small>Chưa có lịch</small>';
+            el.innerHTML = '<small>Không có buổi tập nào sắp tới</small>';
             return;
         }
         const now = new Date();
         const currentDay = now.getDay();
         const currentTime = now.getHours() * 60 + now.getMinutes();
         const activeSchedules = schedules.filter(s => s.isActive !== false);
+        
+        if (activeSchedules.length === 0) {
+            el.innerHTML = '<small>Không có buổi tập nào sắp tới</small>';
+            return;
+        }
+        
         let nextSchedule = null;
         let minDiff = Infinity;
         activeSchedules.forEach(function(schedule) {
@@ -403,7 +644,7 @@ async function loadNextWorkout(memberId) {
             if (daysUntil < 0) daysUntil += 7;
             if (daysUntil === 0 && scheduleTime < currentTime) daysUntil = 7;
             const totalMinutes = daysUntil * 24 * 60 + (scheduleTime - currentTime);
-            if (totalMinutes < minDiff) {
+            if (totalMinutes >= 0 && totalMinutes < minDiff) {
                 minDiff = totalMinutes;
                 nextSchedule = schedule;
             }
@@ -411,10 +652,9 @@ async function loadNextWorkout(memberId) {
         if (nextSchedule) {
             const startTime = formatTimeSpan(nextSchedule.startTime);
             const endTime = formatTimeSpan(nextSchedule.endTime);
-            const dayName = nextSchedule.dayOfWeekName || ('Thứ ' + (nextSchedule.dayOfWeek === 0 ? 'CN' : (nextSchedule.dayOfWeek + 1)));
-            el.innerHTML = '<small>' + dayName + '<br>' + startTime + ' - ' + endTime + '</small>';
+            el.innerHTML = '<small>' + nextSchedule.dayOfWeekName + '<br>' + startTime + ' - ' + endTime + '</small>';
         } else {
-            el.innerHTML = '<small>Chưa có lịch</small>';
+            el.innerHTML = '<small>Không có buổi tập nào sắp tới</small>';
         }
     } catch (error) {
         console.error('Error loading next workout:', error);
