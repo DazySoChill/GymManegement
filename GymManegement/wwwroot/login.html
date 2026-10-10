@@ -1,278 +1,77 @@
 <!DOCTYPE html>
 <html lang="vi">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Gym Management – Đăng nhập / Đăng ký</title>
-  <link rel="preconnect" href="https://fonts.googleapis.com" />
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" />
-  <style>
-    * { box-sizing: border-box; margin: 0; padding: 0; }
-    :root {
-      --blue-50: #eff6ff; --blue-100: #dbeafe; --blue-200: #bfdbfe; --blue-300: #93c5fd;
-      --blue-400: #60a5fa; --blue-500: #3b82f6; --blue-600: #2563eb; --blue-700: #1d4ed8;
-      --blue-800: #1e40af; --blue-900: #1e3a8a;
-      --indigo-100: #e0e7ff; --indigo-500: #6366f1;
-      --primary: #2563eb; --primary-h: #1d4ed8; --primary-l: #eff6ff;
-      --primary-glow: rgba(37, 99, 235, 0.15);
-      --success: #10b981; --success-l: #ecfdf5;
-      --danger: #ef4444; --danger-l: #fef2f2;
-      --white: #ffffff; --gray-50: #f8fafc; --gray-100: #f1f5f9; --gray-200: #e2e8f0;
-      --gray-300: #cbd5e1; --gray-400: #94a3b8; --gray-500: #64748b;
-      --gray-600: #475569; --gray-700: #334155; --gray-800: #1e293b; --gray-900: #0f172a; --gray-950: #020617;
-      --bg: var(--gray-50); --card: var(--white); --text: var(--gray-900);
-      --text-muted: var(--gray-500); --text-subtle: var(--gray-400);
-      --border: var(--gray-200); --radius: 12px; --radius-sm: 8px;
-      --shadow-sm: 0 1px 2px rgba(15,23,42,.03), 0 1px 3px rgba(15,23,42,.05);
-      --shadow-md: 0 4px 6px -1px rgba(15,23,42,.05), 0 2px 4px -2px rgba(15,23,42,.03);
-      --shadow-lg: 0 10px 15px -3px rgba(15,23,42,.05), 0 4px 6px -4px rgba(15,23,42,.03);
-      --shadow-xl: 0 25px 50px -12px rgba(15,23,42,.15);
-      --ease: cubic-bezier(0.4,0,0.2,1); --dur-fast: 120ms; --dur-normal: 200ms;
-    }
-    @media (prefers-color-scheme: dark) {
-      :root { 
-        --blue-50: #1e3a8a; --blue-100: #1e40af; --blue-900: #dbeafe;
-        --bg: var(--gray-950); --card: var(--gray-900); --text: var(--gray-50);
-        --text-muted: var(--gray-400); --text-subtle: var(--gray-500); --border: var(--gray-800); 
-      }
-    }
-    html { font-size: 14px; -webkit-font-smoothing: antialiased; }
-    body { font-family: 'Inter', system-ui, sans-serif; background: var(--bg); min-height: 100vh; display: flex; align-items: center; justify-content: center; padding: 24px; }
-
-    /* ── Card ── */
-    .auth-card { background: linear-gradient(135deg, var(--blue-50) 0%, var(--blue-100) 50%, var(--indigo-100) 100%); border: 1px solid var(--border); border-radius: var(--radius); box-shadow: var(--shadow-xl); width: 100%; max-width: 440px; padding: 40px 48px; animation: slideUp var(--dur-normal) var(--ease); }
-    @keyframes slideUp { from { opacity: 0; transform: translateY(16px); } to { opacity: 1; transform: translateY(0); } }
-
-    /* ── Header ── */
-    .auth-header { text-align: center; margin-bottom: 28px; }
-    .auth-header .logo { width: 60px; height: 60px; border-radius: 16px; background: linear-gradient(135deg, var(--blue-500), var(--blue-700)); display: inline-flex; align-items: center; justify-content: center; font-size: 1.6rem; color: var(--white); margin-bottom: 16px; box-shadow: var(--shadow-md), 0 0 0 1px var(--blue-200); }
-    .auth-header h1 { font-size: 1.4rem; font-weight: 700; color: var(--text); letter-spacing: -0.02em; margin-bottom: 4px; }
-    .auth-header p  { color: var(--text-muted); font-size: 0.9rem; }
-
-    /* ── Tabs ── */
-    .tabs { display: flex; border-bottom: 2px solid var(--border); margin-bottom: 24px; gap: 0; }
-    .tab-btn { flex: 1; padding: 10px 0; font-size: 0.875rem; font-weight: 600; font-family: inherit; border: none; background: transparent; cursor: pointer; color: var(--text-muted); border-bottom: 2px solid transparent; margin-bottom: -2px; transition: all var(--dur-fast) var(--ease); }
-    .tab-btn:hover  { color: var(--primary); }
-    .tab-btn.active { color: var(--primary); border-bottom-color: var(--primary); }
-
-    /* ── Forms ── */
-    .form-section { display: none; }
-    .form-section.active { display: block; }
-    .form-group { margin-bottom: 18px; }
-    .form-group label { display: block; font-size: 0.8rem; font-weight: 500; color: var(--text); margin-bottom: 6px; }
-    .form-group input { width: 100%; padding: 11px 14px; border: 1px solid var(--border); border-radius: var(--radius-sm); font-size: 0.9375rem; font-family: inherit; background: var(--card); color: var(--text); transition: all var(--dur-fast) var(--ease); }
-    .form-group input::placeholder { color: var(--text-subtle); }
-    .form-group input:hover  { border-color: var(--gray-300); }
-    .form-group input:focus  { outline: none; border-color: var(--primary); box-shadow: 0 0 0 3px var(--primary-glow); }
-    @media (prefers-color-scheme: dark) { .form-group input:hover { border-color: var(--gray-600); } }
-
-    /* ── Buttons ── */
-    .btn { width: 100%; padding: 13px; border: none; border-radius: var(--radius-sm); font-size: 0.9375rem; font-weight: 600; font-family: inherit; cursor: pointer; transition: all var(--dur-fast) var(--ease); display: inline-flex; align-items: center; justify-content: center; gap: 8px; }
-    .btn:active { transform: scale(0.98); }
-    .btn:disabled { opacity: 0.5; cursor: not-allowed; }
-    .btn-primary { background: var(--primary); color: var(--white); box-shadow: var(--shadow-sm); }
-    .btn-primary:hover:not(:disabled) { background: var(--primary-h); box-shadow: var(--shadow-md); }
-
-    /* ── Alert ── */
-    .alert { padding: 11px 14px; border-radius: var(--radius-sm); font-size: 0.8125rem; margin-bottom: 18px; display: none; align-items: center; gap: 8px; animation: fadeIn var(--dur-fast) var(--ease); }
-    @keyframes fadeIn { from { opacity:0; } to { opacity:1; } }
-    .alert.show  { display: flex; }
-    .alert-error { background: var(--danger-l); color: var(--danger); }
-    .alert-success { background: var(--success-l); color: var(--success); }
-
-    /* ── Spinner ── */
-    .spinner { width: 18px; height: 18px; border: 2px solid transparent; border-top-color: var(--white); border-radius: 50%; animation: spin 0.8s linear infinite; }
-    @keyframes spin { to { transform: rotate(360deg); } }
-
-    /* ── Helper text ── */
-    .helper-text { margin-top: 6px; font-size: 0.75rem; color: var(--text-subtle); }
-    .footer-note { margin-top: 20px; text-align: center; font-size: 0.75rem; color: var(--text-subtle); }
-  </style>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Đăng nhập - Gym Management</title>
+    <link rel="stylesheet" href="css/style.css">
 </head>
-<body>
-  <div class="auth-card">
-    <!-- Header -->
-    <div class="auth-header">
-      <div class="logo">🏋️</div>
-      <h1>Gym Management</h1>
-      <p>Hệ thống quản lý phòng gym</p>
+<body class="login-page">
+    <div class="login-container">
+        <div class="login-card">
+            <div class="login-header">
+                <div class="gym-logo">💪</div>
+                <h1>Gym Management</h1>
+                <p>Quản lý phòng gym chuyên nghiệp</p>
+            </div>
+            
+            <form id="loginForm" autocomplete="off">
+                <div class="form-group">
+                    <label for="username">Tên đăng nhập</label>
+                    <input type="text" id="username" name="username" required autocomplete="off">
+                </div>
+                
+                <div class="form-group">
+                    <label for="password">Mật khẩu</label>
+                    <input type="password" id="password" name="password" required autocomplete="off">
+                </div>
+                
+                <div id="errorMessage" class="error-message" style="display: none;"></div>
+                
+                <button type="submit" class="btn-primary btn-block">Đăng nhập</button>
+            </form>
+            
+            <div class="login-footer">
+                <p>Hệ thống quản lý phòng gym hiện đại</p>
+            </div>
+        </div>
     </div>
-
-    <!-- Tabs -->
-    <div class="tabs">
-      <button class="tab-btn active" data-tab="login">Đăng nhập</button>
-      <button class="tab-btn"        data-tab="register">Tạo tài khoản</button>
-    </div>
-
-    <!-- ════════════════ ĐĂNG NHẬP ════════════════ -->
-    <div id="loginSection" class="form-section active">
-      <div id="loginAlert" class="alert alert-error"></div>
-
-      <form id="loginForm" novalidate>
-        <div class="form-group">
-          <label for="loginUsername">Tên đăng nhập</label>
-          <input type="text" id="loginUsername" name="username" autocomplete="username" required placeholder="Nhập tên đăng nhập" />
-        </div>
-        <div class="form-group">
-          <label for="loginPassword">Mật khẩu</label>
-          <input type="password" id="loginPassword" name="password" autocomplete="current-password" required placeholder="Nhập mật khẩu" />
-        </div>
-        <button type="submit" class="btn btn-primary" id="btnLogin">
-          <span class="spinner" id="loginSpinner" style="display:none"></span>
-          <span id="btnLoginText">Đăng nhập</span>
-        </button>
-      </form>
-    </div>
-
-    <!-- ════════════════ TẠO TÀI KHOẢN ════════════════ -->
-    <div id="registerSection" class="form-section">
-      <div id="registerAlert" class="alert"></div>
-
-      <form id="registerForm" novalidate>
-        <div class="form-group">
-          <label for="regUsername">Tên đăng nhập <span style="color:var(--danger)">*</span></label>
-          <input type="text" id="regUsername" name="username" autocomplete="username" required placeholder="Ví dụ: nguyenvana" />
-        </div>
-        <div class="form-group">
-          <label for="regFullName">Họ và tên</label>
-          <input type="text" id="regFullName" name="fullName" autocomplete="name" placeholder="Ví dụ: Nguyễn Văn A (tuỳ chọn)" />
-        </div>
-        <div class="form-group">
-          <label for="regEmail">Email <span style="color:var(--danger)">*</span></label>
-          <input type="email" id="regEmail" name="email" autocomplete="email" required placeholder="Ví dụ: example@gmail.com" />
-        </div>
-        <div class="form-group">
-          <label for="regPassword">Mật khẩu <span style="color:var(--danger)">*</span></label>
-          <input type="password" id="regPassword" name="password" autocomplete="new-password" required placeholder="Ít nhất 6 ký tự" />
-        </div>
-        <div class="form-group">
-          <label for="regConfirmPassword">Xác nhận mật khẩu <span style="color:var(--danger)">*</span></label>
-          <input type="password" id="regConfirmPassword" name="confirmPassword" autocomplete="new-password" required placeholder="Nhập lại mật khẩu" />
-        </div>
-
-        <p class="helper-text" style="margin-bottom:16px">
-          🔒 Tài khoản đăng ký sẽ có quyền <strong>Member</strong>. Liên hệ admin nếu cần quyền cao hơn.
-        </p>
-
-        <button type="submit" class="btn btn-primary" id="btnRegister">
-          <span class="spinner" id="registerSpinner" style="display:none"></span>
-          <span id="btnRegisterText">Tạo tài khoản</span>
-        </button>
-      </form>
-    </div>
-
-    <div class="footer-note">Gym Management v2.0</div>
-  </div>
-
-  <script src="/js/api.js"></script>
-  <script>
-    // ── Redirect if already logged in ──────────────────────────────
-    if (localStorage.getItem('accessToken')) { window.location.href = '/'; }
-
-    // ── Tab switching ───────────────────────────────────────────────
-    document.querySelectorAll('.tab-btn').forEach(btn => {
-      btn.addEventListener('click', () => {
-        document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
-        document.querySelectorAll('.form-section').forEach(s => s.classList.remove('active'));
-        btn.classList.add('active');
-        document.getElementById(btn.dataset.tab + 'Section').classList.add('active');
-        // Clear alerts on tab switch
-        ['loginAlert', 'registerAlert'].forEach(id => {
-          const el = document.getElementById(id);
-          el.className = 'alert'; el.textContent = '';
+    
+    <script src="js/api.js"></script>
+    <script src="js/auth.js"></script>
+    <script>
+        // Check if already logged in
+        if (isLoggedIn()) {
+            window.location.href = 'index.html';
+        }
+        
+        // Handle login form submission
+        document.getElementById('loginForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            
+            const username = document.getElementById('username').value.trim();
+            const password = document.getElementById('password').value;
+            const errorDiv = document.getElementById('errorMessage');
+            
+            if (!username || !password) {
+                errorDiv.textContent = 'Vui lòng nhập đầy đủ thông tin';
+                errorDiv.style.display = 'block';
+                return;
+            }
+            
+            try {
+                errorDiv.style.display = 'none';
+                const result = await login(username, password);
+                
+                if (result) {
+                    // Redirect to main app
+                    window.location.href = 'index.html';
+                }
+            } catch (error) {
+                errorDiv.textContent = 'Tên đăng nhập hoặc mật khẩu không đúng';
+                errorDiv.style.display = 'block';
+            }
         });
-      });
-    });
-
-    // ── Helper: show alert ──────────────────────────────────────────
-    function showAlert(id, msg, type = 'error') {
-      const el = document.getElementById(id);
-      el.textContent = (type === 'error' ? '⚠ ' : '✓ ') + msg;
-      el.className = `alert alert-${type} show`;
-    }
-    function hideAlert(id) {
-      const el = document.getElementById(id);
-      el.className = 'alert'; el.textContent = '';
-    }
-
-    // ── Helper: loading state ───────────────────────────────────────
-    function setLoading(btnId, spinnerId, textId, loading, defaultText) {
-      const btn = document.getElementById(btnId);
-      btn.disabled = loading;
-      document.getElementById(spinnerId).style.display = loading ? 'inline-block' : 'none';
-      document.getElementById(textId).textContent = loading ? 'Đang xử lý...' : defaultText;
-    }
-
-    // ══════════════════════════════════════════════════════════════
-    //  ĐĂNG NHẬP
-    // ══════════════════════════════════════════════════════════════
-    document.getElementById('loginForm').addEventListener('submit', async e => {
-      e.preventDefault();
-      hideAlert('loginAlert');
-
-      const username = document.getElementById('loginUsername').value.trim();
-      const password = document.getElementById('loginPassword').value;
-      if (!username || !password) { showAlert('loginAlert', 'Vui lòng nhập đầy đủ tên đăng nhập và mật khẩu.'); return; }
-
-      setLoading('btnLogin', 'loginSpinner', 'btnLoginText', true, 'Đăng nhập');
-      try {
-        // Use api.auth.login() for consistency with apiFetch pattern
-        // Note: auth endpoints intentionally don't require Bearer token (handled by apiFetch 401 logic)
-        const data = await api.auth.login({ username, password });
-        localStorage.setItem('accessToken', data.token);
-        localStorage.setItem('user', JSON.stringify({
-          userId: data.userId, username: data.username,
-          role: data.role, memberId: data.memberId, trainerId: data.trainerId
-        }));
-        window.location.href = '/';
-      } catch (err) {
-        showAlert('loginAlert', err.message);
-      } finally {
-        setLoading('btnLogin', 'loginSpinner', 'btnLoginText', false, 'Đăng nhập');
-      }
-    });
-
-    // ══════════════════════════════════════════════════════════════
-    //  TẠO TÀI KHOẢN
-    // ══════════════════════════════════════════════════════════════
-    document.getElementById('registerForm').addEventListener('submit', async e => {
-      e.preventDefault();
-      hideAlert('registerAlert');
-
-      const username        = document.getElementById('regUsername').value.trim();
-      const fullName        = document.getElementById('regFullName').value.trim();
-      const email           = document.getElementById('regEmail').value.trim();
-      const password        = document.getElementById('regPassword').value;
-      const confirmPassword = document.getElementById('regConfirmPassword').value;
-
-      // Client-side validation
-      if (!username)        { showAlert('registerAlert', 'Vui lòng nhập tên đăng nhập.'); return; }
-      if (!email)           { showAlert('registerAlert', 'Vui lòng nhập email.'); return; }
-      if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) { showAlert('registerAlert', 'Email không hợp lệ.'); return; }
-      if (password.length < 6) { showAlert('registerAlert', 'Mật khẩu phải có ít nhất 6 ký tự.'); return; }
-      if (password !== confirmPassword) { showAlert('registerAlert', 'Mật khẩu xác nhận không khớp.'); return; }
-
-      setLoading('btnRegister', 'registerSpinner', 'btnRegisterText', true, 'Tạo tài khoản');
-      try {
-        const body = { username, email, password };
-        if (fullName) body.fullName = fullName;
-
-        // Use api.auth.register() for consistency with apiFetch pattern
-        const data = await api.auth.register(body);
-
-        // Thành công – hiển thị thông báo, reset form, chuyển sang tab đăng nhập
-        showAlert('registerAlert', 'Tạo tài khoản thành công! Bạn có thể đăng nhập ngay.', 'success');
-        document.getElementById('registerForm').reset();
-        setTimeout(() => {
-          document.querySelector('[data-tab="login"]').click();
-          document.getElementById('loginUsername').value = username;
-        }, 1800);
-      } catch (err) {
-        showAlert('registerAlert', err.message);
-      } finally {
-        setLoading('btnRegister', 'registerSpinner', 'btnRegisterText', false, 'Tạo tài khoản');
-      }
-    });
-  </script>
+    </script>
 </body>
 </html>

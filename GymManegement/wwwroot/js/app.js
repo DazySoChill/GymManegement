@@ -1,239 +1,178 @@
-/* ============================================================
-   app.js – Core UI: routing, toast, modal utilities, auth
-   ============================================================ */
+/**
+ * Main App Module - SPA Routing and RBAC
+ */
 
-// ── Auth ────────────────────────────────────────────────────────
-function getCurrentUser() {
-  try { return JSON.parse(localStorage.getItem('user') || 'null'); } catch { return null; }
-}
+// Role-based page access control
+const allowedPagesByRole = {
+    'Admin': ['dashboard', 'members', 'memberships', 'trainers', 'facilities', 'schedules', 'sessions', 'checkins', 'invoices', 'payments', 'reports'],
+    'Trainer': ['dashboard', 'schedules', 'sessions', 'checkins'],
+    'Member': ['dashboard', 'schedules', 'memberships', 'checkins']
+};
 
-function isAuthenticated() { return !!localStorage.getItem('accessToken'); }
+// Page metadata
+const pageMetadata = {
+    'dashboard': { title: 'Dashboard', icon: '📊' },
+    'members': { title: 'Quản lý Members', icon: '👥' },
+    'memberships': { title: 'Gói tập', icon: '🎫' },
+    'trainers': { title: 'Huấn luyện viên', icon: '🏋️' },
+    'facilities': { title: 'Cơ sở vật chất', icon: '🏢' },
+    'schedules': { title: 'Lịch tập', icon: '📅' },
+    'sessions': { title: 'Buổi tập', icon: '💪' },
+    'checkins': { title: 'Check-in', icon: '✅' },
+    'invoices': { title: 'Hóa đơn', icon: '🧾' },
+    'payments': { title: 'Thanh toán', icon: '💳' },
+    'reports': { title: 'Báo cáo', icon: '📈' }
+};
 
-function logout() {
-  localStorage.removeItem('accessToken');
-  localStorage.removeItem('user');
-  window.location.href = '/login.html';
-}
+let currentPage = null;
 
-function initAuth() {
-  if (window.location.pathname.endsWith('login.html')) {
-    if (isAuthenticated()) window.location.href = '/';
-    return;
-  }
-  // Token validation: We only check presence, not expiry/validity.
-  // Expired tokens are handled gracefully by apiFetch() 401 logic (auto-logout on first API call).
-  // This avoids clock-skew issues and keeps auth boundary simple.
-  if (!isAuthenticated()) { window.location.href = '/login.html'; return; }
-
-  const user = getCurrentUser();
-  if (user) {
-    const topbarRight = document.querySelector('.topbar-right');
-    if (topbarRight) {
-      // Remove existing user menu if any
-      const existing = document.getElementById('userMenu');
-      if (existing) existing.remove();
-
-      const userMenu = document.createElement('div');
-      userMenu.id = 'userMenu';
-      userMenu.className = 'user-menu dropdown';
-      userMenu.innerHTML = `
-        <div class="avatar" id="userAvatar">${user.username?.charAt(0).toUpperCase() || 'U'}</div>
-        <div class="user-info">
-          <span class="user-name" id="userName">${user.username}</span>
-          <span class="user-role" id="userRole">${user.role}</span>
-        </div>
-      `;
-      topbarRight.prepend(userMenu);
-
-      // Dropdown toggle
-      userMenu.addEventListener('click', e => {
-        if (e.target.closest('.close-btn')) return;
-        userMenu.classList.toggle('open');
-      });
-
-      // Add dropdown menu
-      const dropdownMenu = document.createElement('div');
-      dropdownMenu.className = 'dropdown-menu';
-      dropdownMenu.innerHTML = `
-        <div class="dropdown-item" onclick="window.location.href='/profile.html'">👤 Hồ sơ</div>
-        <div class="dropdown-item" onclick="window.location.href='/settings.html'">⚙️ Cài đặt</div>
-        <div class="dropdown-divider"></div>
-        <div class="dropdown-item danger" onclick="logout()">🚪 Đăng xuất</div>
-      `;
-      userMenu.appendChild(dropdownMenu);
-
-      // Close on outside click
-      document.addEventListener('click', e => {
-        if (!userMenu.contains(e.target)) userMenu.classList.remove('open');
-      });
+/**
+ * Initialize the application
+ */
+function initApp() {
+    const user = getUser();
+    const role = getRole();
+    
+    if (!user || !role) {
+        logout();
+        return;
     }
-  }
-}
-
-// ── Toast ─────────────────────────────────────────────────────
-function toast(msg, type = 'info', duration = 3500) {
-  const container = document.getElementById('toast-container');
-  const el = document.createElement('div');
-  el.className = `toast ${type}`;
-  const icons = { success: '✅', error: '❌', info: 'ℹ️', warning: '⚠️' };
-  el.innerHTML = `<span>${icons[type] || ''}</span><span>${msg}</span>`;
-  container.appendChild(el);
-  setTimeout(() => { el.classList.add('removing'); setTimeout(() => el.remove(), 200); }, duration);
-}
-
-// ── Modal helpers ─────────────────────────────────────────────
-function openModal(id) { document.getElementById(id)?.classList.add('open'); }
-function closeModal(id) { document.getElementById(id)?.classList.remove('open'); }
-
-// ── Navigation control ────────────────────────────────────────
-function initNavigation() {
-  const user = getCurrentUser();
-  if (!user) return;
-  
-  const role = user.role;
-  
-  // Define allowed pages per role
-  const allowedPages = {
-    'Admin': ['dashboard', 'members', 'memberships', 'trainers', 'facilities', 'schedules', 'checkins', 'invoices', 'reports'],
-    'SuperAdmin': ['dashboard', 'members', 'memberships', 'trainers', 'facilities', 'schedules', 'checkins', 'invoices', 'reports'],
-    'Member': ['dashboard', 'schedules', 'memberships', 'checkins'],
-    'Trainer': ['dashboard', 'schedules', 'checkins']
-  };
-  
-  const allowed = allowedPages[role] || ['dashboard'];
-  
-  // Hide nav links not allowed for current role
-  document.querySelectorAll('#sidebar nav a').forEach(link => {
-    const page = link.dataset.page;
-    if (!allowed.includes(page)) {
-      link.style.display = 'none';
-    } else {
-      link.style.display = '';
+    
+    // Update user info in header
+    const userInfo = document.getElementById('userInfo');
+    if (userInfo) {
+        userInfo.textContent = `${user.fullName} (${role})`;
     }
-  });
+    
+    // Build navigation based on role
+    initNavigation(role);
+    
+    // Handle hash-based routing
+    window.addEventListener('hashchange', handleRouting);
+    
+    // Load initial page
+    handleRouting();
 }
 
-function isAllowedPage(pageId, role) {
-  const allowedPages = {
-    'Admin': ['dashboard', 'members', 'memberships', 'trainers', 'facilities', 'schedules', 'checkins', 'invoices', 'reports'],
-    'SuperAdmin': ['dashboard', 'members', 'memberships', 'trainers', 'facilities', 'schedules', 'checkins', 'invoices', 'reports'],
-    'Member': ['dashboard', 'schedules', 'memberships', 'checkins'],
-    'Trainer': ['dashboard', 'schedules', 'checkins']
-  };
-  
-  const allowed = allowedPages[role] || ['dashboard'];
-  return allowed.includes(pageId);
+/**
+ * Build sidebar navigation based on user role
+ */
+function initNavigation(role) {
+    const navContainer = document.getElementById('sidebarNav');
+    if (!navContainer) return;
+    
+    const allowedPages = allowedPagesByRole[role] || [];
+    navContainer.innerHTML = '';
+    
+    allowedPages.forEach(pageId => {
+        const meta = pageMetadata[pageId];
+        if (!meta) return;
+        
+        const navItem = document.createElement('a');
+        navItem.href = `#${pageId}`;
+        navItem.className = 'nav-item';
+        navItem.setAttribute('data-page', pageId);
+        navItem.innerHTML = `${meta.icon} ${meta.title}`;
+        
+        navContainer.appendChild(navItem);
+    });
 }
 
-// ── Router ────────────────────────────────────────────────────
+/**
+ * Handle routing based on hash
+ */
+function handleRouting() {
+    const hash = window.location.hash.slice(1) || 'dashboard';
+    navigateTo(hash);
+}
+
+/**
+ * Navigate to a specific page
+ */
 function navigateTo(pageId) {
-  const user = getCurrentUser();
-  
-  // Check route protection BEFORE any rendering
-  if (user && !isAllowedPage(pageId, user.role)) {
-    toast('Bạn không có quyền truy cập trang này', 'error');
-    // Prevent recursion by only redirecting if not already on dashboard
-    if (pageId !== 'dashboard') {
-      navigateTo('dashboard');
+    const role = getRole();
+    const allowedPages = allowedPagesByRole[role] || [];
+    
+    // Check if user has access to this page
+    if (!allowedPages.includes(pageId)) {
+        showError('Bạn không có quyền truy cập trang này');
+        pageId = 'dashboard';
+        window.location.hash = 'dashboard';
     }
-    return;
-  }
-  
-  document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
-  document.querySelectorAll('#sidebar nav a').forEach(a => {
-    a.classList.toggle('active', a.dataset.page === pageId);
-  });
-  const page = document.getElementById(`page-${pageId}`);
-  if (page) {
-    page.classList.add('active');
-    const link = document.querySelector(`[data-page="${pageId}"]`);
-    document.getElementById('topbar-title').textContent = link?.textContent?.trim() || '';
-    const init = window[`init_${pageId}`];
-    if (typeof init === 'function') init();
-  }
+    
+    // Update active nav item
+    document.querySelectorAll('.nav-item').forEach(item => {
+        item.classList.remove('active');
+        if (item.getAttribute('data-page') === pageId) {
+            item.classList.add('active');
+        }
+    });
+    
+    // Load page content
+    currentPage = pageId;
+    loadPage(pageId);
 }
 
-// ── Table helpers ─────────────────────────────────────────────
-function loading(containerId) {
-  const el = document.getElementById(containerId);
-  if (el) el.innerHTML = `<tr><td colspan="20" class="loading"><span class="spinner"></span></tr>`;
+/**
+ * Load page content
+ */
+async function loadPage(pageId) {
+    const container = document.getElementById('main-content');
+    if (!container) return;
+    
+    // Show loading
+    container.innerHTML = '<div style="text-align: center; padding: 40px;"><div class="spinner"></div></div>';
+    
+    try {
+        // Call the appropriate render function
+        switch (pageId) {
+            case 'dashboard':
+                await renderDashboard(container);
+                break;
+            case 'members':
+                await renderMembers(container);
+                break;
+            case 'memberships':
+                await renderMemberships(container);
+                break;
+            case 'trainers':
+                await renderTrainers(container);
+                break;
+            case 'facilities':
+                await renderFacilities(container);
+                break;
+            case 'schedules':
+                await renderSchedules(container);
+                break;
+            case 'sessions':
+                await renderSessions(container);
+                break;
+            case 'checkins':
+                await renderCheckins(container);
+                break;
+            case 'invoices':
+                await renderInvoices(container);
+                break;
+            case 'payments':
+                await renderPayments(container);
+                break;
+            case 'reports':
+                await renderReports(container);
+                break;
+            default:
+                container.innerHTML = '<div class="empty-state"><div class="empty-state-icon">❌</div><div class="empty-state-text">Trang không tồn tại</div></div>';
+        }
+    } catch (error) {
+        console.error('Error loading page:', error);
+        container.innerHTML = `<div class="empty-state"><div class="empty-state-icon">⚠️</div><div class="empty-state-text">Lỗi tải trang: ${error.message}</div></div>`;
+    }
 }
 
-function emptyRow(containerId, cols, msg = 'Không có dữ liệu') {
-  const el = document.getElementById(containerId);
-  if (el) el.innerHTML = `<tr><td colspan="${cols}" class="table-empty"><span class="icon">📭</span>${msg}</td></tr>`;
+/**
+ * Reload current page
+ */
+function reloadCurrentPage() {
+    if (currentPage) {
+        loadPage(currentPage);
+    }
 }
-
-function dateFmt(d) { if (!d) return ''; return new Date(d).toLocaleDateString('vi-VN'); }
-function datetimeFmt(d) { if (!d) return ''; return new Date(d).toLocaleString('vi-VN'); }
-function moneyFmt(n) { return new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(n); }
-
-function badge(text, cls) { return `<span class="badge badge-${cls}">${text}</span>`; }
-
-function statusBadge(status) {
-  const map = {
-    Active: ['Active','green'], Inactive:['Inactive','gray'], Suspended:['Suspended','red'],
-    Pending: ['Chờ TT','yellow'], Paid:['Đã TT','green'], Overdue:['Quá hạn','red'],
-    Cancelled:['Huỷ','gray'], Scheduled:['Đã lên lịch','blue'], Completed:['Hoàn thành','green'],
-    Failed:['Thất bại','red'], Refunded:['Hoàn tiền','yellow'],
-  };
-  const [label, cls] = map[status] || [status, 'gray'];
-  return badge(label, cls);
-}
-
-// ── Pagination helper ─────────────────────────────────────────
-function renderPagination(containerId, currentPage, totalPages, onPageChange) {
-  const el = document.getElementById(containerId);
-  if (!el || totalPages <= 1) { if (el) el.innerHTML = ''; return; }
-
-  let html = '';
-  html += `<button ${currentPage === 1 ? 'disabled' : ''} onclick="${onPageChange}(${currentPage - 1})" aria-label="Previous">‹</button>`;
-
-  const start = Math.max(1, currentPage - 2);
-  const end = Math.min(totalPages, currentPage + 2);
-
-  if (start > 1) { html += `<button onclick="${onPageChange}(1)">1</button>`; if (start > 2) html += `<span class="page-info">…</span>`; }
-
-  for (let i = start; i <= end; i++) {
-    html += `<button class="${i === currentPage ? 'active' : ''}" onclick="${onPageChange}(${i})">${i}</button>`;
-  }
-
-  if (end < totalPages) { if (end < totalPages - 1) html += `<span class="page-info">…</span>`; html += `<button onclick="${onPageChange}(${totalPages})">${totalPages}</button>`; }
-
-  html += `<button ${currentPage === totalPages ? 'disabled' : ''} onclick="${onPageChange}(${currentPage + 1})" aria-label="Next">›</button>`;
-  html += `<span class="page-info">Trang ${currentPage}/${totalPages}</span>`;
-  el.innerHTML = html;
-}
-
-// ── Select helpers ────────────────────────────────────────────
-function populateSelect(selectId, items, valueKey, labelKey, placeholder = '-- Chọn --') {
-  const select = document.getElementById(selectId);
-  if (!select) return;
-  const current = select.value;
-  select.innerHTML = `<option value="">${placeholder}</option>` + items.map(i => `<option value="${i[valueKey]}">${i[labelKey]}</option>`).join('');
-  if (current) select.value = current;
-}
-
-// ── Initialize on DOM ready ───────────────────────────────────
-document.addEventListener('DOMContentLoaded', () => {
-  initAuth();
-  initNavigation();
-
-  // Sidebar navigation
-  document.querySelectorAll('#sidebar nav a').forEach(link => {
-    link.addEventListener('click', e => { e.preventDefault(); navigateTo(link.dataset.page); });
-  });
-
-  // Close modals on backdrop click
-  document.querySelectorAll('.modal-backdrop').forEach(bd => {
-    bd.addEventListener('click', e => { if (e.target === bd) bd.classList.remove('open'); });
-  });
-
-  // Keyboard: ESC closes modal
-  document.addEventListener('keydown', e => {
-    if (e.key === 'Escape') document.querySelectorAll('.modal-backdrop.open').forEach(m => m.classList.remove('open'));
-  });
-
-  // Default page
-  navigateTo('dashboard');
-});

@@ -1,42 +1,101 @@
-/* ============================================================
-   auth.js – Role-based auth helpers
-   ============================================================ */
+/**
+ * Authentication Module
+ * Handles login, logout, and user session management
+ */
 
-function getCurrentUser() {
-  try {
-    return JSON.parse(localStorage.getItem('user') || 'null');
-  } catch {
-    return null;
-  }
+/**
+ * Login with username and password
+ * @param {string} username 
+ * @param {string} password 
+ * @returns {Promise<object>} - Login response with token and user info
+ */
+async function login(username, password) {
+    try {
+        const response = await apiFetch('/api/Auth/login', {
+            method: 'POST',
+            body: JSON.stringify({ username, password })
+        });
+        
+        if (response && response.token) {
+            // Store token
+            localStorage.setItem('gym_token', response.token);
+            
+            // Store user info
+            const userInfo = {
+                userId: response.userId || null,
+                username: response.username,
+                fullName: response.fullName,
+                email: response.email || '',
+                role: response.role,
+                memberId: response.memberId || null
+            };
+            localStorage.setItem('gym_user', JSON.stringify(userInfo));
+            
+            return response;
+        }
+        
+        throw new Error('Invalid login response');
+    } catch (error) {
+        console.error('Login error:', error);
+        throw error;
+    }
 }
 
-function getUserRole() {
-  const user = getCurrentUser();
-  return user?.role || null;
+/**
+ * Logout and redirect to login page
+ */
+function logout() {
+    localStorage.removeItem('gym_token');
+    localStorage.removeItem('gym_user');
+    window.location.href = 'login.html';
 }
 
-function isAdmin() {
-  const role = getUserRole();
-  return role === 'Admin' || role === 'SuperAdmin';
+/**
+ * Check if user is logged in
+ * @returns {boolean}
+ */
+function isLoggedIn() {
+    const token = localStorage.getItem('gym_token');
+    return token !== null && token !== '';
 }
 
-function isMember() {
-  return getUserRole() === 'Member';
+/**
+ * Get current user info
+ * @returns {object|null}
+ */
+function getUser() {
+    const userStr = localStorage.getItem('gym_user');
+    if (!userStr) return null;
+    
+    try {
+        return JSON.parse(userStr);
+    } catch (e) {
+        return null;
+    }
 }
 
-function isTrainer() {
-  return getUserRole() === 'Trainer';
+/**
+ * Get current user role
+ * @returns {string|null} - 'Admin', 'Trainer', or 'Member'
+ */
+function getRole() {
+    const user = getUser();
+    return user ? user.role : null;
 }
 
-function requireAdmin() {
-  if (!isAdmin()) {
-    alert('Không có quyền truy cập. Chức năng chỉ dành cho quản trị viên.');
-    window.location.href = '/index.html';
-  }
+/**
+ * Get current member ID (for Member role only)
+ * @returns {number|null}
+ */
+function getMemberId() {
+    const user = getUser();
+    return user ? user.memberId : null;
 }
 
-function requireAuth() {
-  if (!localStorage.getItem('accessToken')) {
-    window.location.href = '/login.html';
-  }
+/**
+ * Get auth token
+ * @returns {string|null}
+ */
+function getToken() {
+    return localStorage.getItem('gym_token');
 }
