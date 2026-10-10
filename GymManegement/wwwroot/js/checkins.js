@@ -10,14 +10,17 @@ let checkinsPageSize = 10;
 const checkinMemberNameCache = {};
 
 // Cache for full checkin dataset and calculated counts
+// NOTE: Cache is in-memory only and doesn't sync across browser tabs.
+// If a user opens multiple tabs, checkin counts may be stale until manual refresh.
 let fullCheckinsCache = null;
 let checkinsCountsCache = null;
 
 async function fetchCheckinMemberName(memberId) {
     const cached = checkinMemberNameCache[memberId];
+    const CACHE_TTL = 5 * 60 * 1000; // 5 minutes
     
-    // Return cached success immediately
-    if (cached && cached.status === 'success') {
+    // Return cached success if still fresh
+    if (cached && cached.status === 'success' && (Date.now() - cached.timestamp) < CACHE_TTL) {
         return cached.value;
     }
     
@@ -247,6 +250,7 @@ async function renderMemberCheckins(container, memberId) {
             <div class="card-header" style="display: flex; justify-content: space-between; align-items: center; gap: 12px;">
                 <h2 class="card-title">Lịch Sử Check-in</h2>
                 <div style="display: flex; gap: 8px;">
+                    <button class="btn btn-secondary" onclick="renderMemberCheckins(document.getElementById('main-content'), ${memberId})" title="Làm mới dữ liệu">🔄</button>
                     <button class="btn btn-success" onclick="quickCheckin(${memberId})">✅ Check In</button>
                     <button class="btn btn-primary" onclick="showQRCheckinModal(${memberId})">📱 Check-in QR</button>
                 </div>
@@ -312,7 +316,10 @@ async function renderAllCheckins(container) {
         <div class="card">
             <div class="card-header">
                 <h2 class="card-title">Quản lý Check-in</h2>
-                ${canManage ? '<button class="btn btn-primary" onclick="showManualCheckinModal()">➕ Check-in thủ công</button>' : ''}
+                <div style="display:flex;gap:8px;">
+                    <button class="btn btn-secondary" onclick="reloadCheckinsData()" title="Làm mới dữ liệu">🔄 Làm mới</button>
+                    ${canManage ? '<button class="btn btn-primary" onclick="showManualCheckinModal()">➕ Check-in thủ công</button>' : ''}
+                </div>
             </div>
             
             <div class="filters">

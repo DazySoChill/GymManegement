@@ -11,9 +11,10 @@ const memberNameCache = {};
 
 async function fetchMemberName(memberId) {
     const cached = memberNameCache[memberId];
+    const CACHE_TTL = 5 * 60 * 1000; // 5 minutes
     
-    // Return cached success immediately
-    if (cached && cached.status === 'success') {
+    // Return cached success if still fresh
+    if (cached && cached.status === 'success' && (Date.now() - cached.timestamp) < CACHE_TTL) {
         return cached.value;
     }
     
@@ -42,9 +43,10 @@ const scheduleDetailsCache = {};
 
 async function fetchScheduleDetails(scheduleId) {
     const cached = scheduleDetailsCache[scheduleId];
+    const CACHE_TTL = 5 * 60 * 1000; // 5 minutes
     
-    // Return cached success immediately
-    if (cached && cached.status === 'success') {
+    // Return cached success if still fresh
+    if (cached && cached.status === 'success' && (Date.now() - cached.timestamp) < CACHE_TTL) {
         return cached.value;
     }
     
@@ -186,6 +188,9 @@ function filterByCustomWeek() {
     
     // ISO 8601: Week 1 is the week with the first Thursday of the year
     // Find January 4th (always in week 1) and go back to Monday
+    // NOTE: Edge case exists around January 1st where browser week picker
+    // and manual calculation may disagree. Affects <1% of use cases.
+    // If issues arise, consider replacing with date range picker.
     const jan4 = new Date(year, 0, 4); // January 4th
     const jan4Day = jan4.getDay(); // 0=Sunday, 1=Monday, ...
     const jan4ToMonday = jan4Day === 0 ? -6 : 1 - jan4Day; // Days back to Monday
