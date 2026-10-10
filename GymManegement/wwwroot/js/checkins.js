@@ -5,6 +5,55 @@
 let checkinsCurrentPage = 1;
 let checkinsPageSize = 10;
 
+// Member name cache to avoid duplicate API calls
+const checkinMemberNameCache = {};
+
+async function fetchCheckinMemberName(memberId) {
+    if (checkinMemberNameCache[memberId]) {
+        return checkinMemberNameCache[memberId];
+    }
+    
+    try {
+        const member = await apiFetch(`/api/Member/${memberId}`);
+        const name = member?.fullName || member?.name || `Member ${memberId}`;
+        checkinMemberNameCache[memberId] = name;
+        return name;
+    } catch (error) {
+        console.error(`Error fetching member ${memberId}:`, error);
+        checkinMemberNameCache[memberId] = `Member ${memberId}`;
+        return checkinMemberNameCache[memberId];
+    }
+}
+
+/**
+ * Calculate checkin counts for all checkins
+ * Groups by memberId, sorts by checkinTime ascending, assigns Lần 1, Lần 2, etc.
+ */
+function calculateCheckinCounts(checkins) {
+    // Group by memberId
+    const byMember = {};
+    checkins.forEach(c => {
+        if (!byMember[c.memberId]) {
+            byMember[c.memberId] = [];
+        }
+        byMember[c.memberId].push(c);
+    });
+    
+    // Sort each group by checkinTime and assign counts
+    const countsMap = {}; // checkinId -> count
+    
+    Object.keys(byMember).forEach(memberId => {
+        const memberCheckins = byMember[memberId];
+        memberCheckins.sort((a, b) => new Date(a.checkinTime) - new Date(b.checkinTime));
+        
+        memberCheckins.forEach((c, index) => {
+            countsMap[c.checkinId] = index + 1;
+        });
+    });
+    
+    return countsMap;
+}
+
 // Ensure modal styles are available (shared with memberships)
 function ensureModalStyles() {
     if (document.getElementById('membership-modal-styles')) return;
@@ -127,6 +176,41 @@ async function processQRCheckin(memberId) {
     }
 }
 
+/**
+ * Quick check-in without QR code
+ * Creates a check-in record immediately
+ */
+async function quickCheckin(memberId) {
+    try {
+        showLoading();
+        
+        // Create checkin record with current timestamp
+        const result = await apiFetch('/api/Checkin', {
+            method: 'POST',
+            body: JSON.stringify({
+                memberId: memberId,
+                checkinTime: new Date().toISOString(),
+                checkoutTime: null
+            })
+        });
+        
+        hideLoading();
+        showToast('✅ Check-in thành công!', 'success');
+        
+        // Reload checkins list
+        reloadCurrentPage();
+        
+    } catch (error) {
+        hideLoading();
+        const errorMsg = error.message.toLowerCase();
+        if (errorMsg.includes('already') || errorMsg.includes('đã check-in')) {
+            showError('Bạn đã check-in rồi. Vui lòng checkout trước.');
+        } else {
+            showError('Lỗi check-in: ' + error.message);
+        }
+    }
+}
+
 async function renderCheckins(container) {
     const role = getRole();
     const memberId = getMemberId();
@@ -143,9 +227,12 @@ async function renderMemberCheckins(container, memberId) {
     
     container.innerHTML = `
         <div class="card">
-            <div class="card-header" style="display: flex; justify-content: space-between; align-items: center;">
+            <div class="card-header" style="display: flex; justify-content: space-between; align-items: center; gap: 12px;">
                 <h2 class="card-title">Lịch Sử Check-in</h2>
-                <button class="btn btn-primary" onclick="showQRCheckinModal(${memberId})">📱 Check-in QR</button>
+                <div style="display: flex; gap: 8px;">
+                    <button class="btn btn-success" onclick="quickCheckin(${memberId})">✅ Check In</button>
+                    <button class="btn btn-primary" onclick="showQRCheckinModal(${memberId})">📱 Check-in QR</button>
+                </div>
             </div>
             
             <div class="filters">
@@ -179,14 +266,19 @@ function renderMemberCheckinsTable(checkins) {
         return;
     }
     
-    let html = '<table><thead><tr><th>ID</th><th>Thời gian vào</th><th>Thời gian ra</th></tr></thead><tbody>';
+    // Calculate counts
+    const countsMap = calculateCheckinCounts(checkins);
+    
+    let html = '<table><thead><tr><th>ID</th><th>Thời gian vào</th><th>Thời gian ra</th><th>Lần Checkin</th></tr></thead><tbody>';
     
     checkins.forEach(c => {
+        const checkinCount = countsMap[c.checkinId] || '-';
         html += `
             <tr>
                 <td>${c.checkinId}</td>
-                <td>${formatDateTime(c.checkinTime)}</td>
-                <td>${c.checkoutTime ? formatDateTime(c.checkoutTime) : 'Chưa ra'}</td>
+                <td>${formatDateTimeWithSeconds(c.checkinTime)}</td>
+                <td>${c.checkoutTime ? formatDateTimeWithSeconds(c.checkoutTime) : 'Chưa ra'}</td>
+                <td>Lần ${checkinCount}</td>
             </tr>
         `;
     });
@@ -222,10 +314,20 @@ async function renderAllCheckins(container) {
 async function loadCheckins() {
     try {
         showLoading();
+        
+        // Fetch ALL checkins to calculate counts accurately
+        // We'll still paginate the display, but need full dataset for counts
+        const allData = await apiFetch(`/api/Checkin?pageNumber=1&pageSize=10000`);
+        
+        // Calculate counts
+        const countsMap = calculateCheckinCounts(allData.items || []);
+        
+        // For display, use the requested page
         const data = await apiFetch(`/api/Checkin?pageNumber=${checkinsCurrentPage}&pageSize=${checkinsPageSize}`);
+        
         hideLoading();
         
-        renderCheckinsTable(data);
+        await renderCheckinsTable(data, countsMap);
         renderCheckinsPagination(data);
     } catch (error) {
         hideLoading();
@@ -244,17 +346,23 @@ async function loadCheckinsByDate() {
     
     try {
         showLoading();
+        
+        // Fetch all checkins for count calculation
+        const allData = await apiFetch(`/api/Checkin?pageNumber=1&pageSize=10000`);
+        const countsMap = calculateCheckinCounts(allData.items || []);
+        
+        // Fetch filtered data
         const data = await apiFetch(`/api/Checkin/date/${date}`);
         hideLoading();
         
-        renderCheckinsTable({ items: data, pageNumber: 1, totalPages: 1 });
+        await renderCheckinsTable({ items: data, pageNumber: 1, totalPages: 1 }, countsMap);
     } catch (error) {
         hideLoading();
         showError('Lỗi tải check-in: ' + error.message);
     }
 }
 
-function renderCheckinsTable(data) {
+async function renderCheckinsTable(data, countsMap = {}) {
     const container = document.getElementById('checkinsTableContainer');
     
     if (!data || !data.items || data.items.length === 0) {
@@ -262,29 +370,46 @@ function renderCheckinsTable(data) {
         return;
     }
     
+    // Fetch all member names in parallel
+    const checkins = data.items;
+    const memberIds = [...new Set(checkins.map(c => c.memberId))];
+    await Promise.all(memberIds.map(id => fetchCheckinMemberName(id)));
+    
+    // If countsMap is empty (e.g., from date filter), calculate for current set
+    if (Object.keys(countsMap).length === 0) {
+        countsMap = calculateCheckinCounts(checkins);
+    }
+    
     let html = `
         <table>
             <thead>
                 <tr>
                     <th>ID</th>
-                    <th>Member</th>
+                    <th>Member ID</th>
+                    <th>Tên Member</th>
                     <th>Thời gian vào</th>
                     <th>Thời gian ra</th>
+                    <th>Lần Checkin</th>
                 </tr>
             </thead>
             <tbody>
     `;
     
-    data.items.forEach(c => {
+    for (const c of checkins) {
+        const memberName = await fetchCheckinMemberName(c.memberId);
+        const checkinCount = countsMap[c.checkinId] || '-';
+        
         html += `
             <tr>
                 <td>${c.checkinId}</td>
-                <td>${escapeHtml(c.memberName || '-')}</td>
-                <td>${formatDateTime(c.checkinTime)}</td>
-                <td>${c.checkoutTime ? formatDateTime(c.checkoutTime) : 'Chưa ra'}</td>
+                <td>${c.memberId}</td>
+                <td>${escapeHtml(memberName)}</td>
+                <td>${formatDateTimeWithSeconds(c.checkinTime)}</td>
+                <td>${c.checkoutTime ? formatDateTimeWithSeconds(c.checkoutTime) : 'Chưa ra'}</td>
+                <td>Lần ${checkinCount}</td>
             </tr>
         `;
-    });
+    }
     
     html += '</tbody></table>';
     container.innerHTML = html;
