@@ -112,22 +112,26 @@ namespace GymManegement.Controllers
         public async Task<IActionResult> Cancel(int id)
         {
             var userRole = User.FindFirst(System.Security.Claims.ClaimTypes.Role)?.Value;
-            var userMemberIdStr = User.FindFirst("MemberId")?.Value;
             
-            if (!int.TryParse(userMemberIdStr, out int userMemberId))
-                return Forbid();
-            
-            // Admin can cancel any; Member can only cancel own
-            if (userRole == "Member")
-            {
-                var ok = await _service.CancelAsync(id, userMemberId);
-                return ok ? Ok(new { message = "Hủy gói tập thành công." }) : NotFound();
-            }
-            else if (userRole == "Admin" || userRole == "SuperAdmin")
+            // Admin can cancel any membership without ownership check
+            if (userRole == "Admin" || userRole == "SuperAdmin")
             {
                 var membership = await _service.GetByIdAsync(id);
                 if (membership == null) return NotFound();
+                
+                // Admin bypasses ownership check - cancel directly via repository
                 var ok = await _service.CancelAsync(id, membership.MemberId);
+                return ok ? Ok(new { message = "Hủy gói tập thành công." }) : NotFound();
+            }
+            
+            // Member can only cancel own membership
+            if (userRole == "Member")
+            {
+                var userMemberIdStr = User.FindFirst("MemberId")?.Value;
+                if (!int.TryParse(userMemberIdStr, out int userMemberId))
+                    return Forbid();
+                
+                var ok = await _service.CancelAsync(id, userMemberId);
                 return ok ? Ok(new { message = "Hủy gói tập thành công." }) : NotFound();
             }
             

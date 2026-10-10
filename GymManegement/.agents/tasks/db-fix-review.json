@@ -1,0 +1,17 @@
+{
+  "verdict": "CHANGES_REQUESTED",
+  "findings": [
+    "Unsafe DROP COLUMN without conditional check — COMPLETE_SCHEMA_FIX.sql attempts to drop Memberships.Status, Schedules.MemberId, Sessions.ActualStartTime/ActualEndTime/Notes, Checkins.SessionId/CheckinMethod, Members.Status/JoinDate without IF EXISTS guards. Second run fails with column does not exist errors.",
+    "Password hash mismatch risk — COMPLETE_SEED_DATA.sql includes hardcoded BCrypt hashes with WorkFactor 10. If the application uses different WorkFactor or algorithm, login fails for all seeded users.",
+    "Authorization bypass via missing MemberId claim — MembershipController.Cancel proceeds to CancelAsync for Admin/SuperAdmin even if userMemberId parse fails. Admin without MemberId claim can cancel any membership because service layer check passes when requestingMemberId is 0.",
+    "FK constraint rename may fail — COMPLETE_SCHEMA_FIX.sql queries sys.foreign_keys by name. If actual FK has auto-generated name, query returns NULL, constraint stays in place, subsequent ALTER COLUMN fails.",
+    "sp_rename may fail if source column doesn't exist — Lines like EXEC sp_rename 'Invoices.Amount', 'TotalAmount' assume source exists. If already renamed or never existed, sp_rename raises error and halts script.",
+    "Schedules datetime conversion loses time precision — COMPLETE_SCHEMA_FIX.sql converts ScheduledDate + StartTime to DATETIME2 by casting and adding. If StartTime or EndTime is NULL, result is NULL and ALTER COLUMN NOT NULL fails.",
+    "Master script uses sqlcmd-only syntax — RUN_COMPLETE_FIX.sql uses :r include directive not supported in SSMS, Azure Data Studio, or most SQL clients. Must run via sqlcmd command line.",
+    "Seed data INSERT column counts may mismatch schema — If schema fix fails partway through, seed data INSERT will fail with column does not exist. Schema must complete before seeding.",
+    "CancelAsync has no return value check — MembershipRepository.CancelAsync uses ExecuteAsync but doesn't check rowsAffected. If membership doesn't exist or already canceled, UPDATE matches zero rows and operation silently succeeds. Controller returns 200 OK even though nothing changed.",
+    "Frontend cancel button doesn't check membership ownership — wwwroot/js/memberships.js doesn't verify membership belongs to current user before showing cancel button. Member can manipulate DOM to call API with another member's membershipId. Backend rejects but user sees generic error.",
+    "Seed data creates future schedules but no past checkins context — 240 schedules for next 30 days but only 100 checkins over past 30 days. Admin dashboard stats skew toward future schedules."
+  ],
+  "reviewDoc": "d:\\Workspace\\Độ án 2\\GymManegement\\GymManegement\\.agents\\tasks\\db-fix-review.md"
+}

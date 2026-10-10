@@ -14,6 +14,6 @@ namespace GymManegement.DAL.Repositories.Interfaces
         Task<IEnumerable<Membership>> GetActiveAsync();
         Task<PagedResult<Membership>> GetAllAsync(int pageNumber, int pageSize, string? searchTerm = null, string? sortBy = null, string? sortDir = null);
         /// <summary>Cancel membership - set EndDate to today</summary>
-        Task CancelAsync(int membershipId);
+        Task<bool> CancelAsync(int membershipId);
     }
 }

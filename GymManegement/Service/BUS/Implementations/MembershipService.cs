@@ -117,8 +117,8 @@ namespace GymManegement.Service.BUS.Implementations
             var entity = await _repo.GetByIdAsync(membershipId);
             if (entity is null) return false;
             if (entity.MemberId != requestingMemberId) return false; // Security check: member can only cancel own
-            await _repo.CancelAsync(membershipId);
-            return true;
+            var cancelled = await _repo.CancelAsync(membershipId);
+            return cancelled;
         }
 
         private static MembershipResponse ToResponse(Membership m) => new MembershipResponse
