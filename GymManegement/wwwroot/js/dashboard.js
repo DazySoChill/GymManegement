@@ -87,7 +87,7 @@ async function loadActiveMembersCount() {
 
 /**
  * Load Monthly Revenue
- * Note: Fetches up to 1000 payments and filters client-side. If monthly volume exceeds 1000, results may be incomplete.
+ * Fetches all payments across all pages and filters client-side for current month.
  */
 async function loadMonthlyRevenue() {
     try {
@@ -95,12 +95,23 @@ async function loadMonthlyRevenue() {
         const currentMonth = now.getMonth();
         const currentYear = now.getFullYear();
         
-        const result = await apiFetch('/api/Payment?pageNumber=1&pageSize=1000');
-        // Backend returns PagedResult with PascalCase: { Data, Total, PageNumber, PageSize, TotalPages }
-        const payments = result?.Data || [];
+        // Fetch all pages to ensure complete data
+        let allPayments = [];
+        let pageNumber = 1;
+        let totalPages = 1;
+        
+        do {
+            const result = await apiFetch(`/api/Payment?pageNumber=${pageNumber}&pageSize=100`);
+            // Backend returns PagedResult with PascalCase: { Data, Total, PageNumber, PageSize, TotalPages }
+            if (result?.Data) {
+                allPayments = allPayments.concat(result.Data);
+            }
+            totalPages = result?.TotalPages || 1;
+            pageNumber++;
+        } while (pageNumber <= totalPages);
         
         // Filter payments for current month using backend field name: PaymentDate (PascalCase)
-        const filtered = payments.filter(p => {
+        const filtered = allPayments.filter(p => {
             if (!p.PaymentDate) return false;
             
             const date = new Date(p.PaymentDate);
@@ -123,18 +134,29 @@ async function loadMonthlyRevenue() {
 
 /**
  * Load Today's Checkins Count
- * Note: Fetches up to 1000 checkins and filters client-side. If daily volume exceeds 1000, results may be incomplete.
+ * Fetches all checkins across all pages and filters client-side for today.
  */
 async function loadTodayCheckins() {
     try {
         const today = new Date().toISOString().split('T')[0];
         
-        const result = await apiFetch('/api/Checkin?pageNumber=1&pageSize=1000');
-        // Backend returns PagedResult with PascalCase: { Data, Total, PageNumber, PageSize, TotalPages }
-        const checkins = result?.Data || [];
+        // Fetch all pages to ensure complete data
+        let allCheckins = [];
+        let pageNumber = 1;
+        let totalPages = 1;
+        
+        do {
+            const result = await apiFetch(`/api/Checkin?pageNumber=${pageNumber}&pageSize=100`);
+            // Backend returns PagedResult with PascalCase: { Data, Total, PageNumber, PageSize, TotalPages }
+            if (result?.Data) {
+                allCheckins = allCheckins.concat(result.Data);
+            }
+            totalPages = result?.TotalPages || 1;
+            pageNumber++;
+        } while (pageNumber <= totalPages);
         
         // Filter checkins for today using backend field name: CheckinTime (PascalCase)
-        const filtered = checkins.filter(c => {
+        const filtered = allCheckins.filter(c => {
             if (!c.CheckinTime) return false;
             const checkinDate = new Date(c.CheckinTime).toISOString().split('T')[0];
             return checkinDate === today;
