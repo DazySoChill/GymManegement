@@ -10,19 +10,34 @@ namespace GymManegement.Service.BUS.Implementations
     {
         private readonly ISessionRepository _repo;
         private readonly IMemberRepository _memberRepo;
+        private readonly IScheduleRepository _scheduleRepo;
+        private readonly ITrainerRepository _trainerRepo;
         
-        public SessionService(ISessionRepository repo, IMemberRepository memberRepo)
+        public SessionService(
+            ISessionRepository repo, 
+            IMemberRepository memberRepo,
+            IScheduleRepository scheduleRepo,
+            ITrainerRepository trainerRepo)
         {
             _repo = repo;
             _memberRepo = memberRepo;
+            _scheduleRepo = scheduleRepo;
+            _trainerRepo = trainerRepo;
         }
 
         public async Task<PagedResult<SessionResponse>> GetAllAsync(int pageNumber = 1, int pageSize = 10, string? searchTerm = null, string? sortBy = null, string? sortDir = null)
         {
             var result = await _repo.GetAllAsync(pageNumber, pageSize, searchTerm, sortBy, sortDir);
+            var responses = new List<SessionResponse>();
+            
+            foreach (var session in result.Data)
+            {
+                responses.Add(await ToResponseAsync(session));
+            }
+            
             return new PagedResult<SessionResponse>
             {
-                Data = result.Data.Select(ToResponse).ToList(),
+                Data = responses,
                 Total = result.Total,
                 PageNumber = result.PageNumber,
                 PageSize = result.PageSize
@@ -32,25 +47,40 @@ namespace GymManegement.Service.BUS.Implementations
         public async Task<SessionResponse?> GetByIdAsync(int id)
         {
             var entity = await _repo.GetByIdAsync(id);
-            return entity is null ? null : ToResponse(entity);
+            return entity is null ? null : await ToResponseAsync(entity);
         }
 
         public async Task<IEnumerable<SessionResponse>> GetByScheduleIdAsync(int scheduleId)
         {
             var entities = await _repo.GetByScheduleIdAsync(scheduleId);
-            return entities.Select(ToResponse);
+            var responses = new List<SessionResponse>();
+            foreach (var entity in entities)
+            {
+                responses.Add(await ToResponseAsync(entity));
+            }
+            return responses;
         }
 
         public async Task<IEnumerable<SessionResponse>> GetByMemberIdAsync(int memberId)
         {
             var entities = await _repo.GetByMemberIdAsync(memberId);
-            return entities.Select(ToResponse);
+            var responses = new List<SessionResponse>();
+            foreach (var entity in entities)
+            {
+                responses.Add(await ToResponseAsync(entity));
+            }
+            return responses;
         }
 
         public async Task<IEnumerable<SessionResponse>> GetByStatusAsync(string status)
         {
             var entities = await _repo.GetByStatusAsync(status);
-            return entities.Select(ToResponse);
+            var responses = new List<SessionResponse>();
+            foreach (var entity in entities)
+            {
+                responses.Add(await ToResponseAsync(entity));
+            }
+            return responses;
         }
 
         public async Task<SessionResponse> CreateAsync(CreateSessionRequest request)
@@ -77,7 +107,7 @@ namespace GymManegement.Service.BUS.Implementations
                 Status = request.Status
             };
             await _repo.CreateAsync(entity);
-            return ToResponse(entity);
+            return await ToResponseAsync(entity);
         }
 
         public async Task<SessionResponse?> UpdateAsync(int id, UpdateSessionRequest request)
@@ -87,7 +117,7 @@ namespace GymManegement.Service.BUS.Implementations
 
             entity.Status = request.Status;
             await _repo.UpdateAsync(entity);
-            return ToResponse(entity);
+            return await ToResponseAsync(entity);
         }
 
         public async Task<bool> DeleteAsync(int id)
@@ -98,15 +128,34 @@ namespace GymManegement.Service.BUS.Implementations
             return true;
         }
 
-        private static SessionResponse ToResponse(Session s) => new SessionResponse
+        private async Task<SessionResponse> ToResponseAsync(Session s)
         {
-            SessionId = s.SessionId,
-            MemberId = s.MemberId,
-            ScheduleId = s.ScheduleId,
-            RegistrationDate = s.RegistrationDate,
-            Status = s.Status,
-            CreatedAt = s.CreatedAt,
-            UpdatedAt = s.UpdatedAt
-        };
+            // Fetch related data
+            var member = await _memberRepo.GetByIdAsync(s.MemberId);
+            var schedule = await _scheduleRepo.GetByIdAsync(s.ScheduleId);
+            
+            string trainerName = "-";
+            if (schedule != null && schedule.TrainerId > 0)
+            {
+                var trainer = await _trainerRepo.GetByIdAsync(schedule.TrainerId);
+                trainerName = trainer?.FullName ?? "-";
+            }
+            
+            return new SessionResponse
+            {
+                SessionId = s.SessionId,
+                MemberId = s.MemberId,
+                MemberName = member?.FullName ?? "-",
+                ScheduleId = s.ScheduleId,
+                ClassName = schedule?.ClassName ?? "-",
+                TrainerName = trainerName,
+                ClassStartTime = schedule?.StartTime,
+                ClassEndTime = schedule?.EndTime,
+                RegistrationDate = s.RegistrationDate,
+                Status = s.Status,
+                CreatedAt = s.CreatedAt,
+                UpdatedAt = s.UpdatedAt
+            };
+        }
     }
 }

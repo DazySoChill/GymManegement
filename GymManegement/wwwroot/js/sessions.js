@@ -5,76 +5,6 @@
 let sessionsCurrentPage = 1;
 let sessionsPageSize = 10;
 
-// Member name cache to avoid duplicate API calls
-// Cache stores { status: 'success' | 'error', value: string, timestamp: number }
-const memberNameCache = {};
-
-async function fetchMemberName(memberId) {
-    const cached = memberNameCache[memberId];
-    const CACHE_TTL = 5 * 60 * 1000; // 5 minutes
-    
-    // Return cached success if still fresh
-    if (cached && cached.status === 'success' && (Date.now() - cached.timestamp) < CACHE_TTL) {
-        return cached.value;
-    }
-    
-    // Retry transient failures after 30 seconds
-    if (cached && cached.status === 'error' && (Date.now() - cached.timestamp) < 30000) {
-        return cached.value;
-    }
-    
-    try {
-        const member = await apiFetch(`/api/Member/${memberId}`);
-        const name = member?.fullName || member?.name || `Member ${memberId}`;
-        memberNameCache[memberId] = { status: 'success', value: name, timestamp: Date.now() };
-        return name;
-    } catch (error) {
-        console.error(`Error fetching member ${memberId}:`, error);
-        const fallback = `Member ${memberId}`;
-        // Cache error with timestamp to allow retry after delay
-        memberNameCache[memberId] = { status: 'error', value: fallback, timestamp: Date.now() };
-        return fallback;
-    }
-}
-
-// Schedule details cache
-// Cache stores { status: 'success' | 'error', value: object, timestamp: number }
-const scheduleDetailsCache = {};
-
-async function fetchScheduleDetails(scheduleId) {
-    const cached = scheduleDetailsCache[scheduleId];
-    const CACHE_TTL = 5 * 60 * 1000; // 5 minutes
-    
-    // Return cached success if still fresh
-    if (cached && cached.status === 'success' && (Date.now() - cached.timestamp) < CACHE_TTL) {
-        return cached.value;
-    }
-    
-    // Retry transient failures after 30 seconds
-    if (cached && cached.status === 'error' && (Date.now() - cached.timestamp) < 30000) {
-        return cached.value;
-    }
-    
-    try {
-        const schedule = await apiFetch(`/api/Schedule/${scheduleId}`);
-        const details = {
-            className: schedule?.className || '-',
-            trainerName: schedule?.trainerName || '-',
-            facilityName: schedule?.facilityName || '-',
-            startTime: schedule?.startTime || null,
-            endTime: schedule?.endTime || null
-        };
-        scheduleDetailsCache[scheduleId] = { status: 'success', value: details, timestamp: Date.now() };
-        return details;
-    } catch (error) {
-        console.error(`Error fetching schedule ${scheduleId}:`, error);
-        const fallback = { className: '-', trainerName: '-', facilityName: '-', startTime: null, endTime: null };
-        // Cache error with timestamp to allow retry after delay
-        scheduleDetailsCache[scheduleId] = { status: 'error', value: fallback, timestamp: Date.now() };
-        return fallback;
-    }
-}
-
 // Session notes - stored in localStorage
 function getSessionNote(sessionId) {
     const key = `gym_session_note_${sessionId}`;
@@ -513,19 +443,14 @@ async function renderMemberSessionsTable(sessions) {
         return;
     }
     
-    // Fetch schedule details
-    const scheduleIds = [...new Set(sessions.map(s => s.scheduleId))];
-    await Promise.all(scheduleIds.map(id => fetchScheduleDetails(id)));
-    
     let html = '<table><thead><tr><th>ID</th><th>Lớp</th><th>HLV</th><th>Thời gian tập</th><th>Ngày đăng ký</th><th>Trạng thái</th><th>Ghi chú</th><th>Thao tác</th></tr></thead><tbody>';
     
     for (const s of sessions) {
-        const scheduleDetails = await fetchScheduleDetails(s.scheduleId);
         const note = getSessionNote(s.sessionId);
         const hasNote = note.length > 0;
         
-        const scheduleTime = scheduleDetails.startTime 
-            ? `${formatDateTime(scheduleDetails.startTime)} - ${formatDateTime(scheduleDetails.endTime)}` 
+        const scheduleTime = s.classStartTime 
+            ? `${formatDateTime(s.classStartTime)} - ${formatDateTime(s.classEndTime)}` 
             : '-';
         
         const badge = s.status === 'Attended' ? 'badge-success' :
@@ -537,8 +462,8 @@ async function renderMemberSessionsTable(sessions) {
         html += `
             <tr>
                 <td>${s.sessionId}</td>
-                <td>${escapeHtml(scheduleDetails.className)}</td>
-                <td>${escapeHtml(scheduleDetails.trainerName)}</td>
+                <td>${escapeHtml(s.className || '-')}</td>
+                <td>${escapeHtml(s.trainerName || '-')}</td>
                 <td>${scheduleTime}</td>
                 <td>${formatDate(s.registrationDate)}</td>
                 <td><span class="badge ${badge}">${s.status}</span></td>
@@ -632,16 +557,6 @@ async function renderSessionsTable(data) {
         return;
     }
     
-    // Fetch all member names and schedule details in parallel
-    const sessions = items;
-    const memberIds = [...new Set(sessions.map(s => s.memberId))];
-    const scheduleIds = [...new Set(sessions.map(s => s.scheduleId))];
-    
-    await Promise.all([
-        ...memberIds.map(id => fetchMemberName(id)),
-        ...scheduleIds.map(id => fetchScheduleDetails(id))
-    ]);
-    
     let html = `
         <table>
             <thead>
@@ -661,14 +576,12 @@ async function renderSessionsTable(data) {
             <tbody>
     `;
     
-    for (const s of sessions) {
-        const memberName = await fetchMemberName(s.memberId);
-        const scheduleDetails = await fetchScheduleDetails(s.scheduleId);
+    for (const s of items) {
         const note = getSessionNote(s.sessionId);
         const hasNote = note.length > 0;
         
-        const scheduleTime = scheduleDetails.startTime 
-            ? `${formatDateTime(scheduleDetails.startTime)} - ${formatDateTime(scheduleDetails.endTime)}` 
+        const scheduleTime = s.classStartTime 
+            ? `${formatDateTime(s.classStartTime)} - ${formatDateTime(s.classEndTime)}` 
             : '-';
         
         const badge = s.status === 'Attended' ? 'badge-success' :
@@ -678,9 +591,9 @@ async function renderSessionsTable(data) {
             <tr>
                 <td>${s.sessionId}</td>
                 <td>${s.memberId}</td>
-                <td>${escapeHtml(memberName)}</td>
-                <td>${escapeHtml(scheduleDetails.className)}</td>
-                <td>${escapeHtml(scheduleDetails.trainerName)}</td>
+                <td>${escapeHtml(s.memberName || '-')}</td>
+                <td>${escapeHtml(s.className || '-')}</td>
+                <td>${escapeHtml(s.trainerName || '-')}</td>
                 <td>${scheduleTime}</td>
                 <td>${formatDate(s.registrationDate)}</td>
                 <td><span class="badge ${badge}">${s.status}</span></td>
