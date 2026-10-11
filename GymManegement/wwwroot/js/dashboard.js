@@ -71,9 +71,26 @@ async function renderAdminDashboard(container) {
 async function loadActiveMembersCount() {
     try {
         // Use the dedicated active members endpoint from reports
-        const count = await apiFetch('/api/Report/active-members');
-        console.log('Active Members - API Response:', count);
-        document.getElementById('activeMembersCount').textContent = count || 0;
+        const response = await apiFetch('/api/Report/active-members');
+        console.log('Dashboard - Active Members Response:', response);
+        
+        // Handle different response formats
+        let count = 0;
+        if (typeof response === 'number') {
+            count = response;
+        } else if (typeof response === 'object' && response !== null) {
+            // Try various possible property names
+            count = response.count 
+                || response.Count 
+                || response.value 
+                || response.Value
+                || response.total
+                || response.Total
+                || 0;
+        }
+        
+        console.log('Dashboard - Active Members Count:', count);
+        document.getElementById('activeMembersCount').textContent = count;
     } catch (error) {
         console.error('Error loading active members:', error);
         const errorMsg = error.message?.includes('401') || error.message?.includes('403') 

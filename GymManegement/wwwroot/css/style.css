@@ -691,3 +691,14 @@ tbody tr:hover {
     display: flex;
     gap: 8px;
 }
+
+/* Total row in revenue tables */
+.total-row {
+    background-color: #f0f8ff;
+    font-weight: bold;
+    border-top: 2px solid #333;
+}
+
+.total-row td {
+    padding: 12px 8px;
+}

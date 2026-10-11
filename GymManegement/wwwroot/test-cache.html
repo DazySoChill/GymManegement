@@ -1,0 +1,127 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Test Cache - Dashboard JS Loaded?</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 50px auto;
+            padding: 20px;
+        }
+        .test-box {
+            border: 2px solid #ddd;
+            padding: 20px;
+            margin: 20px 0;
+            border-radius: 8px;
+        }
+        .success { border-color: #27ae60; background: #eaffea; }
+        .error { border-color: #e74c3c; background: #ffe6e6; }
+        .info { border-color: #3498db; background: #e6f3ff; }
+        h1 { color: #2c3e50; }
+        code { background: #f4f4f4; padding: 2px 6px; border-radius: 3px; }
+        pre { background: #f4f4f4; padding: 10px; border-radius: 5px; overflow-x: auto; }
+    </style>
+</head>
+<body>
+    <h1>🧪 Test: Dashboard JS Cache Status</h1>
+    
+    <div class="test-box info">
+        <h3>Instructions:</h3>
+        <ol>
+            <li>Open browser console (F12 → Console tab)</li>
+            <li>Look for the test results below</li>
+            <li>Green = Cache cleared ✅</li>
+            <li>Red = Old cache still loaded ❌</li>
+        </ol>
+    </div>
+
+    <div id="testResults">Testing...</div>
+
+    <script src="/js/dashboard.js"></script>
+    <script>
+        const resultsDiv = document.getElementById('testResults');
+        
+        // Test 1: Check if loadActiveMembersCount function exists
+        const test1 = typeof loadActiveMembersCount === 'function';
+        
+        // Test 2: Check function source code for new pattern
+        let test2 = false;
+        if (test1) {
+            const funcSource = loadActiveMembersCount.toString();
+            // Look for the new code pattern
+            test2 = funcSource.includes('/api/Report/active-members') && 
+                    funcSource.includes('console.log');
+        }
+        
+        // Test 3: Check if loadMonthlyRevenue has new defensive pattern
+        let test3 = false;
+        if (typeof loadMonthlyRevenue === 'function') {
+            const funcSource = loadMonthlyRevenue.toString();
+            test3 = funcSource.includes('result?.data || result?.Data') &&
+                    funcSource.includes('p.amount || p.Amount');
+        }
+        
+        // Display results
+        let html = '';
+        
+        // Test 1
+        html += `<div class="test-box ${test1 ? 'success' : 'error'}">
+            <h3>Test 1: Dashboard JS Loaded</h3>
+            <p>${test1 ? '✅ PASS' : '❌ FAIL'}: loadActiveMembersCount function ${test1 ? 'exists' : 'not found'}</p>
+        </div>`;
+        
+        // Test 2
+        html += `<div class="test-box ${test2 ? 'success' : 'error'}">
+            <h3>Test 2: Active Members Function Updated</h3>
+            <p>${test2 ? '✅ PASS' : '❌ FAIL'}: Function ${test2 ? 'uses new /api/Report/active-members endpoint' : 'still uses old code'}</p>
+            ${test2 ? '' : '<p><strong>Action:</strong> Cache not cleared! Use Ctrl+Shift+R or clear cache via DevTools</p>'}
+        </div>`;
+        
+        // Test 3
+        html += `<div class="test-box ${test3 ? 'success' : 'error'}">
+            <h3>Test 3: Monthly Revenue Function Updated</h3>
+            <p>${test3 ? '✅ PASS' : '❌ FAIL'}: Function ${test3 ? 'uses defensive field access pattern' : 'still uses old pattern'}</p>
+            ${test3 ? '' : '<p><strong>Action:</strong> Cache not cleared! Try these steps:</p><ol><li>Ctrl + Shift + Delete → Clear cache</li><li>F12 → Application → Clear storage</li><li>Try Incognito mode: Ctrl+Shift+N</li></ol>'}
+        </div>`;
+        
+        // Overall result
+        const allPass = test1 && test2 && test3;
+        html += `<div class="test-box ${allPass ? 'success' : 'error'}">
+            <h2>${allPass ? '✅ ALL TESTS PASSED!' : '❌ CACHE NOT CLEARED'}</h2>
+            ${allPass ? 
+                '<p><strong>Great!</strong> Dashboard JS is updated. You can now test the Dashboard and Reports pages.</p>' :
+                '<p><strong>Problem:</strong> Browser is still serving old cached JavaScript files.</p><p><strong>Solution:</strong> Follow the cache clearing steps above, then refresh this page.</p>'
+            }
+        </div>`;
+        
+        // Show function source for debugging
+        if (!allPass && test1) {
+            html += `<div class="test-box info">
+                <h3>🔍 Debug: Function Source Preview</h3>
+                <p><strong>loadActiveMembersCount first 500 chars:</strong></p>
+                <pre>${loadActiveMembersCount.toString().substring(0, 500)}...</pre>
+            </div>`;
+        }
+        
+        resultsDiv.innerHTML = html;
+        
+        // Console output
+        console.log('=== DASHBOARD CACHE TEST ===');
+        console.log('Test 1 (JS Loaded):', test1);
+        console.log('Test 2 (Active Members Updated):', test2);
+        console.log('Test 3 (Monthly Revenue Updated):', test3);
+        console.log('Overall:', allPass ? 'PASS ✅' : 'FAIL ❌');
+        
+        if (allPass) {
+            console.log('✅ Cache cleared successfully! Dashboard code is updated.');
+        } else {
+            console.error('❌ Cache not cleared. Follow these steps:');
+            console.error('1. Ctrl + Shift + R (Hard refresh)');
+            console.error('2. F12 → Network tab → Check "Disable cache"');
+            console.error('3. Ctrl + Shift + Delete → Clear cached images and files');
+            console.error('4. Try Incognito mode: Ctrl + Shift + N');
+        }
+    </script>
+</body>
+</html>

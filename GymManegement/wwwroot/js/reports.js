@@ -23,7 +23,7 @@ async function renderReports(container) {
                 <div class="stat-value" id="reportActiveMembersCount">-</div>
             </div>
             <div class="stat-card">
-                <div class="stat-label">Doanh Thu Tháng ${currentMonth}/${currentYear}</div>
+                <div class="stat-label" id="revenueLabel">Doanh Thu Tháng ${currentMonth}/${currentYear}</div>
                 <div class="stat-value" id="reportMonthlyRevenue">-</div>
             </div>
         </div>
@@ -33,14 +33,33 @@ async function renderReports(container) {
                 <h3 class="card-title">Doanh Thu Chi Tiết</h3>
             </div>
             <div class="filters">
-                <select id="revenueMonth">
-                    ${generateMonthOptions(currentMonth)}
+                <label>Xem theo: </label>
+                <select id="revenueType" onchange="updateRevenueFilters()">
+                    <option value="month">Tháng</option>
+                    <option value="quarter">Quý</option>
+                    <option value="year">Năm</option>
                 </select>
+                
+                <span id="monthFilter">
+                    <select id="revenueMonth">
+                        ${generateMonthOptions(currentMonth)}
+                    </select>
+                </span>
+                
+                <span id="quarterFilter" style="display:none;">
+                    <select id="revenueQuarter">
+                        <option value="1">Quý 1 (T1-T3)</option>
+                        <option value="2">Quý 2 (T4-T6)</option>
+                        <option value="3">Quý 3 (T7-T9)</option>
+                        <option value="4">Quý 4 (T10-T12)</option>
+                    </select>
+                </span>
+                
                 <select id="revenueYear">
                     ${generateYearOptions(currentYear)}
                 </select>
                 <button class="btn btn-info" onclick="loadRevenueDetails()">🔍 Xem</button>
-                <button class="btn btn-success" onclick="exportRevenue()">📥 Export Excel</button>
+                <button class="btn btn-success" onclick="exportRevenue()">📥 Xuất Excel</button>
             </div>
             <div id="revenueDetailsContainer"></div>
         </div>
@@ -71,9 +90,25 @@ async function renderReports(container) {
 async function loadReportsData() {
     try {
         // Load active members
-        const activeMembers = await apiFetch('/api/Report/active-members');
-        console.log('Reports - Active Members:', activeMembers);
-        document.getElementById('reportActiveMembersCount').textContent = activeMembers || 0;
+        const activeMembersResponse = await apiFetch('/api/Report/active-members');
+        console.log('Reports - Active Members Response:', activeMembersResponse);
+        
+        // Handle different response formats
+        let activeMembers = 0;
+        if (typeof activeMembersResponse === 'number') {
+            activeMembers = activeMembersResponse;
+        } else if (typeof activeMembersResponse === 'object') {
+            // If it's an object, try to extract count
+            activeMembers = activeMembersResponse.count || 
+                          activeMembersResponse.Count || 
+                          activeMembersResponse.value ||
+                          activeMembersResponse.Value ||
+                          activeMembersResponse.total ||
+                          activeMembersResponse.Total || 0;
+        }
+        
+        console.log('Reports - Active Members Count:', activeMembers);
+        document.getElementById('reportActiveMembersCount').textContent = activeMembers;
         
         // Load monthly revenue
         const now = new Date();
@@ -92,24 +127,72 @@ async function loadReportsData() {
 }
 
 async function loadRevenueDetails() {
-    const month = document.getElementById('revenueMonth')?.value || new Date().getMonth() + 1;
+    const type = document.getElementById('revenueType')?.value || 'month';
     const year = document.getElementById('revenueYear')?.value || new Date().getFullYear();
     
     try {
         showLoading();
         
-        // Load revenue summary
-        const revenue = await apiFetch(`/api/Report/revenue?month=${month}&year=${year}`);
-        console.log('Revenue Summary - API Response:', revenue);
-        document.getElementById('reportMonthlyRevenue').textContent = formatCurrency(revenue || 0);
+        let details = [];
+        let totalRevenue = 0;
+        let label = '';
         
-        // Load revenue details
-        const response = await apiFetch(`/api/Report/revenue/detail?month=${month}&year=${year}`);
-        console.log('Revenue Details - API Response:', response);
+        if (type === 'month') {
+            // Load monthly revenue
+            const month = document.getElementById('revenueMonth')?.value || new Date().getMonth() + 1;
+            
+            const revenue = await apiFetch(`/api/Report/revenue?month=${month}&year=${year}`);
+            console.log('Revenue Summary - API Response:', revenue);
+            
+            // Extract total revenue from response
+            totalRevenue = revenue?.totalRevenue || revenue?.TotalRevenue || 0;
+            
+            const response = await apiFetch(`/api/Report/revenue/detail?month=${month}&year=${year}`);
+            console.log('Revenue Details - API Response:', response);
+            details = response?.data || response?.Data || [];
+            
+            label = `Doanh Thu Tháng ${month}/${year}`;
+            
+        } else if (type === 'quarter') {
+            // Load quarterly revenue
+            const quarter = parseInt(document.getElementById('revenueQuarter')?.value || '1');
+            const startMonth = (quarter - 1) * 3 + 1;
+            const endMonth = startMonth + 2;
+            
+            // Load all 3 months in the quarter
+            for (let month = startMonth; month <= endMonth; month++) {
+                const response = await apiFetch(`/api/Report/revenue/detail?month=${month}&year=${year}`);
+                const monthData = response?.data || response?.Data || [];
+                details = details.concat(monthData);
+                
+                const revenue = await apiFetch(`/api/Report/revenue?month=${month}&year=${year}`);
+                const monthRevenue = revenue?.totalRevenue || revenue?.TotalRevenue || 0;
+                totalRevenue += monthRevenue;
+            }
+            
+            label = `Doanh Thu Quý ${quarter}/${year}`;
+            
+        } else if (type === 'year') {
+            // Load yearly revenue
+            for (let month = 1; month <= 12; month++) {
+                const response = await apiFetch(`/api/Report/revenue/detail?month=${month}&year=${year}`);
+                const monthData = response?.data || response?.Data || [];
+                details = details.concat(monthData);
+                
+                const revenue = await apiFetch(`/api/Report/revenue?month=${month}&year=${year}`);
+                const monthRevenue = revenue?.totalRevenue || revenue?.TotalRevenue || 0;
+                totalRevenue += monthRevenue;
+            }
+            
+            label = `Doanh Thu Năm ${year}`;
+        }
         
-        // Backend returns { month, year, data: [...] } wrapper
-        const details = response?.data || response?.Data || [];
+        // Update label and value
+        document.getElementById('revenueLabel').textContent = label;
+        document.getElementById('reportMonthlyRevenue').textContent = formatCurrency(totalRevenue);
+        
         console.log('Revenue Details - Details array:', details);
+        console.log('Revenue Details - Total:', totalRevenue);
         
         hideLoading();
         
@@ -121,8 +204,6 @@ async function loadRevenueDetails() {
         
         let html = '<table><thead><tr><th>Ngày</th><th>Số lượng</th><th>Tổng tiền</th></tr></thead><tbody>';
         details.forEach(item => {
-            // Support both aggregated format (date, count, totalAmount) 
-            // and detailed format (invoiceDate, totalAmount)
             const displayDate = item.date || item.invoiceDate || item.InvoiceDate;
             const displayCount = item.count || '-';
             const displayAmount = item.totalAmount || item.TotalAmount || 0;
@@ -135,6 +216,7 @@ async function loadRevenueDetails() {
                 </tr>
             `;
         });
+        html += `<tr class="total-row"><td colspan="2"><strong>TỔNG CỘNG</strong></td><td><strong>${formatCurrency(totalRevenue)}</strong></td></tr>`;
         html += '</tbody></table>';
         container.innerHTML = html;
         
@@ -243,41 +325,122 @@ async function loadMembersReport() {
 }
 
 async function exportRevenue() {
-    const month = document.getElementById('revenueMonth')?.value || new Date().getMonth() + 1;
+    const type = document.getElementById('revenueType')?.value || 'month';
     const year = document.getElementById('revenueYear')?.value || new Date().getFullYear();
     
     try {
         showLoading();
         const token = getToken();
-        const url = `${API_BASE}/api/Report/revenue/export?month=${month}&year=${year}`;
         
-        // Download file
+        // Build URL based on type
+        let url = `${API_BASE}/api/Report/revenue/export?type=${type}&year=${year}`;
+        
+        if (type === 'month') {
+            const month = document.getElementById('revenueMonth')?.value || new Date().getMonth() + 1;
+            url += `&month=${month}`;
+        } else if (type === 'quarter') {
+            const quarter = document.getElementById('revenueQuarter')?.value || '1';
+            url += `&quarter=${quarter}`;
+        }
+        
+        console.log('Exporting revenue:', { type, year, url });
+        
+        // Fetch the file from backend
         const response = await fetch(url, {
             headers: {
                 'Authorization': 'Bearer ' + token
             }
         });
         
+        console.log('Export response status:', response.status);
+        console.log('Export response content-type:', response.headers.get('content-type'));
+        
         if (!response.ok) {
-            throw new Error('Export failed');
+            const errorText = await response.text();
+            console.error('Export error response:', errorText);
+            throw new Error(`Export failed: ${response.status} ${response.statusText}`);
         }
         
         const blob = await response.blob();
+        console.log('Export blob size:', blob.size, 'type:', blob.type);
+        
+        // Check if blob has data
+        if (blob.size === 0) {
+            throw new Error('File xuất ra rỗng. Có thể không có dữ liệu trong khoảng thời gian này.');
+        }
+        
+        // Get filename from Content-Disposition header or generate it
+        const contentDisposition = response.headers.get('content-disposition');
+        let fileName = `DoanhThu_${year}.xlsx`;
+        
+        if (contentDisposition) {
+            const matches = /filename[^;=\n]*=((['"]).*?\2|[^;\n]*)/.exec(contentDisposition);
+            if (matches && matches[1]) {
+                fileName = matches[1].replace(/['"]/g, '');
+            }
+        } else {
+            // Generate filename based on type
+            if (type === 'month') {
+                const month = document.getElementById('revenueMonth')?.value || new Date().getMonth() + 1;
+                fileName = `DoanhThu_Thang${String(month).padStart(2, '0')}_${year}.xlsx`;
+            } else if (type === 'quarter') {
+                const quarter = document.getElementById('revenueQuarter')?.value || '1';
+                fileName = `DoanhThu_Quy${quarter}_${year}.xlsx`;
+            } else if (type === 'year') {
+                fileName = `DoanhThu_Nam${year}.xlsx`;
+            }
+        }
+        
+        // Create download link
         const downloadUrl = window.URL.createObjectURL(blob);
         const a = document.createElement('a');
         a.href = downloadUrl;
-        a.download = `Revenue_${month}_${year}.xlsx`;
+        a.download = fileName;
         document.body.appendChild(a);
         a.click();
-        document.body.removeChild(a);
-        window.URL.revokeObjectURL(downloadUrl);
+        
+        // Cleanup
+        setTimeout(() => {
+            document.body.removeChild(a);
+            window.URL.revokeObjectURL(downloadUrl);
+        }, 100);
         
         hideLoading();
-        showSuccess('Export thành công');
+        showSuccess('Xuất Excel thành công');
         
     } catch (error) {
         hideLoading();
-        showError('Lỗi export: ' + error.message);
+        console.error('Export error:', error);
+        showError('Lỗi xuất Excel: ' + error.message);
+    }
+}
+
+function exportToCSV(data, fileName) {
+    // Remove this function - no longer needed
+}
+
+function exportToExcel(data, fileName) {
+    // Remove this function - no longer needed
+}
+
+function updateRevenueFilters() {
+    const type = document.getElementById('revenueType').value;
+    const monthFilter = document.getElementById('monthFilter');
+    const quarterFilter = document.getElementById('quarterFilter');
+    
+    if (type === 'month') {
+        monthFilter.style.display = 'inline';
+        quarterFilter.style.display = 'none';
+    } else if (type === 'quarter') {
+        monthFilter.style.display = 'none';
+        quarterFilter.style.display = 'inline';
+        // Set current quarter
+        const currentMonth = new Date().getMonth() + 1;
+        const currentQuarter = Math.ceil(currentMonth / 3);
+        document.getElementById('revenueQuarter').value = currentQuarter;
+    } else if (type === 'year') {
+        monthFilter.style.display = 'none';
+        quarterFilter.style.display = 'none';
     }
 }
 
