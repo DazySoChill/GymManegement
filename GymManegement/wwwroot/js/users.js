@@ -92,27 +92,6 @@ async function renderUsers(container) {
                 </form>
             </div>
         </div>
-        
-        <!-- Change Role Modal -->
-        <div id="changeRoleModal" class="modal">
-            <div class="modal-content">
-                <div class="modal-header">
-                    <h3 class="modal-title">Đổi Vai Trò User</h3>
-                    <button class="modal-close" onclick="closeChangeRoleModal()">×</button>
-                </div>
-                <div style="padding: 20px;">
-                    <p><strong>Thông báo:</strong></p>
-                    <p>Tính năng thay đổi vai trò yêu cầu hỗ trợ từ backend API.</p>
-                    <p>Cần thêm endpoint: <code>PUT /api/Auth/users/{id}/role</code> với body <code>{"role": "Admin|Trainer|Member"}</code></p>
-                    <p style="margin-top: 15px; padding: 10px; background: #f8f9fa; border-left: 3px solid #ffc107;">
-                        <strong>Hướng dẫn:</strong> Hiện tại, để thay đổi vai trò của user, bạn cần liên hệ với nhà phát triển backend để thêm endpoint API này.
-                    </p>
-                    <div class="modal-footer">
-                        <button type="button" class="btn btn-sm btn-primary" onclick="closeChangeRoleModal()">Đã hiểu</button>
-                    </div>
-                </div>
-            </div>
-        </div>
     `;
     
     await loadUsers();
@@ -335,10 +314,90 @@ async function handleCreateStaff(e) {
 }
 
 function showChangeRoleModal(userId, username, currentRole) {
-    // Security note: If extending this modal to show username or currentRole in HTML, use escapeHtml(username) and escapeHtml(currentRole) to prevent XSS.
-    document.getElementById('changeRoleModal').classList.add('show');
+    // Remove any existing modal
+    const existingModal = document.getElementById('changeRoleModal');
+    if (existingModal) {
+        existingModal.remove();
+    }
+    
+    const roles = ['Admin', 'Trainer', 'Member'];
+    const otherRoles = roles.filter(r => r !== currentRole);
+    
+    const modal = document.createElement('div');
+    modal.className = 'modal show';
+    modal.id = 'changeRoleModal';
+    modal.innerHTML = `
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3 class="modal-title">🔄 Thay Đổi Vai Trò</h3>
+                <button class="modal-close" onclick="closeChangeRoleModal()">&times;</button>
+            </div>
+            <div style="padding: 20px;">
+                <p>Thay đổi vai trò của <strong>${escapeHtml(username)}</strong></p>
+                <p>Vai trò hiện tại: <span class="badge badge-${getRoleBadgeClass(currentRole)}">${escapeHtml(currentRole)}</span></p>
+                <div class="form-group">
+                    <label for="newRoleSelect">Vai trò mới: *</label>
+                    <select id="newRoleSelect" class="form-control" required>
+                        <option value="">-- Chọn vai trò --</option>
+                        ${otherRoles.map(role => `<option value="${role}">${role}</option>`).join('')}
+                    </select>
+                </div>
+                <div id="changeRoleError" class="error-message" style="display: none;"></div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-sm" onclick="closeChangeRoleModal()">Hủy</button>
+                    <button type="button" class="btn btn-sm btn-primary" onclick="confirmRoleChange(${userId}, '${escapeHtml(username)}', '${escapeHtml(currentRole)}')">Xác Nhận</button>
+                </div>
+            </div>
+        </div>
+    `;
+    document.body.appendChild(modal);
+}
+
+function getRoleBadgeClass(role) {
+    switch(role) {
+        case 'Admin': return 'danger';
+        case 'Trainer': return 'primary';
+        case 'Member': return 'success';
+        default: return 'secondary';
+    }
+}
+
+async function confirmRoleChange(userId, username, currentRole) {
+    const newRole = document.getElementById('newRoleSelect')?.value;
+    const errorDiv = document.getElementById('changeRoleError');
+    
+    if (!newRole) {
+        errorDiv.textContent = 'Vui lòng chọn vai trò mới';
+        errorDiv.style.display = 'block';
+        return;
+    }
+    
+    if (!confirm(`Xác nhận thay đổi vai trò của "${username}" từ "${currentRole}" sang "${newRole}"?`)) {
+        return;
+    }
+    
+    try {
+        showLoading();
+        await apiFetch(`/api/Auth/users/${userId}/role`, {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ role: newRole })
+        });
+        hideLoading();
+        showSuccess(`Đã thay đổi vai trò của ${username} thành ${newRole}`);
+        closeChangeRoleModal();
+        await loadUsers();
+    } catch (error) {
+        hideLoading();
+        console.error('Error updating user role:', error);
+        errorDiv.textContent = 'Không thể thay đổi vai trò: ' + error.message;
+        errorDiv.style.display = 'block';
+    }
 }
 
 function closeChangeRoleModal() {
-    document.getElementById('changeRoleModal').classList.remove('show');
+    const modal = document.getElementById('changeRoleModal');
+    if (modal) {
+        modal.remove();
+    }
 }

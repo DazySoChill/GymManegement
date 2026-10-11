@@ -10,19 +10,27 @@ namespace GymManegement.Service.BUS.Implementations
     {
         private readonly IPaymentRepository _repo;
         private readonly IInvoiceRepository _invoiceRepo;
+        private readonly IMemberRepository _memberRepo;
 
-        public PaymentService(IPaymentRepository repo, IInvoiceRepository invoiceRepo)
+        public PaymentService(IPaymentRepository repo, IInvoiceRepository invoiceRepo, IMemberRepository memberRepo)
         {
             _repo = repo;
             _invoiceRepo = invoiceRepo;
+            _memberRepo = memberRepo;
         }
 
         public async Task<PagedResult<PaymentResponse>> GetAllAsync(int pageNumber = 1, int pageSize = 10, string? searchTerm = null, string? sortBy = null, string? sortDir = null)
         {
             var result = await _repo.GetAllAsync(pageNumber, pageSize, searchTerm, sortBy, sortDir);
+            
+            // Batch fetch member names
+            var memberIds = result.Data.Select(p => p.MemberId).Distinct().ToList();
+            var members = await _memberRepo.GetByIdsAsync(memberIds);
+            var memberDict = members.ToDictionary(m => m.MemberId);
+            
             return new PagedResult<PaymentResponse>
             {
-                Data = result.Data.Select(ToResponse).ToList(),
+                Data = result.Data.Select(p => ToResponse(p, memberDict)).ToList(),
                 Total = result.Total,
                 PageNumber = result.PageNumber,
                 PageSize = result.PageSize
@@ -139,6 +147,22 @@ namespace GymManegement.Service.BUS.Implementations
             PaymentId = p.PaymentId,
             InvoiceId = p.InvoiceId,
             MemberId = p.MemberId,
+            MemberName = string.Empty,
+            Amount = p.Amount,
+            PaymentDate = p.PaymentDate,
+            PaymentMethod = p.PaymentMethod,
+            TransactionId = p.TransactionId,
+            Status = p.Status,
+            CreatedAt = p.CreatedAt,
+            UpdatedAt = p.UpdatedAt
+        };
+
+        private static PaymentResponse ToResponse(Payment p, Dictionary<int, Member> memberDict) => new PaymentResponse
+        {
+            PaymentId = p.PaymentId,
+            InvoiceId = p.InvoiceId,
+            MemberId = p.MemberId,
+            MemberName = memberDict.TryGetValue(p.MemberId, out var member) ? member.FullName : string.Empty,
             Amount = p.Amount,
             PaymentDate = p.PaymentDate,
             PaymentMethod = p.PaymentMethod,

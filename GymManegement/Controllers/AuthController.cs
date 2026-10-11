@@ -93,6 +93,24 @@ namespace GymManegement.Controllers
                 : NotFound();
         }
 
+        /// <summary>Thay đổi vai trò user (Admin only)</summary>
+        [HttpPut("users/{id:int}/role")]
+        [Authorize(Roles = "Admin")]
+        public async Task<IActionResult> UpdateUserRole(int id, [FromBody] UpdateUserRoleRequest request)
+        {
+            if (!ModelState.IsValid)
+                return BadRequest(ModelState);
+
+            // Prevent admin from changing their own role
+            var currentUserIdStr = User.FindFirstValue(System.IdentityModel.Tokens.Jwt.JwtRegisteredClaimNames.Sub);
+            if (int.TryParse(currentUserIdStr, out var currentUserId) && currentUserId == id)
+                return BadRequest(new { message = "Không thể thay đổi vai trò của chính mình." });
+
+            var ok = await _service.UpdateUserRoleAsync(id, request.Role);
+            return ok ? Ok(new { message = "Đã thay đổi vai trò thành công." })
+                : NotFound(new { message = "Không tìm thấy user." });
+        }
+
         /// <summary>Lấy thông tin user đang đăng nhập</summary>
         [HttpGet("me")]
         [Authorize]

@@ -212,7 +212,7 @@ function renderPaymentsTable(data) {
             <thead>
                 <tr>
                     <th>ID</th>
-                    <th>Member ID</th>
+                    <th>Thành viên</th>
                     <th>Invoice ID</th>
                     <th>Số tiền</th>
                     <th>Ngày TT</th>
@@ -230,7 +230,7 @@ function renderPaymentsTable(data) {
         html += `
             <tr>
                 <td>${payment.paymentId}</td>
-                <td>${payment.memberId || '-'}</td>
+                <td>${payment.memberName || 'Member ' + payment.memberId}</td>
                 <td>${payment.invoiceId || '-'}</td>
                 <td>${formatCurrency(payment.amount)}</td>
                 <td>${formatDate(payment.paymentDate)}</td>

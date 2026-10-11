@@ -10,5 +10,6 @@ namespace GymManegement.Service.BUS.Interfaces
         Task<bool> ChangePasswordAsync(int userId, ChangePasswordRequest request);
         Task<IEnumerable<UserResponse>> GetAllUsersAsync();
         Task<bool> SetActiveAsync(int userId, bool isActive);
+        Task<bool> UpdateUserRoleAsync(int userId, string newRole);
     }
 }

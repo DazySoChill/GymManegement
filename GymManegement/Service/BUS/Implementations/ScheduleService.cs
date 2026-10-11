@@ -25,19 +25,42 @@ namespace GymManegement.Service.BUS.Implementations
         public async Task<PagedResult<ScheduleResponse>> GetAllAsync(int pageNumber = 1, int pageSize = 10, string? searchTerm = null, string? sortBy = null, string? sortDir = null)
         {
             var result = await _repo.GetAllAsync(pageNumber, pageSize, searchTerm, sortBy, sortDir);
-            var responses = new List<ScheduleResponse>();
+            var schedules = result.Data;
             
-            foreach (var schedule in result.Data)
-            {
-                responses.Add(await ToResponseAsync(schedule));
-            }
+            if (!schedules.Any())
+                return new PagedResult<ScheduleResponse>
+                {
+                    Data = new List<ScheduleResponse>(),
+                    Total = result.Total,
+                    PageNumber = pageNumber,
+                    PageSize = pageSize
+                };
+            
+            // BATCH FETCH: Collect all IDs
+            var trainerIds = schedules.Where(s => s.TrainerId > 0).Select(s => s.TrainerId).Distinct().ToList();
+            var facilityIds = schedules.Where(s => s.FacilityId > 0).Select(s => s.FacilityId).Distinct().ToList();
+            
+            // Fetch in parallel (2 queries total)
+            var trainersTask = _trainerRepo.GetByIdsAsync(trainerIds);
+            var facilitiesTask = _facilityRepo.GetByIdsAsync(facilityIds);
+            await Task.WhenAll(trainersTask, facilitiesTask);
+            
+            var trainers = trainersTask.Result;
+            var facilities = facilitiesTask.Result;
+            
+            // Build lookup dictionaries
+            var trainerDict = trainers.ToDictionary(t => t.TrainerId);
+            var facilityDict = facilities.ToDictionary(f => f.FacilityId);
+            
+            // Map using dictionaries
+            var responses = schedules.Select(s => ToResponse(s, trainerDict, facilityDict)).ToList();
             
             return new PagedResult<ScheduleResponse>
             {
                 Data = responses,
                 Total = result.Total,
-                PageNumber = result.PageNumber,
-                PageSize = result.PageSize
+                PageNumber = pageNumber,
+                PageSize = pageSize
             };
         }
 
@@ -49,35 +72,71 @@ namespace GymManegement.Service.BUS.Implementations
 
         public async Task<IEnumerable<ScheduleResponse>> GetByTrainerIdAsync(int trainerId)
         {
-            var entities = await _repo.GetByTrainerIdAsync(trainerId);
-            var responses = new List<ScheduleResponse>();
-            foreach (var entity in entities)
-            {
-                responses.Add(await ToResponseAsync(entity));
-            }
-            return responses;
+            var schedules = (await _repo.GetByTrainerIdAsync(trainerId)).ToList();
+            if (!schedules.Any())
+                return new List<ScheduleResponse>();
+            
+            // BATCH FETCH
+            var trainerIds = schedules.Where(s => s.TrainerId > 0).Select(s => s.TrainerId).Distinct().ToList();
+            var facilityIds = schedules.Where(s => s.FacilityId > 0).Select(s => s.FacilityId).Distinct().ToList();
+            
+            var trainersTask = _trainerRepo.GetByIdsAsync(trainerIds);
+            var facilitiesTask = _facilityRepo.GetByIdsAsync(facilityIds);
+            await Task.WhenAll(trainersTask, facilitiesTask);
+            
+            var trainers = trainersTask.Result;
+            var facilities = facilitiesTask.Result;
+            
+            var trainerDict = trainers.ToDictionary(t => t.TrainerId);
+            var facilityDict = facilities.ToDictionary(f => f.FacilityId);
+            
+            return schedules.Select(s => ToResponse(s, trainerDict, facilityDict)).ToList();
         }
 
         public async Task<IEnumerable<ScheduleResponse>> GetByFacilityIdAsync(int facilityId)
         {
-            var entities = await _repo.GetByFacilityIdAsync(facilityId);
-            var responses = new List<ScheduleResponse>();
-            foreach (var entity in entities)
-            {
-                responses.Add(await ToResponseAsync(entity));
-            }
-            return responses;
+            var schedules = (await _repo.GetByFacilityIdAsync(facilityId)).ToList();
+            if (!schedules.Any())
+                return new List<ScheduleResponse>();
+            
+            // BATCH FETCH
+            var trainerIds = schedules.Where(s => s.TrainerId > 0).Select(s => s.TrainerId).Distinct().ToList();
+            var facilityIds = schedules.Where(s => s.FacilityId > 0).Select(s => s.FacilityId).Distinct().ToList();
+            
+            var trainersTask = _trainerRepo.GetByIdsAsync(trainerIds);
+            var facilitiesTask = _facilityRepo.GetByIdsAsync(facilityIds);
+            await Task.WhenAll(trainersTask, facilitiesTask);
+            
+            var trainers = trainersTask.Result;
+            var facilities = facilitiesTask.Result;
+            
+            var trainerDict = trainers.ToDictionary(t => t.TrainerId);
+            var facilityDict = facilities.ToDictionary(f => f.FacilityId);
+            
+            return schedules.Select(s => ToResponse(s, trainerDict, facilityDict)).ToList();
         }
 
         public async Task<IEnumerable<ScheduleResponse>> GetByDateAsync(DateTime date)
         {
-            var entities = await _repo.GetByDateAsync(date);
-            var responses = new List<ScheduleResponse>();
-            foreach (var entity in entities)
-            {
-                responses.Add(await ToResponseAsync(entity));
-            }
-            return responses;
+            var schedules = (await _repo.GetByDateAsync(date)).ToList();
+            if (!schedules.Any())
+                return new List<ScheduleResponse>();
+            
+            // BATCH FETCH
+            var trainerIds = schedules.Where(s => s.TrainerId > 0).Select(s => s.TrainerId).Distinct().ToList();
+            var facilityIds = schedules.Where(s => s.FacilityId > 0).Select(s => s.FacilityId).Distinct().ToList();
+            
+            var trainersTask = _trainerRepo.GetByIdsAsync(trainerIds);
+            var facilitiesTask = _facilityRepo.GetByIdsAsync(facilityIds);
+            await Task.WhenAll(trainersTask, facilitiesTask);
+            
+            var trainers = trainersTask.Result;
+            var facilities = facilitiesTask.Result;
+            
+            var trainerDict = trainers.ToDictionary(t => t.TrainerId);
+            var facilityDict = facilities.ToDictionary(f => f.FacilityId);
+            
+            return schedules.Select(s => ToResponse(s, trainerDict, facilityDict)).ToList();
         }
 
         public async Task<ScheduleResponse> CreateAsync(CreateScheduleRequest request)
@@ -122,6 +181,30 @@ namespace GymManegement.Service.BUS.Implementations
         {
             var trainer = await _trainerRepo.GetByIdAsync(s.TrainerId);
             var facility = await _facilityRepo.GetByIdAsync(s.FacilityId);
+            
+            return new ScheduleResponse
+            {
+                ScheduleId = s.ScheduleId,
+                ClassName = s.ClassName,
+                TrainerId = s.TrainerId,
+                TrainerName = trainer?.FullName ?? "-",
+                FacilityId = s.FacilityId,
+                FacilityName = facility?.Name ?? "-",
+                StartTime = s.StartTime,
+                EndTime = s.EndTime,
+                MaxCapacity = s.MaxCapacity,
+                CreatedAt = s.CreatedAt,
+                UpdatedAt = s.UpdatedAt
+            };
+        }
+
+        private static ScheduleResponse ToResponse(
+            Schedule s,
+            Dictionary<int, Trainer> trainerDict,
+            Dictionary<int, Facility> facilityDict)
+        {
+            trainerDict.TryGetValue(s.TrainerId, out var trainer);
+            facilityDict.TryGetValue(s.FacilityId, out var facility);
             
             return new ScheduleResponse
             {

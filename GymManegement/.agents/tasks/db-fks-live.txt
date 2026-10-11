@@ -1,0 +1,14 @@
+FK_Name Parent_Table Parent_Column Ref_Table Ref_Column
+------- ------------ ------------- --------- ----------
+FK__Checkins__Member__6A30C649 Checkins MemberId Members MemberId
+FK_Invoices_Members Invoices MemberId Members MemberId
+FK_Invoices_Memberships Invoices MembershipId Memberships MembershipId
+FK__Membershi__Membe__534D60F1 Memberships MemberId Members MemberId
+FK_Payments_Members Payments MemberId Members MemberId
+FK_Payments_Invoices Payments InvoiceId Invoices InvoiceId
+FK__Schedules__Train__59063A47 Schedules TrainerId Trainers TrainerId
+FK__Schedules__Facil__59FA5E80 Schedules FacilityId Facilities FacilityId
+FK__Sessions__Member__619B8048 Sessions MemberId Members MemberId
+FK__Sessions__Schedu__60A75C0F Sessions ScheduleId Schedules ScheduleId
+
+(10 rows affected)

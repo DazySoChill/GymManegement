@@ -166,6 +166,24 @@ namespace GymManegement.Service.BUS.Implementations
             return true;
         }
 
+        public async Task<bool> UpdateUserRoleAsync(int userId, string newRole)
+        {
+            // Validate role
+            var validRoles = new[] { "Admin", "Trainer", "Member" };
+            if (!validRoles.Contains(newRole))
+                return false;
+
+            // Get user
+            var user = await _userRepo.GetByIdAsync(userId);
+            if (user is null)
+                return false;
+
+            // Update role
+            user.Role = newRole;
+            await _userRepo.UpdateAsync(user);
+            return true;
+        }
+
         private string GenerateJwt(User user, int? memberId)
         {
             var key = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(_config["Jwt:Key"]!));

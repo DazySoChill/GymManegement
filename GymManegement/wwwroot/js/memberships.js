@@ -441,7 +441,7 @@ function renderMembershipsTable(data) {
             <thead>
                 <tr>
                     <th>ID</th>
-                    <th>Member ID</th>
+                    <th>Thành viên</th>
                     <th>Gói</th>
                     <th>Giá</th>
                     <th>Ngày bắt đầu</th>
@@ -458,7 +458,7 @@ function renderMembershipsTable(data) {
         html += `
             <tr>
                 <td>${m.membershipId}</td>
-                <td>${m.memberId}</td>
+                <td>${m.memberName || 'Member ' + m.memberId}</td>
                 <td>${escapeHtml(m.packageName)}</td>
                 <td>${formatCurrency(m.price)}</td>
                 <td>${formatDate(m.startDate)}</td>

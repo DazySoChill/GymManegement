@@ -171,5 +171,19 @@ namespace GymManegement.DAL.Repositories.Implementations
             
             await conn.ExecuteAsync(sql, new { MemberId = id, DeletedAt = DateTime.UtcNow });
         }
+
+        public async Task<List<Member>> GetByIdsAsync(List<int> memberIds)
+        {
+            if (memberIds == null || !memberIds.Any())
+                return new List<Member>();
+            
+            var query = @"
+                SELECT * FROM Members 
+                WHERE MemberId IN @MemberIds AND IsDeleted = 0";
+            
+            using var connection = _db.CreateConnection();
+            var members = await connection.QueryAsync<Member>(query, new { MemberIds = memberIds });
+            return members.ToList();
+        }
     }
 }

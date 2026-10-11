@@ -106,5 +106,19 @@ namespace GymManegement.DAL.Repositories.Implementations
                 "UPDATE Facilities SET IsDeleted = 1, UpdatedAt = GETDATE() WHERE FacilityId = @Id",
                 new { Id = id });
         }
+
+        public async Task<List<Facility>> GetByIdsAsync(List<int> facilityIds)
+        {
+            if (facilityIds == null || !facilityIds.Any())
+                return new List<Facility>();
+            
+            var query = @"
+                SELECT * FROM Facilities 
+                WHERE FacilityId IN @FacilityIds AND IsDeleted = 0";
+            
+            using var connection = _db.CreateConnection();
+            var facilities = await connection.QueryAsync<Facility>(query, new { FacilityIds = facilityIds });
+            return facilities.ToList();
+        }
     }
 }

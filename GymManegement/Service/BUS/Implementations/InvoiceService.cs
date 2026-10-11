@@ -9,14 +9,34 @@ namespace GymManegement.Service.BUS.Implementations
     public class InvoiceService : IInvoiceService
     {
         private readonly IInvoiceRepository _repo;
-        public InvoiceService(IInvoiceRepository repo) => _repo = repo;
+        private readonly IMemberRepository _memberRepo;
+        private readonly IMembershipRepository _membershipRepo;
+
+        public InvoiceService(IInvoiceRepository repo, IMemberRepository memberRepo, IMembershipRepository membershipRepo)
+        {
+            _repo = repo;
+            _memberRepo = memberRepo;
+            _membershipRepo = membershipRepo;
+        }
 
         public async Task<PagedResult<InvoiceResponse>> GetAllAsync(int pageNumber = 1, int pageSize = 10, string? searchTerm = null, string? sortBy = null, string? sortDir = null)
         {
             var result = await _repo.GetAllAsync(pageNumber, pageSize, searchTerm, sortBy, sortDir);
+            
+            // Batch fetch members and memberships
+            var memberIds = result.Data.Where(i => i.MemberId > 0).Select(i => i.MemberId).Distinct().ToList();
+            var membershipIds = result.Data.Where(i => i.MembershipId.HasValue && i.MembershipId.Value > 0)
+                                          .Select(i => i.MembershipId!.Value).Distinct().ToList();
+            
+            var members = await _memberRepo.GetByIdsAsync(memberIds);
+            var memberships = await _membershipRepo.GetByIdsAsync(membershipIds);
+            
+            var memberDict = members.ToDictionary(m => m.MemberId);
+            var membershipDict = memberships.ToDictionary(m => m.MembershipId);
+            
             return new PagedResult<InvoiceResponse>
             {
-                Data = result.Data.Select(ToResponse).ToList(),
+                Data = result.Data.Select(i => ToResponse(i, memberDict, membershipDict)).ToList(),
                 Total = result.Total,
                 PageNumber = result.PageNumber,
                 PageSize = result.PageSize
@@ -95,14 +115,32 @@ namespace GymManegement.Service.BUS.Implementations
         private static InvoiceResponse ToResponse(Invoice i) => new InvoiceResponse
         {
             InvoiceId = i.InvoiceId,
-            MembershipId = i.MembershipId ?? 0,  // Handle nullable
+            MembershipId = i.MembershipId ?? 0,
+            MemberName = string.Empty,
+            PackageName = string.Empty,
             TotalAmount = i.TotalAmount,
             InvoiceDate = i.InvoiceDate,
-            DueDate = i.DueDate ?? DateTime.MinValue,  // Handle nullable
+            DueDate = i.DueDate ?? DateTime.MinValue,
             Status = i.Status,
             Description = i.Description,
             CreatedAt = i.CreatedAt,
-            UpdatedAt = i.UpdatedAt ?? DateTime.MinValue  // Handle nullable
+            UpdatedAt = i.UpdatedAt ?? DateTime.MinValue
+        };
+
+        private static InvoiceResponse ToResponse(Invoice i, Dictionary<int, Member> memberDict, Dictionary<int, Membership> membershipDict) => new InvoiceResponse
+        {
+            InvoiceId = i.InvoiceId,
+            MembershipId = i.MembershipId ?? 0,
+            MemberName = memberDict.TryGetValue(i.MemberId, out var member) ? member.FullName : string.Empty,
+            PackageName = i.MembershipId.HasValue && membershipDict.TryGetValue(i.MembershipId.Value, out var membership) 
+                ? membership.PackageName : string.Empty,
+            TotalAmount = i.TotalAmount,
+            InvoiceDate = i.InvoiceDate,
+            DueDate = i.DueDate ?? DateTime.MinValue,
+            Status = i.Status,
+            Description = i.Description,
+            CreatedAt = i.CreatedAt,
+            UpdatedAt = i.UpdatedAt ?? DateTime.MinValue
         };
     }
 }

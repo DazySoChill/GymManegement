@@ -4,6 +4,7 @@
     {
         public int MembershipId { get; set; }
         public int MemberId { get; set; }
+        public string MemberName { get; set; } = string.Empty;
         public string PackageName { get; set; } = string.Empty;
         public decimal Price { get; set; }
         public DateTime StartDate { get; set; }

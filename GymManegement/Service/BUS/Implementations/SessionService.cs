@@ -28,19 +28,50 @@ namespace GymManegement.Service.BUS.Implementations
         public async Task<PagedResult<SessionResponse>> GetAllAsync(int pageNumber = 1, int pageSize = 10, string? searchTerm = null, string? sortBy = null, string? sortDir = null)
         {
             var result = await _repo.GetAllAsync(pageNumber, pageSize, searchTerm, sortBy, sortDir);
-            var responses = new List<SessionResponse>();
+            var sessions = result.Data;
             
-            foreach (var session in result.Data)
-            {
-                responses.Add(await ToResponseAsync(session));
-            }
+            if (!sessions.Any())
+                return new PagedResult<SessionResponse>
+                {
+                    Data = new List<SessionResponse>(),
+                    Total = result.Total,
+                    PageNumber = pageNumber,
+                    PageSize = pageSize
+                };
+            
+            // BATCH FETCH: Collect all IDs first
+            var memberIds = sessions.Select(s => s.MemberId).Distinct().ToList();
+            var scheduleIds = sessions.Select(s => s.ScheduleId).Distinct().ToList();
+            
+            // Fetch all entities in parallel (3 queries total, not N queries)
+            var membersTask = _memberRepo.GetByIdsAsync(memberIds);
+            var schedulesTask = _scheduleRepo.GetByIdsAsync(scheduleIds);
+            await Task.WhenAll(membersTask, schedulesTask);
+            
+            var members = membersTask.Result;
+            var schedules = schedulesTask.Result;
+            
+            // Fetch trainers from schedules (batch)
+            var trainerIds = schedules.Where(s => s.TrainerId > 0)
+                                      .Select(s => s.TrainerId)
+                                      .Distinct()
+                                      .ToList();
+            var trainers = await _trainerRepo.GetByIdsAsync(trainerIds);
+            
+            // Build lookup dictionaries for O(1) access
+            var memberDict = members.ToDictionary(m => m.MemberId);
+            var scheduleDict = schedules.ToDictionary(s => s.ScheduleId);
+            var trainerDict = trainers.ToDictionary(t => t.TrainerId);
+            
+            // Map using dictionaries (no DB calls in loop)
+            var responses = sessions.Select(s => ToResponse(s, memberDict, scheduleDict, trainerDict)).ToList();
             
             return new PagedResult<SessionResponse>
             {
                 Data = responses,
                 Total = result.Total,
-                PageNumber = result.PageNumber,
-                PageSize = result.PageSize
+                PageNumber = pageNumber,
+                PageSize = pageSize
             };
         }
 
@@ -52,35 +83,83 @@ namespace GymManegement.Service.BUS.Implementations
 
         public async Task<IEnumerable<SessionResponse>> GetByScheduleIdAsync(int scheduleId)
         {
-            var entities = await _repo.GetByScheduleIdAsync(scheduleId);
-            var responses = new List<SessionResponse>();
-            foreach (var entity in entities)
-            {
-                responses.Add(await ToResponseAsync(entity));
-            }
-            return responses;
+            var sessions = (await _repo.GetByScheduleIdAsync(scheduleId)).ToList();
+            if (!sessions.Any())
+                return new List<SessionResponse>();
+            
+            // BATCH FETCH
+            var memberIds = sessions.Select(s => s.MemberId).Distinct().ToList();
+            var scheduleIds = sessions.Select(s => s.ScheduleId).Distinct().ToList();
+            
+            var membersTask = _memberRepo.GetByIdsAsync(memberIds);
+            var schedulesTask = _scheduleRepo.GetByIdsAsync(scheduleIds);
+            await Task.WhenAll(membersTask, schedulesTask);
+            
+            var members = membersTask.Result;
+            var schedules = schedulesTask.Result;
+            
+            var trainerIds = schedules.Where(s => s.TrainerId > 0).Select(s => s.TrainerId).Distinct().ToList();
+            var trainers = await _trainerRepo.GetByIdsAsync(trainerIds);
+            
+            var memberDict = members.ToDictionary(m => m.MemberId);
+            var scheduleDict = schedules.ToDictionary(s => s.ScheduleId);
+            var trainerDict = trainers.ToDictionary(t => t.TrainerId);
+            
+            return sessions.Select(s => ToResponse(s, memberDict, scheduleDict, trainerDict)).ToList();
         }
 
         public async Task<IEnumerable<SessionResponse>> GetByMemberIdAsync(int memberId)
         {
-            var entities = await _repo.GetByMemberIdAsync(memberId);
-            var responses = new List<SessionResponse>();
-            foreach (var entity in entities)
-            {
-                responses.Add(await ToResponseAsync(entity));
-            }
-            return responses;
+            var sessions = (await _repo.GetByMemberIdAsync(memberId)).ToList();
+            if (!sessions.Any())
+                return new List<SessionResponse>();
+            
+            // BATCH FETCH
+            var memberIds = sessions.Select(s => s.MemberId).Distinct().ToList();
+            var scheduleIds = sessions.Select(s => s.ScheduleId).Distinct().ToList();
+            
+            var membersTask = _memberRepo.GetByIdsAsync(memberIds);
+            var schedulesTask = _scheduleRepo.GetByIdsAsync(scheduleIds);
+            await Task.WhenAll(membersTask, schedulesTask);
+            
+            var members = membersTask.Result;
+            var schedules = schedulesTask.Result;
+            
+            var trainerIds = schedules.Where(s => s.TrainerId > 0).Select(s => s.TrainerId).Distinct().ToList();
+            var trainers = await _trainerRepo.GetByIdsAsync(trainerIds);
+            
+            var memberDict = members.ToDictionary(m => m.MemberId);
+            var scheduleDict = schedules.ToDictionary(s => s.ScheduleId);
+            var trainerDict = trainers.ToDictionary(t => t.TrainerId);
+            
+            return sessions.Select(s => ToResponse(s, memberDict, scheduleDict, trainerDict)).ToList();
         }
 
         public async Task<IEnumerable<SessionResponse>> GetByStatusAsync(string status)
         {
-            var entities = await _repo.GetByStatusAsync(status);
-            var responses = new List<SessionResponse>();
-            foreach (var entity in entities)
-            {
-                responses.Add(await ToResponseAsync(entity));
-            }
-            return responses;
+            var sessions = (await _repo.GetByStatusAsync(status)).ToList();
+            if (!sessions.Any())
+                return new List<SessionResponse>();
+            
+            // BATCH FETCH
+            var memberIds = sessions.Select(s => s.MemberId).Distinct().ToList();
+            var scheduleIds = sessions.Select(s => s.ScheduleId).Distinct().ToList();
+            
+            var membersTask = _memberRepo.GetByIdsAsync(memberIds);
+            var schedulesTask = _scheduleRepo.GetByIdsAsync(scheduleIds);
+            await Task.WhenAll(membersTask, schedulesTask);
+            
+            var members = membersTask.Result;
+            var schedules = schedulesTask.Result;
+            
+            var trainerIds = schedules.Where(s => s.TrainerId > 0).Select(s => s.TrainerId).Distinct().ToList();
+            var trainers = await _trainerRepo.GetByIdsAsync(trainerIds);
+            
+            var memberDict = members.ToDictionary(m => m.MemberId);
+            var scheduleDict = schedules.ToDictionary(s => s.ScheduleId);
+            var trainerDict = trainers.ToDictionary(t => t.TrainerId);
+            
+            return sessions.Select(s => ToResponse(s, memberDict, scheduleDict, trainerDict)).ToList();
         }
 
         public async Task<SessionResponse> CreateAsync(CreateSessionRequest request)
@@ -138,6 +217,39 @@ namespace GymManegement.Service.BUS.Implementations
             if (schedule != null && schedule.TrainerId > 0)
             {
                 var trainer = await _trainerRepo.GetByIdAsync(schedule.TrainerId);
+                trainerName = trainer?.FullName ?? "-";
+            }
+            
+            return new SessionResponse
+            {
+                SessionId = s.SessionId,
+                MemberId = s.MemberId,
+                MemberName = member?.FullName ?? "-",
+                ScheduleId = s.ScheduleId,
+                ClassName = schedule?.ClassName ?? "-",
+                TrainerName = trainerName,
+                ClassStartTime = schedule?.StartTime,
+                ClassEndTime = schedule?.EndTime,
+                RegistrationDate = s.RegistrationDate,
+                Status = s.Status,
+                CreatedAt = s.CreatedAt,
+                UpdatedAt = s.UpdatedAt
+            };
+        }
+
+        private static SessionResponse ToResponse(
+            Session s,
+            Dictionary<int, Member> memberDict,
+            Dictionary<int, Schedule> scheduleDict,
+            Dictionary<int, Trainer> trainerDict)
+        {
+            memberDict.TryGetValue(s.MemberId, out var member);
+            scheduleDict.TryGetValue(s.ScheduleId, out var schedule);
+            
+            string trainerName = "-";
+            if (schedule != null && schedule.TrainerId > 0)
+            {
+                trainerDict.TryGetValue(schedule.TrainerId, out var trainer);
                 trainerName = trainer?.FullName ?? "-";
             }
             

@@ -1,0 +1,30 @@
+{
+  "id": "FEAT-006",
+  "type": "fix",
+  "description": "Fix 'renderMemberSchedule is not defined' error in app.js. The function exists in member-schedule.js but app.js calls it incorrectly. In member-schedule.js line 7, renderMemberSchedule(container) expects a container parameter. But in app.js line 137 (case 'member-schedule'), it's called as await renderMemberSchedule(container) which should work. The issue is the function BODY (line 8-14) extracts memberId and then overwrites container.innerHTML, expecting to build the whole page. Verify the call signature matches and that member-schedule.js is loaded in index.html (it is - line 16 in index.html script includes).",
+  "status": "pending",
+  "steps": [
+    "Read wwwroot/js/member-schedule.js lines 1-20 - function renderMemberSchedule(container) is defined at line 7",
+    "Read wwwroot/js/app.js lines 130-140 - case 'member-schedule' calls await renderMemberSchedule(container) at line 137",
+    "Read wwwroot/index.html lines 80-95 - verify <script src='js/member-schedule.js'> is NOT included (checked - it's missing!)",
+    "The root cause: member-schedule.js is NOT loaded in index.html, so the function is undefined at runtime",
+    "Add <script src='js/member-schedule.js'></script> in index.html after line 92 (after sessions.js, before checkins.js to maintain module order)",
+    "Verify the function signature matches: renderMemberSchedule(container) receives container from app.js"
+  ],
+  "acceptance_criteria": [
+    "member-schedule.js is loaded in index.html script tags",
+    "Function renderMemberSchedule(container) is accessible globally",
+    "Page loads without 'renderMemberSchedule is not defined' error",
+    "Page displays schedule preferences grouped by day of week with create form and existing list"
+  ],
+  "verification": [
+    "Login as member01/password",
+    "Navigate to Lịch Tập Của Tôi (#member-schedule)",
+    "Verify page loads without console error",
+    "Verify page shows schedule creation form (day checkboxes, time inputs) and existing schedules below",
+    "Create a new schedule preference - verify it appears in list grouped by day",
+    "Refresh page - verify preferences persist"
+  ],
+  "blocked_reason": null,
+  "findings": ""
+}

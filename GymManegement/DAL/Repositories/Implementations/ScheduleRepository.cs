@@ -183,5 +183,19 @@ namespace GymManegement.DAL.Repositories.Implementations
             
             await conn.ExecuteAsync(sql, new { ScheduleId = id, DeletedAt = DateTime.UtcNow });
         }
+
+        public async Task<List<Schedule>> GetByIdsAsync(List<int> scheduleIds)
+        {
+            if (scheduleIds == null || !scheduleIds.Any())
+                return new List<Schedule>();
+            
+            var query = @"
+                SELECT * FROM Schedules 
+                WHERE ScheduleId IN @ScheduleIds AND IsDeleted = 0";
+            
+            using var connection = _db.CreateConnection();
+            var schedules = await connection.QueryAsync<Schedule>(query, new { ScheduleIds = scheduleIds });
+            return schedules.ToList();
+        }
     }
 }

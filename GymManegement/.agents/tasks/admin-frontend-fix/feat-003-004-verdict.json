@@ -1,0 +1,12 @@
+{
+  "verdict": "CHANGES_REQUESTED",
+  "findings": [
+    "Invoice memberId vs membershipId confusion — Invoice creation form has both fields but only memberId is validated, allowing invoices with a member but no membership link. Clarify whether this is intentional (e.g., ad-hoc fees) or if membership should be required when selected, and update validation or backend DTO documentation accordingly.",
+    "Payment edit modal misleads as read-only — showEditPaymentModal displays \"✏️ Sửa Thông Tin Thanh Toán\" (Edit Payment Information) but shows a read-only view because UpdatePaymentRequest has no fields. Rename to \"Xem Thông Tin Thanh Toán\" (View Payment Information) and change the button label from \"✏️\" (pencil) to \"👁️\" (eye) to match the actual behavior.",
+    "Role switching is a documentation placeholder, not a feature — FEAT-004 acceptance criteria require functional role switching with confirmation modals, but the implementation shows an informational modal explaining the backend API gap instead. This satisfies the \"if backend doesn't support\" workaround clause but leaves the primary requirement unmet. Backend team needs to implement PUT /api/Auth/users/{id}/role.",
+    "Invoice filter doesn't preserve pagination state — loadInvoicesByStatus() renders results with pageNumber=1 and totalPages=1 hardcoded, discarding pagination context when a status filter is active. Preserve the pagination data returned by the status endpoint or reset current page to 1 and call the paginated endpoint with status as a query param if available.",
+    "escapeHtml missing in users.js role-change modal — showChangeRoleModal function parameters include username and currentRole from user objects, but these are not passed or interpolated into the modal HTML (which is static text), so the risk is currently unexploited. If the modal is ever extended to show user-specific data, ensure escapeHtml is applied.",
+    "Payment method filter not wired to backend — The paymentMethodFilter dropdown in payments.js reloads payments but doesn't pass the selected method to the API. Either remove the filter or implement filtering logic (check if /api/Payment supports a method query param, or filter client-side on data.items)."
+  ],
+  "reviewDoc": "d:\\Workspace\\Độ án 2\\GymManegement\\GymManegement\\.agents\\tasks\\admin-frontend-fix\\2025-01-06-103000-review.md"
+}

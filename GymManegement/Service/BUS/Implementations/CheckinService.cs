@@ -20,9 +20,15 @@ namespace GymManegement.Service.BUS.Implementations
         public async Task<PagedResult<CheckinResponse>> GetAllAsync(int pageNumber = 1, int pageSize = 10, string? searchTerm = null, string? sortBy = null, string? sortDir = null)
         {
             var result = await _repo.GetAllAsync(pageNumber, pageSize, searchTerm, sortBy, sortDir);
+            
+            // Batch fetch member names
+            var memberIds = result.Data.Select(c => c.MemberId).Distinct().ToList();
+            var members = await _memberRepo.GetByIdsAsync(memberIds);
+            var memberDict = members.ToDictionary(m => m.MemberId);
+            
             return new PagedResult<CheckinResponse>
             {
-                Data = result.Data.Select(ToResponse).ToList(),
+                Data = result.Data.Select(c => ToResponse(c, memberDict)).ToList(),
                 Total = result.Total,
                 PageNumber = result.PageNumber,
                 PageSize = result.PageSize
@@ -100,6 +106,17 @@ namespace GymManegement.Service.BUS.Implementations
             CheckinId    = c.CheckinId,
             MemberId     = c.MemberId,
             MemberName   = string.Empty,
+            CheckinTime  = c.CheckinTime,
+            CheckoutTime = c.CheckoutTime,
+            CreatedAt    = c.CreatedAt,
+            UpdatedAt    = c.UpdatedAt
+        };
+
+        private static CheckinResponse ToResponse(Checkin c, Dictionary<int, Member> memberDict) => new()
+        {
+            CheckinId    = c.CheckinId,
+            MemberId     = c.MemberId,
+            MemberName   = memberDict.TryGetValue(c.MemberId, out var member) ? member.FullName : string.Empty,
             CheckinTime  = c.CheckinTime,
             CheckoutTime = c.CheckoutTime,
             CreatedAt    = c.CreatedAt,

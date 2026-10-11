@@ -10,19 +10,27 @@ namespace GymManegement.Service.BUS.Implementations
     {
         private readonly IMembershipRepository _repo;
         private readonly IInvoiceRepository _invoiceRepo;
+        private readonly IMemberRepository _memberRepo;
 
-        public MembershipService(IMembershipRepository repo, IInvoiceRepository invoiceRepo)
+        public MembershipService(IMembershipRepository repo, IInvoiceRepository invoiceRepo, IMemberRepository memberRepo)
         {
             _repo = repo;
             _invoiceRepo = invoiceRepo;
+            _memberRepo = memberRepo;
         }
 
         public async Task<PagedResult<MembershipResponse>> GetAllAsync(int pageNumber = 1, int pageSize = 10, string? searchTerm = null, string? sortBy = null, string? sortDir = null)
         {
             var result = await _repo.GetAllAsync(pageNumber, pageSize, searchTerm, sortBy, sortDir);
+            
+            // Batch fetch member names
+            var memberIds = result.Data.Select(m => m.MemberId).Distinct().ToList();
+            var members = await _memberRepo.GetByIdsAsync(memberIds);
+            var memberDict = members.ToDictionary(m => m.MemberId);
+            
             return new PagedResult<MembershipResponse>
             {
-                Data = result.Data.Select(ToResponse).ToList(),
+                Data = result.Data.Select(m => ToResponse(m, memberDict)).ToList(),
                 Total = result.Total,
                 PageNumber = result.PageNumber,
                 PageSize = result.PageSize
@@ -121,6 +129,20 @@ namespace GymManegement.Service.BUS.Implementations
         {
             MembershipId = m.MembershipId,
             MemberId = m.MemberId,
+            MemberName = string.Empty,
+            PackageName = m.PackageName,
+            Price = m.Price,
+            StartDate = m.StartDate,
+            EndDate = m.EndDate,
+            CreatedAt = m.CreatedAt,
+            UpdatedAt = m.UpdatedAt
+        };
+
+        private static MembershipResponse ToResponse(Membership m, Dictionary<int, Member> memberDict) => new MembershipResponse
+        {
+            MembershipId = m.MembershipId,
+            MemberId = m.MemberId,
+            MemberName = memberDict.TryGetValue(m.MemberId, out var member) ? member.FullName : string.Empty,
             PackageName = m.PackageName,
             Price = m.Price,
             StartDate = m.StartDate,

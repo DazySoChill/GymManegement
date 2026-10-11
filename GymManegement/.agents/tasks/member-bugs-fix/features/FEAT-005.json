@@ -1,0 +1,35 @@
+{
+  "id": "FEAT-005",
+  "type": "fix",
+  "description": "Fix checkins.js 'Mã QR không hợp lệ' error. The quickCheckin() function generates a QR code on the fly but the backend may expect the member's actual QRCode from Members table (format M000001-M000020). Modify to fetch member profile (GET /api/Member/{memberId}) on page load, extract qrCode field, and use that value in POST /api/Checkin/qr body. Add duplicate check: if already checked in today (checkoutTime is null), show 'Đã check-in hôm nay' message instead of button.",
+  "status": "pending",
+  "steps": [
+    "Read wwwroot/js/checkins.js quickCheckin() around line 88 - it generates qrCode as 'MEMBER_{memberId}_{timestamp}'",
+    "Read Controllers/CheckinController.cs POST /api/Checkin/qr - it expects { qrCode, memberId } but backend CheckinService likely validates QRCode against Members.QRCode field",
+    "Read Controllers/MemberController.cs GET /api/Member/{id} - returns member object with qrCode field (camelCase in response)",
+    "In renderMemberCheckins() (line 94), before rendering the Check In button, fetch member profile: const member = await apiFetch(`/api/Member/${memberId}`)",
+    "Extract member.qrCode (should be format M000001 etc per SQL seed data)",
+    "Store in a variable or pass to quickCheckin",
+    "Modify quickCheckin(memberId, qrCode) to accept qrCode parameter and use it directly in POST body (remove timestamp generation)",
+    "Add duplicate check: before showing Check In button, check if member has a checkin today with checkoutTime === null. If yes, show disabled button with text 'Đã check-in hôm nay'",
+    "Verify button click calls POST /api/Checkin/qr with { qrCode: member.qrCode, memberId }"
+  ],
+  "acceptance_criteria": [
+    "Member profile is fetched on check-in page load",
+    "QRCode from Members table is used (not generated timestamp)",
+    "Check-in succeeds without 'Mã QR không hợp lệ' error",
+    "If already checked in today (no checkout yet), button is disabled with 'Đã check-in hôm nay' text",
+    "After successful checkin, list refreshes to show new entry"
+  ],
+  "verification": [
+    "Login as member01/password (QRCode should be M000001)",
+    "Navigate to Check-in page (#checkins)",
+    "Verify page loads and shows 'Check In' button",
+    "Click button - verify success toast '✅ Check-in thành công!'",
+    "Verify new checkin appears in table with current timestamp",
+    "Try clicking Check In again immediately - verify button disabled or shows 'Đã check-in hôm nay'",
+    "Check browser Network tab - verify POST body includes qrCode: 'M000001'"
+  ],
+  "blocked_reason": null,
+  "findings": ""
+}

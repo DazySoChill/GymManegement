@@ -4,6 +4,8 @@
     {
         public int InvoiceId { get; set; }
         public int MembershipId { get; set; }
+        public string MemberName { get; set; } = string.Empty;
+        public string PackageName { get; set; } = string.Empty;
         public decimal TotalAmount { get; set; }
         public DateTime InvoiceDate { get; set; }
         public DateTime DueDate { get; set; }

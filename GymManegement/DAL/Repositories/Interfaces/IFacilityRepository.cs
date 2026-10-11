@@ -7,5 +7,6 @@ namespace GymManegement.DAL.Repositories.Interfaces
     {
         Task<IEnumerable<Facility>> GetActiveAsync();
         Task<PagedResult<Facility>> GetAllAsync(int pageNumber, int pageSize, string? searchTerm = null, string? sortBy = null, string? sortDir = null);
+        Task<List<Facility>> GetByIdsAsync(List<int> facilityIds);
     }
 }

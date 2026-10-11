@@ -37,7 +37,7 @@ async function renderMemberInvoices(container, memberId) {
             return;
         }
         
-        let html = '<table><thead><tr><th>ID</th><th>Số tiền</th><th>Ngày HĐ</th><th>Hạn thanh toán</th><th>Trạng thái</th></tr></thead><tbody>';
+        let html = '<table><thead><tr><th>ID</th><th>Gói tập</th><th>Số tiền</th><th>Ngày HĐ</th><th>Hạn thanh toán</th><th>Trạng thái</th></tr></thead><tbody>';
         
         invoices.forEach(inv => {
             const badge = inv.status === 'Paid' ? 'badge-success' :
@@ -45,6 +45,7 @@ async function renderMemberInvoices(container, memberId) {
             html += `
                 <tr>
                     <td>${inv.invoiceId}</td>
+                    <td>${inv.packageName || (inv.membershipId ? 'MS ' + inv.membershipId : '-')}</td>
                     <td>${formatCurrency(inv.totalAmount)}</td>
                     <td>${formatDate(inv.invoiceDate)}</td>
                     <td>${formatDate(inv.dueDate)}</td>
@@ -167,7 +168,8 @@ function renderInvoicesTable(data) {
             <thead>
                 <tr>
                     <th>ID</th>
-                    <th>Membership ID</th>
+                    <th>Thành viên</th>
+                    <th>Gói tập</th>
                     <th>Số tiền</th>
                     <th>Ngày HĐ</th>
                     <th>Hạn TT</th>
@@ -185,7 +187,8 @@ function renderInvoicesTable(data) {
         html += `
             <tr>
                 <td>${inv.invoiceId}</td>
-                <td>${inv.membershipId || '-'}</td>
+                <td>${inv.memberName || '-'}</td>
+                <td>${inv.packageName || (inv.membershipId ? 'MS ' + inv.membershipId : '-')}</td>
                 <td>${formatCurrency(inv.totalAmount)}</td>
                 <td>${formatDate(inv.invoiceDate)}</td>
                 <td>${formatDate(inv.dueDate)}</td>
