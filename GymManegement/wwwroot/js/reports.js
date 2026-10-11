@@ -72,6 +72,7 @@ async function loadReportsData() {
     try {
         // Load active members
         const activeMembers = await apiFetch('/api/Report/active-members');
+        console.log('Reports - Active Members:', activeMembers);
         document.getElementById('reportActiveMembersCount').textContent = activeMembers || 0;
         
         // Load monthly revenue
@@ -85,6 +86,7 @@ async function loadReportsData() {
         await loadMembersReport();
         
     } catch (error) {
+        console.error('Error loading reports data:', error);
         showError('Lỗi tải báo cáo: ' + error.message);
     }
 }
@@ -98,25 +100,38 @@ async function loadRevenueDetails() {
         
         // Load revenue summary
         const revenue = await apiFetch(`/api/Report/revenue?month=${month}&year=${year}`);
+        console.log('Revenue Summary - API Response:', revenue);
         document.getElementById('reportMonthlyRevenue').textContent = formatCurrency(revenue || 0);
         
         // Load revenue details
-        const details = await apiFetch(`/api/Report/revenue/detail?month=${month}&year=${year}`);
+        const response = await apiFetch(`/api/Report/revenue/detail?month=${month}&year=${year}`);
+        console.log('Revenue Details - API Response:', response);
+        
+        // Backend returns { month, year, data: [...] } wrapper
+        const details = response?.data || response?.Data || [];
+        console.log('Revenue Details - Details array:', details);
+        
         hideLoading();
         
         const container = document.getElementById('revenueDetailsContainer');
-        if (!details || details.length === 0) {
+        if (details.length === 0) {
             container.innerHTML = '<p class="empty-state-text">Không có dữ liệu doanh thu</p>';
             return;
         }
         
         let html = '<table><thead><tr><th>Ngày</th><th>Số lượng</th><th>Tổng tiền</th></tr></thead><tbody>';
         details.forEach(item => {
+            // Support both aggregated format (date, count, totalAmount) 
+            // and detailed format (invoiceDate, totalAmount)
+            const displayDate = item.date || item.invoiceDate || item.InvoiceDate;
+            const displayCount = item.count || '-';
+            const displayAmount = item.totalAmount || item.TotalAmount || 0;
+            
             html += `
                 <tr>
-                    <td>${formatDate(item.date)}</td>
-                    <td>${item.count}</td>
-                    <td>${formatCurrency(item.totalAmount)}</td>
+                    <td>${formatDate(displayDate)}</td>
+                    <td>${displayCount}</td>
+                    <td>${formatCurrency(displayAmount)}</td>
                 </tr>
             `;
         });
@@ -125,7 +140,9 @@ async function loadRevenueDetails() {
         
     } catch (error) {
         hideLoading();
-        showError('Lỗi tải doanh thu: ' + error.message);
+        console.error('Error loading revenue details:', error);
+        const container = document.getElementById('revenueDetailsContainer');
+        container.innerHTML = `<p class="empty-state-text">Lỗi tải doanh thu: ${escapeHtml(error.message)}</p>`;
     }
 }
 
@@ -134,23 +151,39 @@ async function loadExpiringMemberships() {
     
     try {
         showLoading();
-        const data = await apiFetch(`/api/Report/expiring-soon?daysAhead=${daysAhead}`);
+        const response = await apiFetch(`/api/Report/expiring-soon?daysAhead=${daysAhead}`);
+        console.log('Expiring Memberships - API Response:', response);
+        
+        // Backend returns { daysAhead, data: [...] } wrapper
+        const data = response?.data || response?.Data || [];
+        console.log('Expiring Memberships - Data array:', data);
+        
         hideLoading();
         
         const container = document.getElementById('expiringMembershipsContainer');
-        if (!data || data.length === 0) {
+        if (data.length === 0) {
             container.innerHTML = '<p class="empty-state-text">Không có gói tập nào sắp hết hạn</p>';
             return;
         }
         
         let html = '<table><thead><tr><th>Member</th><th>Gói</th><th>Ngày hết hạn</th><th>Còn lại</th></tr></thead><tbody>';
         data.forEach(item => {
+            // Backend returns Membership entity with camelCase
+            const memberName = item.member?.fullName || item.Member?.FullName || '-';
+            const packageName = item.packageName || item.PackageName;
+            const endDate = item.endDate || item.EndDate;
+            
+            // Calculate days remaining
+            const today = new Date();
+            const end = new Date(endDate);
+            const daysRemaining = Math.ceil((end - today) / (1000 * 60 * 60 * 24));
+            
             html += `
                 <tr>
-                    <td>${escapeHtml(item.memberName || '-')}</td>
-                    <td>${escapeHtml(item.packageName)}</td>
-                    <td>${formatDate(item.endDate)}</td>
-                    <td><span class="badge badge-warning">${item.daysRemaining} ngày</span></td>
+                    <td>${escapeHtml(memberName)}</td>
+                    <td>${escapeHtml(packageName)}</td>
+                    <td>${formatDate(endDate)}</td>
+                    <td><span class="badge badge-warning">${daysRemaining} ngày</span></td>
                 </tr>
             `;
         });
@@ -159,39 +192,53 @@ async function loadExpiringMemberships() {
         
     } catch (error) {
         hideLoading();
-        showError('Lỗi tải gói tập sắp hết hạn: ' + error.message);
+        console.error('Error loading expiring memberships:', error);
+        const container = document.getElementById('expiringMembershipsContainer');
+        container.innerHTML = `<p class="empty-state-text">Lỗi tải gói tập sắp hết hạn: ${escapeHtml(error.message)}</p>`;
     }
 }
 
 async function loadMembersReport() {
     try {
         showLoading();
-        const data = await apiFetch('/api/Report/members');
+        const stats = await apiFetch('/api/Report/members');
+        console.log('Members Report - API Response:', stats);
         hideLoading();
         
         const container = document.getElementById('membersReportContainer');
-        if (!data || data.length === 0) {
+        if (!stats) {
             container.innerHTML = '<p class="empty-state-text">Không có dữ liệu members</p>';
             return;
         }
         
-        let html = '<table><thead><tr><th>ID</th><th>Họ tên</th><th>Email</th><th>Trạng thái</th></tr></thead><tbody>';
-        data.forEach(member => {
-            html += `
-                <tr>
-                    <td>${member.memberId}</td>
-                    <td>${escapeHtml(member.fullName)}</td>
-                    <td>${escapeHtml(member.email)}</td>
-                    <td><span class="badge badge-success">Active</span></td>
-                </tr>
-            `;
-        });
-        html += '</tbody></table>';
-        container.innerHTML = html;
+        // Backend returns stats object { totalMembers, activeMembers, inactiveMembers }
+        // Display as stats cards instead of table
+        const totalMembers = stats.totalMembers || stats.TotalMembers || 0;
+        const activeMembers = stats.activeMembers || stats.ActiveMembers || 0;
+        const inactiveMembers = stats.inactiveMembers || stats.InactiveMembers || 0;
+        
+        container.innerHTML = `
+            <div class="stats-grid">
+                <div class="stat-card">
+                    <div class="stat-label">Tổng Members</div>
+                    <div class="stat-value">${totalMembers}</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-label">Members Hoạt Động</div>
+                    <div class="stat-value">${activeMembers}</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-label">Members Đã Xóa</div>
+                    <div class="stat-value">${inactiveMembers}</div>
+                </div>
+            </div>
+        `;
         
     } catch (error) {
         hideLoading();
-        showError('Lỗi tải báo cáo members: ' + error.message);
+        console.error('Error loading members report:', error);
+        const container = document.getElementById('membersReportContainer');
+        container.innerHTML = `<p class="empty-state-text">Lỗi tải báo cáo members: ${escapeHtml(error.message)}</p>`;
     }
 }
 

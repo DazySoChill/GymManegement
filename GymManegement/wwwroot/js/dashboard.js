@@ -70,11 +70,10 @@ async function renderAdminDashboard(container) {
  */
 async function loadActiveMembersCount() {
     try {
-        // Fetch first page to get Total count from PagedResult
-        const result = await apiFetch('/api/Member?pageNumber=1&pageSize=1');
-        // Backend returns PagedResult with PascalCase: { Data, Total, PageNumber, PageSize, TotalPages }
-        const count = result?.Total || 0;
-        document.getElementById('activeMembersCount').textContent = count;
+        // Use the dedicated active members endpoint from reports
+        const count = await apiFetch('/api/Report/active-members');
+        console.log('Active Members - API Response:', count);
+        document.getElementById('activeMembersCount').textContent = count || 0;
     } catch (error) {
         console.error('Error loading active members:', error);
         const errorMsg = error.message?.includes('401') || error.message?.includes('403') 
@@ -98,18 +97,22 @@ async function loadMonthlyRevenue() {
         
         // Fetch payments (up to 1000 records - sufficient for most gyms)
         const result = await apiFetch('/api/Payment?pageNumber=1&pageSize=1000');
-        // Backend returns PagedResult with PascalCase: { Data, Total, PageNumber, PageSize, TotalPages }
-        const payments = result?.Data || [];
+        console.log('Monthly Revenue - API Response:', result);
         
-        // Filter by current month and sum Amount
+        // Backend returns PagedResult with camelCase: { data, total, pageNumber, pageSize, totalPages }
+        const payments = result?.data || result?.Data || [];
+        console.log('Monthly Revenue - Payments array:', payments);
+        
+        // Filter by current month and sum amount
         const monthlyTotal = payments
             .filter(p => {
-                const paymentDate = new Date(p.PaymentDate);
+                const paymentDate = new Date(p.paymentDate || p.PaymentDate);
                 return paymentDate.getMonth() === currentMonth && 
                        paymentDate.getFullYear() === currentYear;
             })
-            .reduce((sum, p) => sum + (p.Amount || 0), 0);
+            .reduce((sum, p) => sum + (p.amount || p.Amount || 0), 0);
         
+        console.log('Monthly Revenue - Calculated total:', monthlyTotal);
         document.getElementById('monthlyRevenue').textContent = formatCurrency(monthlyTotal);
     } catch (error) {
         console.error('Error loading monthly revenue:', error);
@@ -133,15 +136,19 @@ async function loadTodayCheckins() {
         
         // Fetch checkins (up to 1000 records - sufficient for most gyms)
         const result = await apiFetch('/api/Checkin?pageNumber=1&pageSize=1000');
-        // Backend returns PagedResult with PascalCase: { Data, Total, PageNumber, PageSize, TotalPages }
-        const checkins = result?.Data || [];
+        console.log('Today Checkins - API Response:', result);
+        
+        // Backend returns PagedResult with camelCase: { data, total, pageNumber, pageSize, totalPages }
+        const checkins = result?.data || result?.Data || [];
+        console.log('Today Checkins - Checkins array:', checkins);
         
         // Filter by today's date
         const todayCount = checkins.filter(c => {
-            const checkinDate = new Date(c.CheckinTime).toISOString().split('T')[0];
+            const checkinDate = new Date(c.checkinTime || c.CheckinTime).toISOString().split('T')[0];
             return checkinDate === todayStr;
         }).length;
         
+        console.log('Today Checkins - Count:', todayCount);
         document.getElementById('todayCheckins').textContent = todayCount;
     } catch (error) {
         console.error('Error loading today checkins:', error);
@@ -159,10 +166,22 @@ async function loadTodayCheckins() {
  */
 async function loadActiveFacilities() {
     try {
-        const result = await apiFetch('/api/Facility?pageNumber=1&pageSize=1');
-        // Backend returns PagedResult with PascalCase: { Data, Total, PageNumber, PageSize, TotalPages }
-        const count = result?.Total || 0;
-        document.getElementById('activeFacilitiesCount').textContent = count;
+        // Fetch all facilities and filter by Active status
+        const result = await apiFetch('/api/Facility?pageNumber=1&pageSize=1000');
+        console.log('Active Facilities - API Response:', result);
+        
+        // Backend returns PagedResult with camelCase: { data, total, pageNumber, pageSize, totalPages }
+        const facilities = result?.data || result?.Data || [];
+        console.log('Active Facilities - Facilities array:', facilities);
+        
+        // Count only Active status facilities (note: status is "Available" in database)
+        const activeCount = facilities.filter(f => {
+            const status = f.status || f.Status;
+            return status === 'Available';
+        }).length;
+        
+        console.log('Active Facilities - Active count:', activeCount);
+        document.getElementById('activeFacilitiesCount').textContent = activeCount;
     } catch (error) {
         console.error('Error loading active facilities:', error);
         const errorMsg = error.message?.includes('401') || error.message?.includes('403') 
@@ -200,15 +219,20 @@ async function getTrainerId() {
         
         // Fetch all trainers and find by email
         const result = await apiFetch('/api/Trainer?pageNumber=1&pageSize=1000');
-        const trainers = result?.Data || [];
+        console.log('Get TrainerId - API Response:', result);
         
-        const trainer = trainers.find(t => 
-            t.Email && t.Email.toLowerCase() === user.email.toLowerCase()
-        );
+        const trainers = result?.data || result?.Data || [];
+        console.log('Get TrainerId - Trainers array:', trainers);
+        
+        const trainer = trainers.find(t => {
+            const trainerEmail = t.email || t.Email;
+            return trainerEmail && trainerEmail.toLowerCase() === user.email.toLowerCase();
+        });
         
         if (trainer) {
-            _cachedTrainerId = trainer.TrainerId;
-            return trainer.TrainerId;
+            _cachedTrainerId = trainer.trainerId || trainer.TrainerId;
+            console.log('Get TrainerId - Found trainer:', _cachedTrainerId);
+            return trainer.trainerId || trainer.TrainerId;
         }
         
         console.error('No trainer found with email:', user.email);
@@ -267,15 +291,20 @@ async function renderTrainerDashboard(container) {
 async function loadTrainerTodayClasses(trainerId) {
     try {
         const result = await apiFetch('/api/Schedule?pageNumber=1&pageSize=1000');
-        const schedules = result?.Data || [];
+        console.log('Trainer Today Classes - API Response:', result);
+        
+        const schedules = result?.data || result?.Data || [];
+        console.log('Trainer Today Classes - Schedules array:', schedules);
         
         const today = new Date().toISOString().split('T')[0];
         
         const todayClasses = schedules.filter(s => {
-            const scheduleDate = new Date(s.StartTime).toISOString().split('T')[0];
-            return s.TrainerId === trainerId && scheduleDate === today;
+            const scheduleDate = new Date(s.startTime || s.StartTime).toISOString().split('T')[0];
+            const scheduleTrainerId = s.trainerId || s.TrainerId;
+            return scheduleTrainerId === trainerId && scheduleDate === today;
         });
         
+        console.log('Trainer Today Classes - Count:', todayClasses.length);
         document.getElementById('trainerTodayClasses').textContent = todayClasses.length;
     } catch (error) {
         console.error('Error loading trainer today classes:', error);
@@ -287,10 +316,17 @@ async function loadTrainerMonthlyAttended(trainerId) {
     try {
         // Get all schedules for this trainer
         const result = await apiFetch('/api/Schedule?pageNumber=1&pageSize=1000');
-        const schedules = result?.Data || [];
+        console.log('Trainer Monthly Attended - API Response:', result);
         
-        const trainerSchedules = schedules.filter(s => s.TrainerId === trainerId);
-        const scheduleIds = trainerSchedules.map(s => s.ScheduleId);
+        const schedules = result?.data || result?.Data || [];
+        
+        const trainerSchedules = schedules.filter(s => {
+            const scheduleTrainerId = s.trainerId || s.TrainerId;
+            return scheduleTrainerId === trainerId;
+        });
+        const scheduleIds = trainerSchedules.map(s => s.scheduleId || s.ScheduleId);
+        
+        console.log('Trainer Monthly Attended - Schedule IDs:', scheduleIds);
         
         // Limit to 50 schedules to avoid overload
         const limitedScheduleIds = scheduleIds.slice(0, 50);
@@ -309,14 +345,15 @@ async function loadTrainerMonthlyAttended(trainerId) {
                 
                 // Handle different response shapes
                 const sessionArray = Array.isArray(sessions) ? sessions : 
-                                   sessions?.Data ? sessions.Data :
-                                   sessions?.data ? sessions.data : [];
+                                   sessions?.data ? sessions.data :
+                                   sessions?.Data ? sessions.Data : [];
                 
                 // Count attended sessions in current month
                 const attended = sessionArray.filter(session => {
-                    if (session.Status !== 'Attended') return false;
+                    const status = session.status || session.Status;
+                    if (status !== 'Attended') return false;
                     
-                    const regDate = new Date(session.RegistrationDate);
+                    const regDate = new Date(session.registrationDate || session.RegistrationDate);
                     return regDate.getMonth() === currentMonth && 
                            regDate.getFullYear() === currentYear;
                 });
@@ -327,6 +364,7 @@ async function loadTrainerMonthlyAttended(trainerId) {
             }
         }
         
+        console.log('Trainer Monthly Attended - Count:', attendedCount);
         document.getElementById('trainerMonthlyAttended').textContent = attendedCount;
     } catch (error) {
         console.error('Error loading trainer monthly attended:', error);
@@ -337,15 +375,18 @@ async function loadTrainerMonthlyAttended(trainerId) {
 async function loadTrainerTodayCheckins() {
     try {
         const result = await apiFetch('/api/Checkin?pageNumber=1&pageSize=1000');
-        const checkins = result?.Data || [];
+        console.log('Trainer Today Checkins - API Response:', result);
+        
+        const checkins = result?.data || result?.Data || [];
         
         const today = new Date().toISOString().split('T')[0];
         
         const todayCheckins = checkins.filter(c => {
-            const checkinDate = new Date(c.CheckinTime).toISOString().split('T')[0];
+            const checkinDate = new Date(c.checkinTime || c.CheckinTime).toISOString().split('T')[0];
             return checkinDate === today;
         });
         
+        console.log('Trainer Today Checkins - Count:', todayCheckins.length);
         document.getElementById('trainerTodayCheckins').textContent = todayCheckins.length;
     } catch (error) {
         console.error('Error loading trainer today checkins:', error);
@@ -358,14 +399,19 @@ async function loadTodaySchedulesList(trainerId) {
     
     try {
         const result = await apiFetch('/api/Schedule?pageNumber=1&pageSize=1000');
-        const schedules = result?.Data || [];
+        console.log('Today Schedules List - API Response:', result);
+        
+        const schedules = result?.data || result?.Data || [];
         
         const today = new Date().toISOString().split('T')[0];
         
         const todaySchedules = schedules.filter(s => {
-            const scheduleDate = new Date(s.StartTime).toISOString().split('T')[0];
-            return s.TrainerId === trainerId && scheduleDate === today;
+            const scheduleDate = new Date(s.startTime || s.StartTime).toISOString().split('T')[0];
+            const scheduleTrainerId = s.trainerId || s.TrainerId;
+            return scheduleTrainerId === trainerId && scheduleDate === today;
         });
+        
+        console.log('Today Schedules List - Count:', todaySchedules.length);
         
         if (todaySchedules.length === 0) {
             container.innerHTML = '<p class="empty-state-text">Không có class nào hôm nay</p>';
@@ -377,9 +423,9 @@ async function loadTodaySchedulesList(trainerId) {
         todaySchedules.forEach(schedule => {
             html += `
                 <tr>
-                    <td>${escapeHtml(schedule.ClassName)}</td>
-                    <td>${formatTime(schedule.StartTime)} - ${formatTime(schedule.EndTime)}</td>
-                    <td>${escapeHtml(schedule.FacilityName || '-')}</td>
+                    <td>${escapeHtml(schedule.className || schedule.ClassName)}</td>
+                    <td>${formatTime(schedule.startTime || schedule.StartTime)} - ${formatTime(schedule.endTime || schedule.EndTime)}</td>
+                    <td>${escapeHtml(schedule.facilityName || schedule.FacilityName || '-')}</td>
                 </tr>
             `;
         });
@@ -518,33 +564,38 @@ async function loadRecentMemberCheckins(memberId) {
 
 function renderRecentCheckinsTable(data) {
     const container = document.getElementById('recentCheckins');
-    if (!data || !data.Data || data.Data.length === 0) {
+    const items = data?.data || data?.Data || [];
+    
+    console.log('Recent Checkins Table - Data:', items);
+    
+    if (items.length === 0) {
         container.innerHTML = '<p class="empty-state-text">Chưa có check-in nào</p>';
         return;
     }
     
-    // Sort by CheckinTime descending (most recent first) - using PascalCase
-    const sortedItems = [...data.Data].sort((a, b) => {
-        return new Date(b.CheckinTime) - new Date(a.CheckinTime);
+    // Sort by checkinTime descending (most recent first)
+    const sortedItems = [...items].sort((a, b) => {
+        return new Date(b.checkinTime || b.CheckinTime) - new Date(a.checkinTime || a.CheckinTime);
     });
     
     let html = '<table><thead><tr><th>Member</th><th>Thời gian vào</th><th>Thời gian ra</th><th>Trạng thái</th></tr></thead><tbody>';
     sortedItems.forEach(item => {
-        // Backend returns PascalCase: MemberName, MemberId, CheckinTime, CheckoutTime
-        const memberName = item.MemberName || `Member #${item.MemberId || '-'}`;
+        // Backend returns camelCase: memberName, memberId, checkinTime, checkoutTime
+        const memberName = item.memberName || item.MemberName || `Member #${item.memberId || item.MemberId || '-'}`;
         
+        const checkoutTime = item.checkoutTime || item.CheckoutTime;
         // CheckoutTime is nullable (DateTime?) - null means still checked in
         // Also check for C# sentinel dates like "0001-01-01T00:00:00" or empty strings
-        const hasCheckedOut = item.CheckoutTime && 
-                             item.CheckoutTime !== '' && 
-                             !item.CheckoutTime.startsWith('0001-01-01');
+        const hasCheckedOut = checkoutTime && 
+                             checkoutTime !== '' && 
+                             !checkoutTime.startsWith('0001-01-01');
         const status = hasCheckedOut ? 'Đã ra' : 'Đang tập';
         const badgeClass = hasCheckedOut ? 'badge-secondary' : 'badge-success';
         
         html += `<tr>
             <td>${escapeHtml(memberName)}</td>
-            <td>${formatDateTime(item.CheckinTime)}</td>
-            <td>${hasCheckedOut ? formatDateTime(item.CheckoutTime) : 'Chưa ra'}</td>
+            <td>${formatDateTime(item.checkinTime || item.CheckinTime)}</td>
+            <td>${hasCheckedOut ? formatDateTime(checkoutTime) : 'Chưa ra'}</td>
             <td><span class="badge ${badgeClass}">${status}</span></td>
         </tr>`;
     });
