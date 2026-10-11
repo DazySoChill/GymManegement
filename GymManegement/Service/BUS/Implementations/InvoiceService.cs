@@ -115,6 +115,7 @@ namespace GymManegement.Service.BUS.Implementations
         private static InvoiceResponse ToResponse(Invoice i) => new InvoiceResponse
         {
             InvoiceId = i.InvoiceId,
+            MemberId = i.MemberId,
             MembershipId = i.MembershipId ?? 0,
             MemberName = string.Empty,
             PackageName = string.Empty,
@@ -130,6 +131,7 @@ namespace GymManegement.Service.BUS.Implementations
         private static InvoiceResponse ToResponse(Invoice i, Dictionary<int, Member> memberDict, Dictionary<int, Membership> membershipDict) => new InvoiceResponse
         {
             InvoiceId = i.InvoiceId,
+            MemberId = i.MemberId,
             MembershipId = i.MembershipId ?? 0,
             MemberName = memberDict.TryGetValue(i.MemberId, out var member) ? member.FullName : string.Empty,
             PackageName = i.MembershipId.HasValue && membershipDict.TryGetValue(i.MembershipId.Value, out var membership) 

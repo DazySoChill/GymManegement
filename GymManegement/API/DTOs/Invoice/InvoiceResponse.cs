@@ -3,6 +3,7 @@
     public class InvoiceResponse
     {
         public int InvoiceId { get; set; }
+        public int MemberId { get; set; }
         public int MembershipId { get; set; }
         public string MemberName { get; set; } = string.Empty;
         public string PackageName { get; set; } = string.Empty;
