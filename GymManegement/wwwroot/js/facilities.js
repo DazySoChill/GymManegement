@@ -176,6 +176,7 @@ function renderFacilitiesTable(result) {
                 <td>
                     <div class="action-buttons">
                         <button class="btn btn-sm btn-info" onclick="showEditFacilityModal(${facility.facilityId})">✏️</button>
+                        <button class="btn btn-sm btn-danger" onclick="deleteFacility(${facility.facilityId})">🗑️ Xóa</button>
                     </div>
                 </td>
             </tr>
@@ -430,4 +431,22 @@ function validateFacilityForm(isEdit = false) {
     }
     
     return isValid;
+}
+
+async function deleteFacility(facilityId) {
+    if (!confirm('Bạn có chắc chắn muốn xóa cơ sở vật chất này?')) {
+        return;
+    }
+    try {
+        showLoading();
+        await apiFetch(`/api/Facility/${facilityId}`, {
+            method: 'DELETE'
+        });
+        hideLoading();
+        showSuccess('Xóa cơ sở vật chất thành công!');
+        await loadFacilities();
+    } catch (error) {
+        hideLoading();
+        showError('Lỗi khi xóa cơ sở vật chất: ' + error.message);
+    }
 }
