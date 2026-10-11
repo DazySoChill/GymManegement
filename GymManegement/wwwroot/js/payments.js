@@ -142,6 +142,15 @@ async function loadPayments() {
         const data = await apiFetch(`/api/Payment?pageNumber=${paymentsCurrentPage}&pageSize=${paymentsPageSize}`);
         hideLoading();
         
+        // Apply client-side payment method filter
+        const method = document.getElementById('paymentMethodFilter')?.value;
+        if (method) {
+            const filteredItems = data.items.filter(item => item.paymentMethod === method);
+            data.items = filteredItems;
+            data.totalCount = filteredItems.length;
+            data.totalPages = Math.ceil(filteredItems.length / paymentsPageSize) || 1;
+        }
+        
         renderPaymentsTable(data);
         renderPaymentsPagination(data);
     } catch (error) {
@@ -192,7 +201,7 @@ function renderPaymentsTable(data) {
                 ${canManage ? `
                     <td>
                         <div class="action-buttons">
-                            <button class="btn btn-sm btn-info" onclick="showEditPaymentModal(${payment.paymentId})" title="Sửa">✏️</button>
+                            <button class="btn btn-sm btn-info" onclick="showViewPaymentModal(${payment.paymentId})" title="Xem">👁️</button>
                             <button class="btn btn-sm btn-danger" onclick="deletePayment(${payment.paymentId})" title="Xóa">🗑️</button>
                         </div>
                     </td>
@@ -356,7 +365,7 @@ async function showCreatePaymentModal() {
     }
 }
 
-async function showEditPaymentModal(paymentId) {
+async function showViewPaymentModal(paymentId) {
     injectPaymentModalStyles();
     
     try {
@@ -374,7 +383,7 @@ async function showEditPaymentModal(paymentId) {
         modal.innerHTML = `
             <div class="gym-modal" style="position: relative;">
                 <button class="gym-modal-close" onclick="this.closest('.gym-modal-overlay').remove()">×</button>
-                <h3>✏️ Xem Thông Tin Thanh Toán #${paymentId}</h3>
+                <h3>👁️ Xem Thông Tin Thanh Toán #${paymentId}</h3>
                 <div style="background: #f8f9fa; padding: 16px; border-radius: 6px; margin-bottom: 16px;">
                     <p style="margin: 4px 0;"><strong>Member ID:</strong> ${payment.memberId || '-'}</p>
                     <p style="margin: 4px 0;"><strong>Invoice ID:</strong> ${payment.invoiceId || '-'}</p>

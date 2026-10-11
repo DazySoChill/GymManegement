@@ -335,6 +335,7 @@ async function handleCreateStaff(e) {
 }
 
 function showChangeRoleModal(userId, username, currentRole) {
+    // Security note: If extending this modal to show username or currentRole in HTML, use escapeHtml(username) and escapeHtml(currentRole) to prevent XSS.
     document.getElementById('changeRoleModal').classList.add('show');
 }
 

@@ -105,20 +105,45 @@ async function loadInvoices() {
     }
 }
 
+// Store filtered invoices for client-side pagination
+let filteredInvoices = [];
+
 async function loadInvoicesByStatus() {
     const status = document.getElementById('invoiceStatusFilter').value;
     
     if (!status) {
+        filteredInvoices = [];
+        invoicesCurrentPage = 1;
         loadInvoices();
         return;
     }
     
     try {
         showLoading();
-        const data = await apiFetch(`/api/Invoice/status/${status}`);
+        const allItems = await apiFetch(`/api/Invoice/status/${status}`);
         hideLoading();
         
-        renderInvoicesTable({ items: data, pageNumber: 1, totalPages: 1 });
+        // Reset to first page when filter changes
+        invoicesCurrentPage = 1;
+        
+        // Store full filtered results for pagination
+        filteredInvoices = allItems || [];
+        
+        // Implement client-side pagination
+        const startIndex = (invoicesCurrentPage - 1) * invoicesPageSize;
+        const endIndex = startIndex + invoicesPageSize;
+        const pageItems = filteredInvoices.slice(startIndex, endIndex);
+        const totalPages = Math.ceil(filteredInvoices.length / invoicesPageSize) || 1;
+        
+        const paginatedData = {
+            items: pageItems,
+            pageNumber: invoicesCurrentPage,
+            totalPages: totalPages,
+            totalCount: filteredInvoices.length
+        };
+        
+        renderInvoicesTable(paginatedData);
+        renderInvoicesPagination(paginatedData);
     } catch (error) {
         hideLoading();
         showError('Lỗi tải hóa đơn: ' + error.message);
@@ -197,7 +222,29 @@ function renderInvoicesPagination(data) {
 
 function changeInvoicesPage(page) {
     invoicesCurrentPage = page;
-    loadInvoices();
+    
+    // Check if we have filtered data
+    const status = document.getElementById('invoiceStatusFilter')?.value;
+    if (status && filteredInvoices.length > 0) {
+        // Use client-side pagination for filtered data
+        const startIndex = (page - 1) * invoicesPageSize;
+        const endIndex = startIndex + invoicesPageSize;
+        const pageItems = filteredInvoices.slice(startIndex, endIndex);
+        const totalPages = Math.ceil(filteredInvoices.length / invoicesPageSize) || 1;
+        
+        const paginatedData = {
+            items: pageItems,
+            pageNumber: page,
+            totalPages: totalPages,
+            totalCount: filteredInvoices.length
+        };
+        
+        renderInvoicesTable(paginatedData);
+        renderInvoicesPagination(paginatedData);
+    } else {
+        // Use server-side pagination for unfiltered data
+        loadInvoices();
+    }
 }
 
 async function updateInvoiceStatus(invoiceId, status) {
@@ -341,7 +388,9 @@ async function showCreateInvoiceModal() {
                         <div class="error" id="memberIdError"></div>
                     </div>
                     <div class="form-group">
-                        <label>Gói tập (tùy chọn)</label>
+                        <!-- MembershipId is optional — invoices may be standalone for ad-hoc fees (e.g., locker rental, personal training top-up). -->
+                        <!-- If business rule requires membership linkage for subscription invoices, add: if (!membershipId && invoiceType === 'subscription') return showError(...) -->
+                        <label>Gói tập (Để trống nếu là phí phát sinh)</label>
                         <select id="membershipId" name="membershipId">
                             <option value="">-- Không liên kết --</option>
                             ${memberships.filter(ms => ms.status === 'Active').map(ms => `<option value="${ms.membershipId}">${escapeHtml(ms.packageName)} - ${escapeHtml(ms.memberName)} (${formatCurrency(ms.price)})</option>`).join('')}
