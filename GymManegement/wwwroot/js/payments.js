@@ -116,6 +116,9 @@ async function renderPayments(container) {
             </div>
             
             <div class="filters">
+                <select id="paymentMemberFilter" onchange="filterPaymentsByMember()">
+                    <option value="">Tất cả thành viên</option>
+                </select>
                 <select id="paymentMethodFilter" onchange="loadPayments()">
                     <option value="">Tất cả phương thức</option>
                     <option value="Cash">Cash</option>
@@ -134,6 +137,7 @@ async function renderPayments(container) {
     `;
     
     await loadPayments();
+    await loadMembersForFilter();
 }
 
 async function loadPayments() {
@@ -156,7 +160,7 @@ async function loadPayments() {
         const fetchPageSize = method ? 9999 : paymentsPageSize;
         const fetchPageNumber = method ? 1 : paymentsCurrentPage;
         
-        const data = await apiFetch(`/api/Payment?pageNumber=${fetchPageNumber}&pageSize=${fetchPageSize}`);
+        const data = await apiFetch(`/api/Payment?pageNumber=${fetchPageNumber}&pageSize=${fetchPageSize}&sortBy=PaymentDate&sortDir=desc`);
         
         const allItems = data?.Data || data?.data || data?.items || [];
         
@@ -270,7 +274,77 @@ function renderPaymentsPagination(data) {
 
 function changePaymentsPage(page) {
     paymentsCurrentPage = page;
+    
+    // Check if member filter is active
+    const memberFilter = document.getElementById('paymentMemberFilter')?.value;
+    if (memberFilter) {
+        filterPaymentsByMember();
+        return;
+    }
+    
+    // Otherwise use existing method filter logic
     loadPayments();
+}
+
+async function loadMembersForFilter() {
+    try {
+        const membersData = await apiFetch('/api/Member?pageNumber=1&pageSize=1000');
+        const members = membersData?.Data || membersData?.data || membersData?.items || [];
+        
+        const dropdown = document.getElementById('paymentMemberFilter');
+        if (dropdown && members.length > 0) {
+            dropdown.innerHTML = '<option value="">Tất cả thành viên</option>' + 
+                members.map(m => `<option value="${m.memberId}">${escapeHtml(m.fullName)} (ID: ${m.memberId})</option>`).join('');
+        }
+    } catch (error) {
+        console.error('Error loading members for filter:', error);
+    }
+}
+
+async function filterPaymentsByMember() {
+    const memberId = document.getElementById('paymentMemberFilter')?.value;
+    
+    // Reset to page 1 when filter changes
+    paymentsCurrentPage = 1;
+    
+    if (!memberId) {
+        // No filter: load all payments normally
+        await loadPayments();
+        return;
+    }
+    
+    try {
+        showLoading();
+        // Fetch all payments for this member (no pagination on this endpoint)
+        const allPayments = await apiFetch(`/api/Payment?pageNumber=1&pageSize=9999&sortBy=PaymentDate&sortDir=desc`);
+        hideLoading();
+        
+        const items = allPayments?.Data || allPayments?.data || allPayments?.items || [];
+        
+        // Filter client-side by memberId
+        const filtered = items.filter(p => p.memberId === parseInt(memberId));
+        
+        // Client-side pagination
+        const totalPages = Math.ceil(filtered.length / paymentsPageSize) || 1;
+        const startIdx = (paymentsCurrentPage - 1) * paymentsPageSize;
+        const endIdx = startIdx + paymentsPageSize;
+        const pageItems = filtered.slice(startIdx, endIdx);
+        
+        const displayData = {
+            items: pageItems,
+            pageNumber: paymentsCurrentPage,
+            totalPages: totalPages,
+            totalCount: filtered.length
+        };
+        
+        renderPaymentsTable(displayData);
+        renderPaymentsPagination(displayData);
+        
+    } catch (error) {
+        hideLoading();
+        showError('Không thể lọc thanh toán theo thành viên: ' + error.message);
+        console.error('Error filtering payments by member:', error);
+    }
 }
 
 async function showCreatePaymentModal() {
@@ -305,15 +379,14 @@ async function showCreatePaymentModal() {
                     </div>
                     <div class="form-group">
                         <label>Hóa đơn (tùy chọn)</label>
-                        <select id="invoiceId" name="invoiceId">
-                            <option value="">-- Không liên kết --</option>
-                            ${invoices.map(inv => `<option value="${inv.invoiceId}">HĐ #${inv.invoiceId} - ${formatCurrency(inv.totalAmount)} - ${formatDate(inv.dueDate)}</option>`).join('')}
+                        <select id="invoiceId" name="invoiceId" disabled>
+                            <option value="">-- Chọn thành viên trước --</option>
                         </select>
                         <div class="error" id="invoiceIdError"></div>
                     </div>
                     <div class="form-group">
                         <label>Số tiền (VNĐ) <span class="required">*</span></label>
-                        <input type="number" id="amount" name="amount" required min="1" step="1000" placeholder="500000">
+                        <input type="number" id="amount" name="amount" required min="1" step="1" placeholder="500000">
                         <div class="error" id="amountError"></div>
                     </div>
                     <div class="form-group">
@@ -342,9 +415,9 @@ async function showCreatePaymentModal() {
                     <div class="form-group">
                         <label>Trạng thái <span class="required">*</span></label>
                         <select id="status" name="status" required>
-                            <option value="Completed">Completed</option>
-                            <option value="Pending">Pending</option>
-                            <option value="Failed">Failed</option>
+                            <option value="Completed">Hoàn thành</option>
+                            <option value="Pending">Chờ xử lý</option>
+                            <option value="Failed">Thất bại</option>
                         </select>
                         <div class="error" id="statusError"></div>
                     </div>
@@ -356,6 +429,51 @@ async function showCreatePaymentModal() {
             </div>
         `;
         document.body.appendChild(modal);
+        
+        // Add member selection handler to populate invoices
+        const memberSelect = document.getElementById('memberId');
+        const invoiceSelect = document.getElementById('invoiceId');
+        
+        memberSelect.addEventListener('change', async () => {
+            const selectedMemberId = memberSelect.value;
+            
+            if (!selectedMemberId) {
+                // Reset invoice dropdown
+                invoiceSelect.innerHTML = '<option value="">-- Chọn thành viên trước --</option>';
+                invoiceSelect.disabled = true;
+                return;
+            }
+            
+            try {
+                showLoading();
+                // Fetch Pending and Overdue invoices for this member
+                const [pendingInvoices, overdueInvoices] = await Promise.all([
+                    apiFetch(`/api/Invoice/status/Pending`),
+                    apiFetch(`/api/Invoice/status/Overdue`)
+                ]);
+                hideLoading();
+                
+                const allUnpaid = [...(pendingInvoices || []), ...(overdueInvoices || [])];
+                const memberUnpaid = allUnpaid.filter(inv => inv.memberId === parseInt(selectedMemberId));
+                
+                // Populate invoice dropdown with this member's unpaid invoices
+                if (memberUnpaid.length === 0) {
+                    invoiceSelect.innerHTML = '<option value="">-- Không có hóa đơn chờ thanh toán --</option>';
+                } else {
+                    invoiceSelect.innerHTML = '<option value="">-- Không liên kết --</option>' + 
+                        memberUnpaid.map(inv => {
+                            const statusBadge = inv.status === 'Overdue' ? '🔴' : '🟡';
+                            return `<option value="${inv.invoiceId}">${statusBadge} HĐ #${inv.invoiceId} - ${formatCurrency(inv.totalAmount)} - ${formatDate(inv.dueDate)} (${inv.status})</option>`;
+                        }).join('');
+                }
+                invoiceSelect.disabled = false;
+                
+            } catch (error) {
+                hideLoading();
+                showError('Lỗi tải hóa đơn: ' + error.message);
+                invoiceSelect.innerHTML = '<option value="">-- Lỗi tải dữ liệu --</option>';
+            }
+        });
         
         // Set default date to today
         const today = new Date().toISOString().split('T')[0];
