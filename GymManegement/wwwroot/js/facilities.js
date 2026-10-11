@@ -139,10 +139,13 @@ async function loadFacilities() {
     }
 }
 
-function renderFacilitiesTable(data) {
+function renderFacilitiesTable(result) {
     const container = document.getElementById('facilitiesTableContainer');
     
-    if (!data || !data.items || data.items.length === 0) {
+    // Defensive accessor to handle both property names
+    const facilities = result?.data || result?.items || [];
+    
+    if (facilities.length === 0) {
         container.innerHTML = '<div class="empty-state"><div class="empty-state-icon">🏢</div><div class="empty-state-text">Không có cơ sở nào</div></div>';
         return;
     }
@@ -161,7 +164,7 @@ function renderFacilitiesTable(data) {
             <tbody>
     `;
     
-    data.items.forEach(facility => {
+    facilities.forEach(facility => {
         const statusClass = facility.status === 'Active' ? 'badge-success' :
                            facility.status === 'Maintenance' ? 'badge-warning' : 'badge-danger';
         html += `
@@ -183,16 +186,18 @@ function renderFacilitiesTable(data) {
     container.innerHTML = html;
 }
 
-function renderFacilitiesPagination(data) {
+function renderFacilitiesPagination(result) {
     const container = document.getElementById('facilitiesPagination');
-    if (!data) return;
+    if (!result) return;
     
-    const { pageNumber, totalPages } = data;
+    // Defensive accessors for pagination metadata
+    const totalPages = result?.totalPages || 1;
+    const currentPage = result?.pageNumber || facilitiesCurrentPage;
     
     let html = `
-        <button ${pageNumber <= 1 ? 'disabled' : ''} onclick="changeFacilitiesPage(${pageNumber - 1})">‹ Trước</button>
-        <span class="page-info">Trang ${pageNumber} / ${totalPages}</span>
-        <button ${pageNumber >= totalPages ? 'disabled' : ''} onclick="changeFacilitiesPage(${pageNumber + 1})">Sau ›</button>
+        <button ${currentPage <= 1 ? 'disabled' : ''} onclick="changeFacilitiesPage(${currentPage - 1})">‹ Trước</button>
+        <span class="page-info">Trang ${currentPage} / ${totalPages}</span>
+        <button ${currentPage >= totalPages ? 'disabled' : ''} onclick="changeFacilitiesPage(${currentPage + 1})">Sau ›</button>
     `;
     
     container.innerHTML = html;
