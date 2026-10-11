@@ -84,7 +84,7 @@ namespace GymManegement.Controllers
         }
 
         [HttpDelete("{id:int}")]
-        [Authorize(Roles = "SuperAdmin")]
+        [Authorize(Roles = "SuperAdmin,Admin")]
         public async Task<IActionResult> Delete(int id)
             => await _service.DeleteAsync(id) ? NoContent() : NotFound();
 
