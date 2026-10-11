@@ -221,28 +221,37 @@ function renderInvoicesPagination(data) {
 }
 
 function changeInvoicesPage(page) {
-    invoicesCurrentPage = page;
-    
-    // Check if we have filtered data
     const status = document.getElementById('invoiceStatusFilter')?.value;
-    if (status && filteredInvoices.length > 0) {
-        // Use client-side pagination for filtered data
-        const startIndex = (page - 1) * invoicesPageSize;
-        const endIndex = startIndex + invoicesPageSize;
-        const pageItems = filteredInvoices.slice(startIndex, endIndex);
-        const totalPages = Math.ceil(filteredInvoices.length / invoicesPageSize) || 1;
+    
+    if (status) {
+        // Filter is active
+        if (filteredInvoices.length === 0) {
+            // Empty results: show empty table, do NOT fall through to unfiltered data
+            invoicesCurrentPage = 1;
+            renderInvoicesTable({ items: [], pageNumber: 1, totalPages: 1, totalCount: 0 });
+            renderInvoicesPagination({ pageNumber: 1, totalPages: 1 });
+            return;
+        }
         
-        const paginatedData = {
+        // Has results: paginate
+        invoicesCurrentPage = page;
+        const startIdx = (page - 1) * invoicesPageSize;
+        const endIdx = startIdx + invoicesPageSize;
+        const pageItems = filteredInvoices.slice(startIdx, endIdx);
+        
+        renderInvoicesTable({
             items: pageItems,
             pageNumber: page,
-            totalPages: totalPages,
+            totalPages: Math.ceil(filteredInvoices.length / invoicesPageSize),
             totalCount: filteredInvoices.length
-        };
-        
-        renderInvoicesTable(paginatedData);
-        renderInvoicesPagination(paginatedData);
+        });
+        renderInvoicesPagination({
+            pageNumber: page,
+            totalPages: Math.ceil(filteredInvoices.length / invoicesPageSize)
+        });
     } else {
-        // Use server-side pagination for unfiltered data
+        // No filter: load from server
+        invoicesCurrentPage = page;
         loadInvoices();
     }
 }

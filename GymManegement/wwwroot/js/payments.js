@@ -138,24 +138,52 @@ async function renderPayments(container) {
 
 async function loadPayments() {
     try {
-        showLoading();
-        const data = await apiFetch(`/api/Payment?pageNumber=${paymentsCurrentPage}&pageSize=${paymentsPageSize}`);
-        hideLoading();
-        
-        // Apply client-side payment method filter
         const method = document.getElementById('paymentMethodFilter')?.value;
-        if (method) {
-            const filteredItems = data.items.filter(item => item.paymentMethod === method);
-            data.items = filteredItems;
-            data.totalCount = filteredItems.length;
-            data.totalPages = Math.ceil(filteredItems.length / paymentsPageSize) || 1;
+        
+        // Reset page when filter changes
+        if (window._lastPaymentMethodFilter !== method) {
+            paymentsCurrentPage = 1;
+            window._lastPaymentMethodFilter = method;
         }
         
-        renderPaymentsTable(data);
-        renderPaymentsPagination(data);
+        // When filtering, fetch all records; otherwise use server pagination
+        const fetchPageSize = method ? 9999 : paymentsPageSize;
+        const fetchPageNumber = method ? 1 : paymentsCurrentPage;
+        
+        const data = await apiFetch(`/api/Payment?pageNumber=${fetchPageNumber}&pageSize=${fetchPageSize}`);
+        
+        if (!data || !data.items) {
+            renderPaymentsTable({ items: [], pageNumber: 1, totalPages: 1, totalCount: 0 });
+            renderPaymentsPagination({ pageNumber: 1, totalPages: 1 });
+            return;
+        }
+        
+        let displayData;
+        
+        if (method) {
+            // Filter active: client-side filter + pagination
+            const filtered = data.items.filter(p => p.paymentMethod === method);
+            const totalFilteredPages = Math.ceil(filtered.length / paymentsPageSize) || 1;
+            const startIdx = (paymentsCurrentPage - 1) * paymentsPageSize;
+            const endIdx = startIdx + paymentsPageSize;
+            const pageItems = filtered.slice(startIdx, endIdx);
+            displayData = {
+                items: pageItems,
+                pageNumber: paymentsCurrentPage,
+                totalPages: totalFilteredPages,
+                totalCount: filtered.length
+            };
+        } else {
+            // No filter: use server response as-is
+            displayData = data;
+        }
+        
+        renderPaymentsTable(displayData);
+        renderPaymentsPagination(displayData);
+        
     } catch (error) {
-        hideLoading();
-        showError('Lỗi tải danh sách thanh toán: ' + error.message);
+        showError('Không thể tải danh sách thanh toán');
+        console.error('Error loading payments:', error);
     }
 }
 
