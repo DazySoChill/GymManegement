@@ -37,7 +37,6 @@ builder.Services.AddScoped<IInvoiceService,    InvoiceService>();
 builder.Services.AddScoped<IPaymentService,    PaymentService>();
 builder.Services.AddScoped<IReportService,     ReportService>();
 builder.Services.AddScoped<IAuthService,       AuthService>();
-builder.Services.AddScoped<IExportService,     ExportService>();
 builder.Services.AddScoped<IMemberSchedulePreferenceService, MemberSchedulePreferenceService>();
 
 
