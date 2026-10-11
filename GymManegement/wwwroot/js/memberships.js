@@ -429,7 +429,9 @@ function renderMembershipsTable(data) {
     const role = getRole();
     const canManage = role === 'Admin';
     
-    if (!data || !data.items || data.items.length === 0) {
+    // Defensive accessor for items
+    const items = data?.data || data?.items || [];
+    if (items.length === 0) {
         container.innerHTML = '<div class="empty-state"><div class="empty-state-icon">🎫</div><div class="empty-state-text">Không có gói tập nào</div></div>';
         return;
     }
@@ -451,7 +453,7 @@ function renderMembershipsTable(data) {
             <tbody>
     `;
     
-    data.items.forEach(m => {
+    items.forEach(m => {
         const daysClass = m.daysRemaining < 7 ? 'badge-danger' : m.daysRemaining < 30 ? 'badge-warning' : 'badge-success';
         html += `
             <tr>
@@ -481,7 +483,9 @@ function renderMembershipsPagination(data) {
     const container = document.getElementById('membershipsPagination');
     if (!data) return;
     
-    const { pageNumber, totalPages } = data;
+    // Defensive accessors for pagination metadata
+    const pageNumber = data?.pageNumber || 1;
+    const totalPages = data?.totalPages || 1;
     
     let html = `
         <button ${pageNumber <= 1 ? 'disabled' : ''} onclick="changeMembershipsPage(${pageNumber - 1})">‹ Trước</button>

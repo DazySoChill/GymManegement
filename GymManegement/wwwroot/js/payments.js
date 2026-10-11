@@ -140,11 +140,17 @@ async function loadPayments() {
     try {
         const method = document.getElementById('paymentMethodFilter')?.value;
         
-        // Reset page when filter changes
-        if (window._lastPaymentMethodFilter !== method) {
+        // Reset page to 1 when filter is applied OR cleared
+        if (method) {
+            // Filter is active: always show page 1 of filtered results
+            if (paymentsCurrentPage !== 1) {
+                paymentsCurrentPage = 1;
+            }
+        } else if (window._lastPaymentMethodFilter) {
+            // Filter was just cleared (was set, now empty): reset to page 1
             paymentsCurrentPage = 1;
-            window._lastPaymentMethodFilter = method;
         }
+        window._lastPaymentMethodFilter = method;
         
         // When filtering, fetch all records; otherwise use server pagination
         const fetchPageSize = method ? 9999 : paymentsPageSize;

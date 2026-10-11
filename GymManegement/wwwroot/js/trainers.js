@@ -138,7 +138,9 @@ async function loadTrainers() {
 function renderTrainersTable(data) {
     const container = document.getElementById('trainersTableContainer');
     
-    if (!data || !data.items || data.items.length === 0) {
+    // Defensive accessor for items
+    const items = data?.data || data?.items || [];
+    if (items.length === 0) {
         container.innerHTML = '<div class="empty-state"><div class="empty-state-icon">🏋️</div><div class="empty-state-text">Không có HLV nào</div></div>';
         return;
     }
@@ -158,7 +160,7 @@ function renderTrainersTable(data) {
             <tbody>
     `;
     
-    data.items.forEach(trainer => {
+    items.forEach(trainer => {
         html += `
             <tr>
                 <td>${trainer.trainerId}</td>
@@ -184,7 +186,9 @@ function renderTrainersPagination(data) {
     const container = document.getElementById('trainersPagination');
     if (!data) return;
     
-    const { pageNumber, totalPages } = data;
+    // Defensive accessors for pagination metadata
+    const pageNumber = data?.pageNumber || 1;
+    const totalPages = data?.totalPages || 1;
     
     let html = `
         <button ${pageNumber <= 1 ? 'disabled' : ''} onclick="changeTrainersPage(${pageNumber - 1})">‹ Trước</button>

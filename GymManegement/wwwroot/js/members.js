@@ -145,7 +145,9 @@ function renderMembersTable(data) {
     const role = getRole();
     const canManage = role === 'Admin';
     
-    if (!data || !data.items || data.items.length === 0) {
+    // Defensive accessor for items
+    const items = data?.data || data?.items || [];
+    if (items.length === 0) {
         container.innerHTML = '<div class="empty-state"><div class="empty-state-icon">👥</div><div class="empty-state-text">Không có member nào</div></div>';
         return;
     }
@@ -166,7 +168,7 @@ function renderMembersTable(data) {
             <tbody>
     `;
     
-    data.items.forEach(member => {
+    items.forEach(member => {
         html += `
             <tr>
                 <td>${member.memberId}</td>
@@ -195,7 +197,9 @@ function renderMembersPagination(data) {
     const container = document.getElementById('membersPagination');
     if (!data) return;
     
-    const { pageNumber, totalPages } = data;
+    // Defensive accessors for pagination metadata
+    const pageNumber = data?.pageNumber || 1;
+    const totalPages = data?.totalPages || 1;
     
     let html = `
         <button ${pageNumber <= 1 ? 'disabled' : ''} onclick="changeMembersPage(${pageNumber - 1})">‹ Trước</button>
