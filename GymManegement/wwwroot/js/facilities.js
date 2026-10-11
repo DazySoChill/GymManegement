@@ -143,7 +143,7 @@ function renderFacilitiesTable(result) {
     const container = document.getElementById('facilitiesTableContainer');
     
     // Defensive accessor to handle both property names
-    const facilities = result?.data || result?.items || [];
+    const facilities = result?.Data || result?.data || result?.items || [];
     
     if (facilities.length === 0) {
         container.innerHTML = '<div class="empty-state"><div class="empty-state-icon">🏢</div><div class="empty-state-text">Không có cơ sở nào</div></div>';

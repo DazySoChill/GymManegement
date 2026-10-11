@@ -602,7 +602,8 @@ async function loadSessions() {
         // If week filter is active, fetch all sessions (pagination doesn't work well with client-side filtering)
         if (currentWeekFilter) {
             const allData = await apiFetch(`/api/Session?pageNumber=1&pageSize=10000`);
-            const filtered = filterSessionsByWeek(allData.items || [], currentWeekFilter.start, currentWeekFilter.end);
+            const allItems = allData?.Data || allData?.data || allData?.items || [];
+            const filtered = filterSessionsByWeek(allItems, currentWeekFilter.start, currentWeekFilter.end);
             
             hideLoading();
             await renderSessionsTable({ items: filtered, pageNumber: 1, totalPages: 1 });
@@ -624,13 +625,15 @@ async function renderSessionsTable(data) {
     const role = getRole();
     const canManage = role === 'Admin' || role === 'Trainer';
     
-    if (!data || !data.items || data.items.length === 0) {
+    const items = data?.Data || data?.data || data?.items || [];
+    
+    if (!data || items.length === 0) {
         container.innerHTML = '<div class="empty-state"><div class="empty-state-icon">💪</div><div class="empty-state-text">Không có buổi tập nào</div></div>';
         return;
     }
     
     // Fetch all member names and schedule details in parallel
-    const sessions = data.items;
+    const sessions = items;
     const memberIds = [...new Set(sessions.map(s => s.memberId))];
     const scheduleIds = [...new Set(sessions.map(s => s.scheduleId))];
     

@@ -515,7 +515,9 @@ async function renderSchedulesTable(data) {
     const role = getRole();
     const canManage = role === 'Admin' || role === 'Trainer';
     
-    if (!data || !data.items || data.items.length === 0) {
+    const items = data?.Data || data?.data || data?.items || [];
+    
+    if (!data || items.length === 0) {
         container.innerHTML = '<div class="empty-state"><div class="empty-state-icon">📅</div><div class="empty-state-text">Không có lịch tập nào</div></div>';
         return;
     }
@@ -537,7 +539,7 @@ async function renderSchedulesTable(data) {
             <tbody>
     `;
     
-    data.items.forEach(schedule => {
+    items.forEach(schedule => {
         html += `
             <tr>
                 <td>${schedule.scheduleId}</td>
@@ -567,7 +569,8 @@ function renderSchedulesPagination(data) {
     const container = document.getElementById('schedulesPagination');
     if (!data) return;
     
-    const { pageNumber, totalPages } = data;
+    const pageNumber = data?.pageNumber || data?.PageNumber || 1;
+    const totalPages = data?.totalPages || data?.TotalPages || 1;
     
     let html = `
         <button ${pageNumber <= 1 ? 'disabled' : ''} onclick="changeSchedulesPage(${pageNumber - 1})">‹ Trước</button>

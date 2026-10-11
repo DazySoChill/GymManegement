@@ -158,7 +158,9 @@ async function loadPayments() {
         
         const data = await apiFetch(`/api/Payment?pageNumber=${fetchPageNumber}&pageSize=${fetchPageSize}`);
         
-        if (!data || !data.items) {
+        const allItems = data?.Data || data?.data || data?.items || [];
+        
+        if (!data || allItems.length === 0) {
             renderPaymentsTable({ items: [], pageNumber: 1, totalPages: 1, totalCount: 0 });
             renderPaymentsPagination({ pageNumber: 1, totalPages: 1 });
             return;
@@ -168,7 +170,7 @@ async function loadPayments() {
         
         if (method) {
             // Filter active: client-side filter + pagination
-            const filtered = data.items.filter(p => p.paymentMethod === method);
+            const filtered = allItems.filter(p => p.paymentMethod === method);
             const totalFilteredPages = Math.ceil(filtered.length / paymentsPageSize) || 1;
             const startIdx = (paymentsCurrentPage - 1) * paymentsPageSize;
             const endIdx = startIdx + paymentsPageSize;
@@ -181,7 +183,7 @@ async function loadPayments() {
             };
         } else {
             // No filter: use server response as-is
-            displayData = data;
+            displayData = { ...data, items: allItems };
         }
         
         renderPaymentsTable(displayData);
@@ -198,7 +200,9 @@ function renderPaymentsTable(data) {
     const role = getRole();
     const canManage = role === 'Admin';
     
-    if (!data || !data.items || data.items.length === 0) {
+    const items = data?.Data || data?.data || data?.items || [];
+    
+    if (!data || items.length === 0) {
         container.innerHTML = '<div class="empty-state"><div class="empty-state-icon">💳</div><div class="empty-state-text">Không có thanh toán nào</div></div>';
         return;
     }
@@ -220,7 +224,7 @@ function renderPaymentsTable(data) {
             <tbody>
     `;
     
-    data.items.forEach(payment => {
+    items.forEach(payment => {
         const statusBadge = payment.status === 'Completed' ? 'badge-success' :
                           payment.status === 'Failed' ? 'badge-danger' : 'badge-warning';
         html += `
@@ -252,7 +256,8 @@ function renderPaymentsPagination(data) {
     const container = document.getElementById('paymentsPagination');
     if (!data) return;
     
-    const { pageNumber, totalPages } = data;
+    const pageNumber = data?.pageNumber || data?.PageNumber || 1;
+    const totalPages = data?.totalPages || data?.TotalPages || 1;
     
     let html = `
         <button ${pageNumber <= 1 ? 'disabled' : ''} onclick="changePaymentsPage(${pageNumber - 1})">‹ Trước</button>
@@ -280,7 +285,7 @@ async function showCreatePaymentModal() {
         ]);
         hideLoading();
         
-        const members = membersData.items || [];
+        const members = membersData?.Data || membersData?.data || membersData?.items || [];
         const invoices = invoicesData || [];
         
         const modal = document.createElement('div');
