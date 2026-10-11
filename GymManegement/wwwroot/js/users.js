@@ -92,6 +92,27 @@ async function renderUsers(container) {
                 </form>
             </div>
         </div>
+        
+        <!-- Change Role Modal -->
+        <div id="changeRoleModal" class="modal">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h3 class="modal-title">Đổi Vai Trò User</h3>
+                    <button class="modal-close" onclick="closeChangeRoleModal()">×</button>
+                </div>
+                <div style="padding: 20px;">
+                    <p><strong>Thông báo:</strong></p>
+                    <p>Tính năng thay đổi vai trò yêu cầu hỗ trợ từ backend API.</p>
+                    <p>Cần thêm endpoint: <code>PUT /api/Auth/users/{id}/role</code> với body <code>{"role": "Admin|Trainer|Member"}</code></p>
+                    <p style="margin-top: 15px; padding: 10px; background: #f8f9fa; border-left: 3px solid #ffc107;">
+                        <strong>Hướng dẫn:</strong> Hiện tại, để thay đổi vai trò của user, bạn cần liên hệ với nhà phát triển backend để thêm endpoint API này.
+                    </p>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-sm btn-primary" onclick="closeChangeRoleModal()">Đã hiểu</button>
+                    </div>
+                </div>
+            </div>
+        </div>
     `;
     
     await loadUsers();
@@ -146,13 +167,23 @@ function renderUsersTable(users) {
         const statusText = isActive ? 'Hoạt động' : 'Bị khóa';
         const isCurrentUser = user.userId === currentUser.userId;
         
+        // Color-coded role badges: Admin=red, Trainer=blue, Member=green
+        let roleBadge = 'badge-info';
+        if (user.role === 'Admin') {
+            roleBadge = 'badge-danger';
+        } else if (user.role === 'Trainer') {
+            roleBadge = 'badge-primary';
+        } else if (user.role === 'Member') {
+            roleBadge = 'badge-success';
+        }
+        
         html += `
             <tr>
                 <td>${user.userId}</td>
                 <td>${escapeHtml(user.username)}</td>
                 <td>${escapeHtml(user.fullName)}</td>
                 <td>${escapeHtml(user.email || '-')}</td>
-                <td><span class="badge badge-info">${user.role}</span></td>
+                <td><span class="badge ${roleBadge}">${escapeHtml(user.role)}</span></td>
                 <td><span class="badge ${statusBadge}">${statusText}</span></td>
                 <td>${formatDateTime(user.lastLoginAt)}</td>
                 <td>
@@ -162,6 +193,7 @@ function renderUsersTable(users) {
                                 ? `<button class="btn btn-sm btn-danger" onclick="toggleUserStatus(${user.userId}, false)">🔒 Khóa</button>`
                                 : `<button class="btn btn-sm btn-success" onclick="toggleUserStatus(${user.userId}, true)">🔓 Mở</button>`
                             }
+                            <button class="btn btn-sm btn-warning" onclick="showChangeRoleModal(${user.userId}, '${escapeHtml(user.username)}', '${escapeHtml(user.role)}')">🔄 Đổi vai trò</button>
                         ` : '<span class="text-muted">Tài khoản hiện tại</span>'}
                     </div>
                 </td>
@@ -300,4 +332,12 @@ async function handleCreateStaff(e) {
         errorDiv.textContent = 'Tạo tài khoản thất bại: ' + error.message;
         errorDiv.style.display = 'block';
     }
+}
+
+function showChangeRoleModal(userId, username, currentRole) {
+    document.getElementById('changeRoleModal').classList.add('show');
+}
+
+function closeChangeRoleModal() {
+    document.getElementById('changeRoleModal').classList.remove('show');
 }
