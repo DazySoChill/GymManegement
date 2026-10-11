@@ -343,31 +343,49 @@ async function showEditMemberModal(memberId) {
         form.addEventListener('submit', async (e) => {
             e.preventDefault();
             
-            // Validate form
-            if (!validateMemberForm(true)) {
+            console.log('Form submitted!');
+            
+            // Simplified validation - just check required fields
+            const fullName = document.getElementById('editFullName').value.trim();
+            const email = document.getElementById('editEmail').value.trim();
+            
+            if (!fullName) {
+                showError('Vui lòng nhập họ tên');
+                return;
+            }
+            
+            if (!email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+                showError('Email không hợp lệ');
                 return;
             }
             
             // Gather data
+            const dateOfBirthValue = document.getElementById('editDateOfBirth').value;
+            const phoneValue = document.getElementById('editPhone').value.trim();
+            
             const formData = {
-                fullName: document.getElementById('editFullName').value.trim(),
-                email: document.getElementById('editEmail').value.trim(),
-                phone: document.getElementById('editPhone').value.trim() || null,
-                dateOfBirth: document.getElementById('editDateOfBirth').value || null
+                fullName: fullName,
+                email: email,
+                phone: phoneValue || null,
+                dateOfBirth: dateOfBirthValue ? new Date(dateOfBirthValue).toISOString() : null
             };
+            
+            console.log('Updating member with data:', formData);
             
             try {
                 showLoading();
-                await apiFetch(`/api/Member/${memberId}`, {
+                const result = await apiFetch(`/api/Member/${memberId}`, {
                     method: 'PUT',
                     body: JSON.stringify(formData)
                 });
                 hideLoading();
+                console.log('Update success:', result);
                 showSuccess('Cập nhật member thành công!');
                 modal.remove();
                 await loadMembers();
             } catch (error) {
                 hideLoading();
+                console.error('Update error:', error);
                 showError('Lỗi cập nhật member: ' + error.message);
             }
         });
@@ -384,19 +402,30 @@ function validateMemberForm(isEdit = false) {
     const email = document.getElementById(prefix + 'email');
     const dateOfBirth = document.getElementById(prefix + 'dateOfBirth');
     
+    // Check if elements exist
+    if (!fullName || !email || !dateOfBirth) {
+        console.error('Form elements not found:', { fullName: !!fullName, email: !!email, dateOfBirth: !!dateOfBirth });
+        return false;
+    }
+    
     let isValid = true;
     
-    // Clear previous errors
-    document.getElementById(prefix + 'fullNameError').textContent = '';
-    document.getElementById(prefix + 'emailError').textContent = '';
-    document.getElementById(prefix + 'dateOfBirthError').textContent = '';
+    // Clear previous errors - with defensive checks
+    const fullNameError = document.getElementById(prefix + 'fullNameError');
+    const emailError = document.getElementById(prefix + 'emailError');
+    const dateOfBirthError = document.getElementById(prefix + 'dateOfBirthError');
+    
+    if (fullNameError) fullNameError.textContent = '';
+    if (emailError) emailError.textContent = '';
+    if (dateOfBirthError) dateOfBirthError.textContent = '';
+    
     fullName.classList.remove('invalid');
     email.classList.remove('invalid');
     dateOfBirth.classList.remove('invalid');
     
     // Validate full name
     if (!fullName.value.trim()) {
-        document.getElementById(prefix + 'fullNameError').textContent = 'Vui lòng nhập họ tên';
+        if (fullNameError) fullNameError.textContent = 'Vui lòng nhập họ tên';
         fullName.classList.add('invalid');
         isValid = false;
     }
@@ -404,11 +433,11 @@ function validateMemberForm(isEdit = false) {
     // Validate email
     const emailValue = email.value.trim();
     if (!emailValue) {
-        document.getElementById(prefix + 'emailError').textContent = 'Vui lòng nhập email';
+        if (emailError) emailError.textContent = 'Vui lòng nhập email';
         email.classList.add('invalid');
         isValid = false;
     } else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(emailValue)) {
-        document.getElementById(prefix + 'emailError').textContent = 'Email không hợp lệ';
+        if (emailError) emailError.textContent = 'Email không hợp lệ';
         email.classList.add('invalid');
         isValid = false;
     }
@@ -420,7 +449,7 @@ function validateMemberForm(isEdit = false) {
         today.setHours(0, 0, 0, 0);
         
         if (selectedDate > today) {
-            document.getElementById(prefix + 'dateOfBirthError').textContent = 'Ngày sinh không được là ngày tương lai';
+            if (dateOfBirthError) dateOfBirthError.textContent = 'Ngày sinh không được là ngày tương lai';
             dateOfBirth.classList.add('invalid');
             isValid = false;
         }

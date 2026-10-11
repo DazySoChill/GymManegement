@@ -490,6 +490,14 @@ async function showManualCheckinModal() {
         
         hideLoading();
         
+        // Use defensive accessor for items
+        const members = membersData?.data || membersData?.items || [];
+        
+        if (members.length === 0) {
+            showError('Không tìm thấy member nào trong hệ thống');
+            return;
+        }
+        
         ensureModalStyles();
         
         const modal = document.createElement('div');
@@ -506,7 +514,7 @@ async function showManualCheckinModal() {
                             <label for="memberSelect">Chọn Member:</label>
                             <select id="memberSelect" name="memberId" required style="width:100%;padding:8px;border:1px solid #ddd;border-radius:6px;">
                                 <option value="">-- Chọn member --</option>
-                                ${membersData.items.map(m => `
+                                ${members.map(m => `
                                     <option value="${m.memberId}">
                                         ${escapeHtml(m.fullName || m.name || 'N/A')} (ID: ${m.memberId})
                                     </option>

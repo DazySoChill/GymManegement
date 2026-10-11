@@ -112,7 +112,7 @@ async function renderFacilities(container) {
                     <option value="">Tất cả trạng thái</option>
                     <option value="Active">Active</option>
                     <option value="Maintenance">Maintenance</option>
-                    <option value="Inactive">Inactive</option>
+                    <option value="Available">Available</option>
                 </select>
                 <button class="btn btn-info" onclick="loadFacilities()">🔍 Tìm</button>
             </div>
@@ -126,13 +126,35 @@ async function renderFacilities(container) {
 }
 
 async function loadFacilities() {
+    const statusFilter = document.getElementById('facilityStatusFilter')?.value || '';
+    
     try {
         showLoading();
-        const data = await apiFetch(`/api/Facility?pageNumber=${facilitiesCurrentPage}&pageSize=${facilitiesPageSize}`);
+        const data = await apiFetch(`/api/Facility?pageNumber=1&pageSize=1000`);
         hideLoading();
         
-        renderFacilitiesTable(data);
-        renderFacilitiesPagination(data);
+        let facilities = data?.Data || data?.data || data?.items || [];
+        
+        // Apply status filter on client side
+        if (statusFilter) {
+            facilities = facilities.filter(f => f.status === statusFilter);
+        }
+        
+        // Client-side pagination
+        const startIdx = (facilitiesCurrentPage - 1) * facilitiesPageSize;
+        const endIdx = startIdx + facilitiesPageSize;
+        const pageItems = facilities.slice(startIdx, endIdx);
+        const totalPages = Math.ceil(facilities.length / facilitiesPageSize) || 1;
+        
+        const paginatedData = {
+            data: pageItems,
+            pageNumber: facilitiesCurrentPage,
+            totalPages: totalPages,
+            totalCount: facilities.length
+        };
+        
+        renderFacilitiesTable(paginatedData);
+        renderFacilitiesPagination(paginatedData);
     } catch (error) {
         hideLoading();
         showError('Lỗi tải danh sách cơ sở: ' + error.message);
@@ -234,7 +256,7 @@ function showCreateFacilityModal() {
                     <select id="facilityStatus" name="status" required>
                         <option value="Active" selected>Active</option>
                         <option value="Maintenance">Maintenance</option>
-                        <option value="Inactive">Inactive</option>
+                        <option value="Available">Available</option>
                     </select>
                     <div class="error" id="statusError"></div>
                 </div>
@@ -335,7 +357,7 @@ async function showEditFacilityModal(facilityId) {
                         <select id="editFacilityStatus" name="status" required>
                             <option value="Active" ${facility.status === 'Active' ? 'selected' : ''}>Active</option>
                             <option value="Maintenance" ${facility.status === 'Maintenance' ? 'selected' : ''}>Maintenance</option>
-                            <option value="Inactive" ${facility.status === 'Inactive' ? 'selected' : ''}>Inactive</option>
+                            <option value="Available" ${facility.status === 'Available' ? 'selected' : ''}>Available</option>
                         </select>
                         <div class="error" id="editStatusError"></div>
                     </div>

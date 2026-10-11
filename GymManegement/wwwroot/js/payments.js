@@ -109,9 +109,16 @@ async function renderPayments(container) {
     }
     
     container.innerHTML = `
+        <div class="card" style="margin-bottom: 20px;">
+            <div class="card-header">
+                <h2 class="card-title">⏳ Hóa Đơn Chưa Thanh Toán (Pending)</h2>
+            </div>
+            <div id="pendingInvoicesContainer"></div>
+        </div>
+        
         <div class="card">
             <div class="card-header">
-                <h2 class="card-title">Quản lý Thanh Toán</h2>
+                <h2 class="card-title">✅ Lịch Sử Thanh Toán</h2>
                 <button class="btn btn-primary" onclick="showCreatePaymentModal()">➕ Ghi nhận thanh toán</button>
             </div>
             
@@ -136,8 +143,69 @@ async function renderPayments(container) {
         </div>
     `;
     
+    await loadPendingInvoices();
     await loadPayments();
     await loadMembersForFilter();
+}
+
+async function loadPendingInvoices() {
+    try {
+        showLoading();
+        const pendingInvoices = await apiFetch('/api/Invoice/status/Pending');
+        hideLoading();
+        
+        const container = document.getElementById('pendingInvoicesContainer');
+        
+        if (!pendingInvoices || pendingInvoices.length === 0) {
+            container.innerHTML = '<div class="empty-state"><div class="empty-state-icon">✨</div><div class="empty-state-text">Không có hóa đơn chưa thanh toán</div></div>';
+            return;
+        }
+        
+        let html = `
+            <table>
+                <thead>
+                    <tr>
+                        <th>Invoice ID</th>
+                        <th>Thành viên</th>
+                        <th>Số tiền</th>
+                        <th>Ngày HĐ</th>
+                        <th>Hạn TT</th>
+                        <th>Mô tả</th>
+                        <th>Thao tác</th>
+                    </tr>
+                </thead>
+                <tbody>
+        `;
+        
+        pendingInvoices.forEach(inv => {
+            const isOverdue = new Date(inv.dueDate) < new Date();
+            const dueDateClass = isOverdue ? 'style="color: #e74c3c; font-weight: bold;"' : '';
+            
+            html += `
+                <tr>
+                    <td>${inv.invoiceId}</td>
+                    <td>${inv.memberName || 'Member ' + inv.memberId}</td>
+                    <td style="font-weight: bold;">${formatCurrency(inv.totalAmount)}</td>
+                    <td>${formatDate(inv.invoiceDate)}</td>
+                    <td ${dueDateClass}>${formatDate(inv.dueDate)}${isOverdue ? ' ⚠️' : ''}</td>
+                    <td>${escapeHtml(inv.description || '-')}</td>
+                    <td>
+                        <div class="action-buttons">
+                            <button class="btn btn-sm btn-success" onclick="showPayInvoiceModal(${inv.invoiceId}, ${inv.memberId}, ${inv.totalAmount})" title="Thanh toán">💵 Thanh toán</button>
+                        </div>
+                    </td>
+                </tr>
+            `;
+        });
+        
+        html += '</tbody></table>';
+        container.innerHTML = html;
+        
+    } catch (error) {
+        hideLoading();
+        console.error('Error loading pending invoices:', error);
+        document.getElementById('pendingInvoicesContainer').innerHTML = '<div class="empty-state"><div class="empty-state-icon">❌</div><div class="empty-state-text">Lỗi tải hóa đơn chưa thanh toán</div></div>';
+    }
 }
 
 async function loadPayments() {
@@ -644,5 +712,148 @@ async function deletePayment(paymentId) {
     } catch (error) {
         hideLoading();
         showError('Lỗi xóa thanh toán: ' + error.message);
+    }
+}
+
+
+async function showPayInvoiceModal(invoiceId, memberId, amount) {
+    injectPaymentModalStyles();
+    
+    try {
+        showLoading();
+        // Fetch invoice and member details
+        const [invoice, membersData] = await Promise.all([
+            apiFetch(`/api/Invoice/${invoiceId}`),
+            apiFetch('/api/Member?pageNumber=1&pageSize=1000')
+        ]);
+        hideLoading();
+        
+        const members = membersData?.Data || membersData?.data || membersData?.items || [];
+        const member = members.find(m => m.memberId === memberId);
+        
+        const modal = document.createElement('div');
+        modal.className = 'gym-modal-overlay';
+        modal.innerHTML = `
+            <div class="gym-modal" style="position: relative;">
+                <button class="gym-modal-close" onclick="this.closest('.gym-modal-overlay').remove()">×</button>
+                <h3>💵 Thanh Toán Hóa Đơn #${invoiceId}</h3>
+                <form id="payInvoiceForm">
+                    <div class="form-group">
+                        <label>Thành viên</label>
+                        <input type="text" value="${escapeHtml(member?.fullName || 'Member ' + memberId)}" disabled style="background: #f5f5f5;">
+                    </div>
+                    <div class="form-group">
+                        <label>Hóa đơn</label>
+                        <input type="text" value="HĐ #${invoiceId} - ${escapeHtml(invoice?.description || '')}" disabled style="background: #f5f5f5;">
+                    </div>
+                    <div class="form-group">
+                        <label>Số tiền (VNĐ)</label>
+                        <input type="number" id="payAmount" name="amount" value="${amount}" readonly required style="background: #f5f5f5; font-weight: bold; font-size: 16px;">
+                    </div>
+                    <div class="form-group">
+                        <label>Phương thức thanh toán <span class="required">*</span></label>
+                        <select id="payPaymentMethod" name="paymentMethod" required>
+                            <option value="">-- Chọn phương thức --</option>
+                            <option value="Cash">💵 Cash (Tiền mặt)</option>
+                            <option value="Card">💳 Card (Thẻ)</option>
+                            <option value="QRCode">📱 QR Code</option>
+                            <option value="BankTransfer">🏦 Bank Transfer (Chuyển khoản)</option>
+                            <option value="MoMo">🟣 MoMo</option>
+                            <option value="ZaloPay">🔵 ZaloPay</option>
+                        </select>
+                        <div class="error" id="payPaymentMethodError"></div>
+                    </div>
+                    <div class="form-group">
+                        <label>Ngày thanh toán <span class="required">*</span></label>
+                        <input type="date" id="payPaymentDate" name="paymentDate" required>
+                        <div class="error" id="payPaymentDateError"></div>
+                    </div>
+                    <div class="form-group">
+                        <label>Mã giao dịch (tùy chọn)</label>
+                        <input type="text" id="payTransactionId" name="transactionId" placeholder="VD: TXN123456, hoặc để trống">
+                    </div>
+                    <div class="gym-modal-buttons">
+                        <button type="button" class="btn btn-secondary" onclick="this.closest('.gym-modal-overlay').remove()">Hủy</button>
+                        <button type="submit" class="btn btn-success">✅ Xác Nhận Thanh Toán</button>
+                    </div>
+                </form>
+            </div>
+        `;
+        document.body.appendChild(modal);
+        
+        // Set default date to today
+        const today = new Date().toISOString().split('T')[0];
+        document.getElementById('payPaymentDate').value = today;
+        
+        // Form submit handler
+        const form = document.getElementById('payInvoiceForm');
+        form.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            
+            const paymentMethod = document.getElementById('payPaymentMethod').value;
+            const paymentDate = document.getElementById('payPaymentDate').value;
+            const transactionId = document.getElementById('payTransactionId').value.trim();
+            
+            console.log('=== PAY INVOICE ===');
+            console.log('Invoice ID:', invoiceId);
+            console.log('Member ID:', memberId);
+            console.log('Amount:', amount);
+            console.log('Payment Method:', paymentMethod);
+            
+            if (!paymentMethod) {
+                showError('Vui lòng chọn phương thức thanh toán');
+                return;
+            }
+            
+            if (!paymentDate) {
+                showError('Vui lòng chọn ngày thanh toán');
+                return;
+            }
+            
+            const paymentData = {
+                memberId: memberId,
+                invoiceId: invoiceId,
+                amount: amount,
+                paymentMethod: paymentMethod,
+                paymentDate: new Date(paymentDate).toISOString(),
+                transactionId: transactionId || (paymentMethod + '_' + Date.now()),
+                status: 'Completed'
+            };
+            
+            console.log('Payment data:', paymentData);
+            
+            try {
+                showLoading();
+                
+                // 1. Create payment record
+                await apiFetch('/api/Payment', {
+                    method: 'POST',
+                    body: JSON.stringify(paymentData)
+                });
+                
+                // 2. Update invoice status to Paid
+                await apiFetch(`/api/Invoice/${invoiceId}/status`, {
+                    method: 'PUT',
+                    body: JSON.stringify({ status: 'Paid' })
+                });
+                
+                hideLoading();
+                showSuccess('Thanh toán thành công!');
+                modal.remove();
+                
+                // Reload both sections
+                await loadPendingInvoices();
+                await loadPayments();
+                
+            } catch (error) {
+                hideLoading();
+                showError('Lỗi thanh toán: ' + error.message);
+                console.error('Payment error:', error);
+            }
+        });
+        
+    } catch (error) {
+        hideLoading();
+        showError('Lỗi tải thông tin: ' + error.message);
     }
 }

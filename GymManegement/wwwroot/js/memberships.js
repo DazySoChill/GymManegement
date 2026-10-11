@@ -1,4 +1,4 @@
-﻿/**
+﻿﻿/**
  * Memberships Management Module
  */
 
@@ -7,10 +7,10 @@ let membershipsPageSize = 10;
 
 // Available packages for purchase
 const AVAILABLE_PACKAGES = [
-  { id: 'basic', name: 'GÃ³i CÆ¡ Báº£n', price: 500000, durationDays: 30, description: '1 thÃ¡ng - Sá»­ dá»¥ng táº¥t cáº£ thiáº¿t bá»‹' },
-  { id: 'advanced', name: 'GÃ³i NÃ¢ng Cao', price: 1200000, durationDays: 90, description: '3 thÃ¡ng - Bao gá»“m 2 buá»•i PT/thÃ¡ng' },
-  { id: 'vip', name: 'GÃ³i VIP', price: 2000000, durationDays: 180, description: '6 thÃ¡ng - KhÃ´ng giá»›i háº¡n PT + dinh dÆ°á»¡ng' },
-  { id: 'annual', name: 'GÃ³i NÄƒm', price: 3500000, durationDays: 365, description: '12 thÃ¡ng - Táº¥t cáº£ dá»‹ch vá»¥ cao cáº¥p' }
+  { id: 'basic', name: 'Gói Cơ Bản', price: 500000, durationDays: 30, description: '1 tháng - Sử dụng tất cả thiết bị' },
+  { id: 'advanced', name: 'Gói Nâng Cao', price: 1200000, durationDays: 90, description: '3 tháng - Bao gồm 2 buổi tập cùng  PT/tháng' },
+  { id: 'vip', name: 'Gói VIP', price: 2000000, durationDays: 180, description: '6 tháng - Không giới hạn PT + dinh dưỡng' },
+  { id: 'annual', name: 'Gói Năm', price: 3500000, durationDays: 365, description: '12 tháng - Tất cả dịch vụ cao cấp' }
 ];
 
 // Inject modal styles once
@@ -136,8 +136,8 @@ function renderAvailablePackages(memberId) {
                 <h4 style="margin: 0 0 12px 0; color: #27ae60; font-size: 18px;">${escapeHtml(pkg.name)}</h4>
                 <div style="font-size: 24px; font-weight: bold; color: #2c3e50; margin-bottom: 8px;">${formatCurrency(pkg.price)}</div>
                 <div style="color: #7f8c8d; margin-bottom: 12px; font-size: 14px;">${escapeHtml(pkg.description)}</div>
-                <div style="margin-bottom: 16px; color: #555;">â±ï¸ ${pkg.durationDays} ngÃ y</div>
-                <button class="btn btn-success" onclick="showPurchaseModal(${JSON.stringify(pkg).replace(/"/g, '&quot;')}, ${memberId})" style="width: 100%;">ðŸ’³ Mua GÃ³i</button>
+                <div style="margin-bottom: 16px; color: #555;">⏱️ ${pkg.durationDays} ngày</div>
+                <button class="btn btn-success" onclick="showPurchaseModal(${JSON.stringify(pkg).replace(/"/g, '&quot;')}, ${memberId})" style="width: 100%;">💳 Mua Gói</button>
             </div>
         `;
     });
@@ -158,27 +158,27 @@ function showPurchaseModal(pkg, memberId) {
     modal.className = 'gym-modal-overlay';
     modal.innerHTML = `
         <div class="gym-modal">
-            <h3>XÃ¡c Nháº­n Mua GÃ³i</h3>
+            <h3>Xác Nhận Mua Gói</h3>
             <div style="margin-bottom: 16px;">
-                <strong>GÃ³i:</strong> ${escapeHtml(pkg.name)}
+                <strong>Gói:</strong> ${escapeHtml(pkg.name)}
             </div>
             <div style="margin-bottom: 16px;">
-                <strong>GiÃ¡:</strong> ${formatCurrency(pkg.price)}
+                <strong>Giá:</strong> ${formatCurrency(pkg.price)}
             </div>
             <div style="margin-bottom: 16px;">
-                <strong>Thá»i háº¡n:</strong> ${pkg.durationDays} ngÃ y
+                <strong>Thời hạn:</strong> ${pkg.durationDays} ngày
             </div>
             <div class="date-picker-group">
-                <label for="startDatePicker">NgÃ y báº¯t Ä‘áº§u:</label>
+                <label for="startDatePicker">Ngày bắt đầu:</label>
                 <input type="date" id="startDatePicker" value="${today}" min="${today}" max="${maxDate}">
             </div>
             <div class="date-display" id="endDateDisplay">
-                <strong>NgÃ y káº¿t thÃºc:</strong> <span id="endDateValue">Äang tÃ­nh toÃ¡n...</span>
+                <strong>Ngày kết thúc:</strong> <span id="endDateValue">Đang tính toán...</span>
             </div>
             <div class="gym-modal-buttons">
-                <button class="btn btn-secondary" onclick="this.closest('.gym-modal-overlay').remove()">Há»§y</button>
-                <button class="btn btn-success" onclick="processPurchaseWithDate(${JSON.stringify(pkg).replace(/"/g, '&quot;')}, ${memberId}, 'Cash'); this.closest('.gym-modal-overlay').remove();">ðŸ’µ Tiá»n Máº·t</button>
-                <button class="btn btn-primary" onclick="showQRPaymentModalWithDate(${JSON.stringify(pkg).replace(/"/g, '&quot;')}, ${memberId}); this.closest('.gym-modal-overlay').remove();">ðŸ“± Thanh ToÃ¡n QR</button>
+                <button class="btn btn-secondary" onclick="this.closest('.gym-modal-overlay').remove()">Hủy</button>
+                <button class="btn btn-success" onclick="processPurchaseWithDate(${JSON.stringify(pkg).replace(/"/g, '&quot;')}, ${memberId}, 'Cash'); this.closest('.gym-modal-overlay').remove();">💵 Tiền Mặt</button>
+                <button class="btn btn-primary" onclick="showQRPaymentModalWithDate(${JSON.stringify(pkg).replace(/"/g, '&quot;')}, ${memberId}); this.closest('.gym-modal-overlay').remove();">📱 Thanh Toán QR</button>
             </div>
         </div>
     `;
@@ -215,14 +215,14 @@ function showQRPaymentModal(pkg, memberId) {
     modal.className = 'gym-modal-overlay';
     modal.innerHTML = `
         <div class="gym-modal">
-            <h3>Thanh ToÃ¡n QR</h3>
-            <div class="qr-placeholder">ðŸ“±</div>
+            <h3>Thanh Toán QR</h3>
+            <div class="qr-placeholder">📱</div>
             <div style="text-align: center; margin: 16px 0; font-size: 16px; color: #2c3e50;">
-                QuÃ©t mÃ£ QR Ä‘á»ƒ thanh toÃ¡n <strong>${formatCurrency(pkg.price)}</strong>
+                Quét mã QR để thanh toán <strong>${formatCurrency(pkg.price)}</strong>
             </div>
             <div class="gym-modal-buttons">
-                <button class="btn btn-secondary" onclick="this.closest('.gym-modal-overlay').remove()">Há»§y</button>
-                <button class="btn btn-success" onclick="processPurchase(${JSON.stringify(pkg).replace(/"/g, '&quot;')}, ${memberId}, 'QRCode'); this.closest('.gym-modal-overlay').remove();">âœ… XÃ¡c Nháº­n ÄÃ£ Thanh ToÃ¡n</button>
+                <button class="btn btn-secondary" onclick="this.closest('.gym-modal-overlay').remove()">Hủy</button>
+                <button class="btn btn-success" onclick="processPurchase(${JSON.stringify(pkg).replace(/"/g, '&quot;')}, ${memberId}, 'QRCode'); this.closest('.gym-modal-overlay').remove();">✔ Xác Nhận Đã Thanh Toán</button>
             </div>
         </div>
     `;
@@ -239,14 +239,14 @@ function showQRPaymentModalWithDate(pkg, memberId) {
     modal.className = 'gym-modal-overlay';
     modal.innerHTML = `
         <div class="gym-modal">
-            <h3>Thanh ToÃ¡n QR</h3>
-            <div class="qr-placeholder">ðŸ“±</div>
+            <h3>Thanh Toán QR</h3>
+            <div class="qr-placeholder">📱</div>
             <div style="text-align: center; margin: 16px 0; font-size: 16px; color: #2c3e50;">
-                QuÃ©t mÃ£ QR Ä‘á»ƒ thanh toÃ¡n <strong>${formatCurrency(pkg.price)}</strong>
+                Quét mã QR để thanh toán <strong>${formatCurrency(pkg.price)}</strong>
             </div>
             <div class="gym-modal-buttons">
-                <button class="btn btn-secondary" onclick="this.closest('.gym-modal-overlay').remove()">Há»§y</button>
-                <button class="btn btn-success" onclick="processPurchase(${JSON.stringify(pkg).replace(/"/g, '&quot;')}, ${memberId}, 'QRCode', '${startDate}'); this.closest('.gym-modal-overlay').remove();">âœ… XÃ¡c Nháº­n ÄÃ£ Thanh ToÃ¡n</button>
+                <button class="btn btn-secondary" onclick="this.closest('.gym-modal-overlay').remove()">Hủy</button>
+                <button class="btn btn-success" onclick="processPurchase(${JSON.stringify(pkg).replace(/"/g, '&quot;')}, ${memberId}, 'QRCode', '${startDate}'); this.closest('.gym-modal-overlay').remove();">✔ Xác Nhận Đã Thanh Toán</button>
             </div>
         </div>
     `;
@@ -294,7 +294,7 @@ async function processPurchase(pkg, memberId, method = 'QRCode', startDate = nul
         });
         
         hideLoading();
-        showToast('Mua gÃ³i táº­p thÃ nh cÃ´ng!', 'success');
+        showToast('Mua gói tập thành công!', 'success');
         
         // Reload to show new membership
         setTimeout(() => {
@@ -303,23 +303,23 @@ async function processPurchase(pkg, memberId, method = 'QRCode', startDate = nul
         
     } catch (error) {
         hideLoading();
-        let errorMessage = 'ÄÃ£ xáº£y ra lá»—i há»‡ thá»‘ng. Vui lÃ²ng thá»­ láº¡i sau.';
+        let errorMessage = 'Đã xảy ra lỗi hệ thống. Vui lòng thử lại sau.';
         
         // Check for specific error messages
         if (error.message) {
             if (error.message.toLowerCase().includes('active membership') || 
-                error.message.toLowerCase().includes('Ä‘Ã£ cÃ³ gÃ³i táº­p')) {
-                errorMessage = 'Báº¡n Ä‘Ã£ cÃ³ gÃ³i táº­p Ä‘ang hoáº¡t Ä‘á»™ng. Vui lÃ²ng há»§y gÃ³i hiá»‡n táº¡i trÆ°á»›c khi mua gÃ³i má»›i.';
+                error.message.toLowerCase().includes('đã có gói tập')) {
+                errorMessage = 'Bạn đã có gói tập đang hoạt động. Vui lòng hủy gói hiện tại trước khi mua gói mới.';
             } else if (error.message.toLowerCase().includes('payment')) {
-                errorMessage = 'Lá»—i thanh toÃ¡n. Vui lÃ²ng thá»­ láº¡i sau.';
+                errorMessage = 'Lỗi thanh toán. Vui lòng thử lại sau.';
             } else if (error.message.toLowerCase().includes('membership')) {
-                errorMessage = 'Lá»—i táº¡o gÃ³i táº­p. Vui lÃ²ng liÃªn há»‡ quáº£n trá»‹ viÃªn.';
+                errorMessage = 'Lỗi tạo gói tập. Vui lòng liên hệ quản trị viên.';
             } else {
                 errorMessage = error.message;
             }
         }
         
-        showToast('Lá»—i mua gÃ³i táº­p: ' + errorMessage, 'error');
+        showToast('Lỗi mua gói tập: ' + errorMessage, 'error');
     }
 }
 
@@ -329,14 +329,14 @@ async function renderMemberMemberships(container, memberId) {
     container.innerHTML = `
         <div class="card" style="margin-bottom: 24px;">
             <div class="card-header">
-                <h2 class="card-title">GÃ³i Táº­p CÃ³ Sáºµn</h2>
+                <h2 class="card-title">Gói Tập Có Sẵn</h2>
             </div>
             <div id="availablePackagesContainer" style="padding: 20px;"></div>
         </div>
         
         <div class="card">
             <div class="card-header">
-                <h2 class="card-title">GÃ³i Táº­p Cá»§a TÃ´i</h2>
+                <h2 class="card-title">Gói Tập Của Tôi</h2>
             </div>
             <div id="myMembershipsContainer"></div>
         </div>
@@ -352,11 +352,11 @@ async function renderMemberMemberships(container, memberId) {
         
         const myContainer = document.getElementById('myMembershipsContainer');
         if (!memberships || memberships.length === 0) {
-            myContainer.innerHTML = '<div class="empty-state"><div class="empty-state-icon">ðŸŽ«</div><div class="empty-state-text">Báº¡n chÆ°a cÃ³ gÃ³i táº­p nÃ o</div></div>';
+            myContainer.innerHTML = '<div class="empty-state"><div class="empty-state-icon">🎬</div><div class="empty-state-text">Bạn chưa có gói tập nào</div></div>';
             return;
         }
         
-        let html = '<table><thead><tr><th>GÃ³i</th><th>GiÃ¡</th><th>NgÃ y báº¯t Ä‘áº§u</th><th>NgÃ y káº¿t thÃºc</th><th>CÃ²n láº¡i</th><th>Thao tÃ¡c</th></tr></thead><tbody>';
+        let html = '<table><thead><tr><th>Gói</th><th>Giá</th><th>Ngày bắt đầu</th><th>Ngày kết thúc</th><th>Còn lại</th><th>Thao tác</th></tr></thead><tbody>';
         
         memberships.forEach(m => {
             const daysClass = m.daysRemaining < 7 ? 'badge-danger' : m.daysRemaining < 30 ? 'badge-warning' : 'badge-success';
@@ -367,9 +367,9 @@ async function renderMemberMemberships(container, memberId) {
                     <td>${formatCurrency(m.price)}</td>
                     <td>${formatDate(m.startDate)}</td>
                     <td>${formatDate(m.endDate)}</td>
-                    <td><span class="badge ${daysClass}">${m.daysRemaining} ngÃ y</span></td>
+                    <td><span class="badge ${daysClass}">${m.daysRemaining} ngày</span></td>
                     <td>
-                        ${isActive ? `<button class="btn btn-sm btn-danger" onclick="cancelMembership(${m.membershipId})">âŒ Há»§y GÃ³i</button>` : '<span style="color: #999;">ÄÃ£ háº¿t háº¡n</span>'}
+                        ${isActive ? `<button class="btn btn-sm btn-danger" onclick="cancelMembership(${m.membershipId})">❌ Hủy Gói</button>` : '<span style="color: #999;">Đã hết hạn</span>'}
                     </td>
                 </tr>
             `;
@@ -391,13 +391,13 @@ async function renderAllMemberships(container) {
     container.innerHTML = `
         <div class="card">
             <div class="card-header">
-                <h2 class="card-title">Quáº£n lÃ½ GÃ³i Táº­p</h2>
-                ${canManage ? '<button class="btn btn-primary" onclick="showCreateMembershipModal()">âž• ThÃªm gÃ³i táº­p</button>' : ''}
+                <h2 class="card-title">Quản lý Gói Tập</h2>
+                ${canManage ? '<button class="btn btn-primary" onclick="showCreateMembershipModal()">➕ Thêm gói tập</button>' : ''}
             </div>
             
             <div class="filters">
-                <input type="text" id="membershipSearch" placeholder="TÃ¬m kiáº¿m..." style="width: 300px;">
-                <button class="btn btn-info" onclick="loadMemberships()">ðŸ” TÃ¬m</button>
+                <input type="text" id="membershipSearch" placeholder="Tìm kiếm..." style="width: 300px;">
+                <button class="btn btn-info" onclick="loadMemberships()">🔍 Tìm</button>
             </div>
             
             <div class="table-container" id="membershipsTableContainer"></div>
@@ -420,7 +420,7 @@ async function loadMemberships() {
         renderMembershipsPagination(data);
     } catch (error) {
         hideLoading();
-        showError('Lá»—i táº£i danh sÃ¡ch gÃ³i táº­p: ' + error.message);
+        showError('Lỗi tải danh sách gói tập: ' + error.message);
     }
 }
 
@@ -432,7 +432,7 @@ function renderMembershipsTable(data) {
     // Defensive accessor for items
     const items = data?.data || data?.items || [];
     if (items.length === 0) {
-        container.innerHTML = '<div class="empty-state"><div class="empty-state-icon">ðŸŽ«</div><div class="empty-state-text">KhÃ´ng cÃ³ gÃ³i táº­p nÃ o</div></div>';
+        container.innerHTML = '<div class="empty-state"><div class="empty-state-icon">🎬</div><div class="empty-state-text">Không có gói tập nào</div></div>';
         return;
     }
     
@@ -441,13 +441,13 @@ function renderMembershipsTable(data) {
             <thead>
                 <tr>
                     <th>ID</th>
-                    <th>ThÃ nh viÃªn</th>
-                    <th>GÃ³i</th>
-                    <th>GiÃ¡</th>
-                    <th>NgÃ y báº¯t Ä‘áº§u</th>
-                    <th>NgÃ y káº¿t thÃºc</th>
-                    <th>CÃ²n láº¡i</th>
-                    ${canManage ? '<th>Thao tÃ¡c</th>' : ''}
+                    <th>Thành viên</th>
+                    <th>Gói</th>
+                    <th>Giá</th>
+                    <th>Ngày bắt đầu</th>
+                    <th>Ngày kết thúc</th>
+                    <th>Còn lại</th>
+                    ${canManage ? '<th>Thao tác</th>' : ''}
                 </tr>
             </thead>
             <tbody>
@@ -463,12 +463,12 @@ function renderMembershipsTable(data) {
                 <td>${formatCurrency(m.price)}</td>
                 <td>${formatDate(m.startDate)}</td>
                 <td>${formatDate(m.endDate)}</td>
-                <td><span class="badge ${daysClass}">${m.daysRemaining} ngÃ y</span></td>
+                <td><span class="badge ${daysClass}">${m.daysRemaining} ngày</span></td>
                 ${canManage ? `
                     <td>
                         <div class="action-buttons">
-                            <button class="btn btn-sm btn-info" onclick="showEditMembershipModal(${m.membershipId})">âœï¸</button>
-                            <button class="btn btn-sm btn-danger" onclick="deleteMembership(${m.membershipId})">ðŸ—‘ï¸ XÃ³a</button>
+                            <button class="btn btn-sm btn-info" onclick="showEditMembershipModal(${m.membershipId})">✏️</button>
+                            <button class="btn btn-sm btn-danger" onclick="deleteMembership(${m.membershipId})">❌ Xóa</button>
                         </div>
                     </td>
                 ` : ''}
@@ -489,9 +489,9 @@ function renderMembershipsPagination(data) {
     const totalPages = data?.totalPages || 1;
     
     let html = `
-        <button ${pageNumber <= 1 ? 'disabled' : ''} onclick="changeMembershipsPage(${pageNumber - 1})">â€¹ TrÆ°á»›c</button>
+        <button ${pageNumber <= 1 ? 'disabled' : ''} onclick="changeMembershipsPage(${pageNumber - 1})">‹ Trước</button>
         <span class="page-info">Trang ${pageNumber} / ${totalPages}</span>
-        <button ${pageNumber >= totalPages ? 'disabled' : ''} onclick="changeMembershipsPage(${pageNumber + 1})">Sau â€º</button>
+        <button ${pageNumber >= totalPages ? 'disabled' : ''} onclick="changeMembershipsPage(${pageNumber + 1})">Sau ›</button>
     `;
     
     container.innerHTML = html;
@@ -511,46 +511,46 @@ async function showCreateMembershipModal() {
         const membersData = await apiFetch('/api/Member?pageNumber=1&pageSize=1000');
         hideLoading();
         
-        const members = membersData.items || [];
+        const members = membersData?.data || membersData?.items || [];
         
         const modal = document.createElement('div');
         modal.className = 'gym-modal-overlay';
         modal.innerHTML = `
             <div class="gym-modal" style="position: relative;">
                 <button class="gym-modal-close" onclick="this.closest('.gym-modal-overlay').remove()" style="position: absolute; top: 16px; right: 16px; background: none; border: none; font-size: 24px; cursor: pointer; color: #999;">&times;</button>
-                <h3>âž• Táº¡o GÃ³i Táº­p Má»›i</h3>
+                <h3>➕ Tạo Gói Tập Mới</h3>
                 <form id="createMembershipForm">
                     <div class="form-group">
-                        <label>ThÃ nh viÃªn <span class="required">*</span></label>
+                        <label>Thành viên <span class="required">*</span></label>
                         <select id="memberId" name="memberId" required style="width: 100%; padding: 10px; border: 2px solid #ddd; border-radius: 6px;">
-                            <option value="">-- Chá»n thÃ nh viÃªn --</option>
+                            <option value="">-- Chọn thành viên --</option>
                             ${members.map(m => `<option value="${m.memberId}">${escapeHtml(m.fullName)} (ID: ${m.memberId})</option>`).join('')}
                         </select>
                         <div class="error" id="memberIdError"></div>
                     </div>
                     <div class="form-group">
-                        <label>TÃªn gÃ³i <span class="required">*</span></label>
-                        <input type="text" id="packageName" name="packageName" required placeholder="VD: GÃ³i CÆ¡ Báº£n, GÃ³i VIP">
+                        <label>Tên gói <span class="required">*</span></label>
+                        <input type="text" id="packageName" name="packageName" required placeholder="VD: Gói Cơ Bản, Gói VIP">
                         <div class="error" id="packageNameError"></div>
                     </div>
                     <div class="form-group">
-                        <label>GiÃ¡ (VNÄ) <span class="required">*</span></label>
+                        <label>Giá (VNĐ) <span class="required">*</span></label>
                         <input type="number" id="price" name="price" required min="0" step="1000" placeholder="500000">
                         <div class="error" id="priceError"></div>
                     </div>
                     <div class="form-group">
-                        <label>NgÃ y báº¯t Ä‘áº§u <span class="required">*</span></label>
+                        <label>Ngày bắt đầu <span class="required">*</span></label>
                         <input type="date" id="startDate" name="startDate" required>
                         <div class="error" id="startDateError"></div>
                     </div>
                     <div class="form-group">
-                        <label>NgÃ y káº¿t thÃºc <span class="required">*</span></label>
+                        <label>Ngày kết thúc <span class="required">*</span></label>
                         <input type="date" id="endDate" name="endDate" required>
                         <div class="error" id="endDateError"></div>
                     </div>
                     <div class="gym-modal-buttons">
-                        <button type="button" class="btn btn-secondary" onclick="this.closest('.gym-modal-overlay').remove()">Há»§y</button>
-                        <button type="submit" class="btn btn-primary">Táº¡o GÃ³i</button>
+                        <button type="button" class="btn btn-secondary" onclick="this.closest('.gym-modal-overlay').remove()">Hủy</button>
+                        <button type="submit" class="btn btn-primary">Tạo Gói</button>
                     </div>
                 </form>
             </div>
@@ -585,18 +585,18 @@ async function showCreateMembershipModal() {
                     body: JSON.stringify(formData)
                 });
                 hideLoading();
-                showSuccess('Táº¡o gÃ³i táº­p thÃ nh cÃ´ng!');
+                showSuccess('Tạo gói tập thành công!');
                 modal.remove();
                 await loadMemberships();
             } catch (error) {
                 hideLoading();
-                showError('Lá»—i táº¡o gÃ³i táº­p: ' + error.message);
+                showError('Lỗi tạo gói tập: ' + error.message);
             }
         });
         
     } catch (error) {
         hideLoading();
-        showError('Lá»—i táº£i danh sÃ¡ch thÃ nh viÃªn: ' + error.message);
+        showError('Lỗi tải danh sách thành viên: ' + error.message);
     }
 }
 
@@ -609,7 +609,7 @@ async function showEditMembershipModal(membershipId) {
         hideLoading();
         
         if (!membership) {
-            showError('KhÃ´ng tÃ¬m tháº¥y gÃ³i táº­p');
+            showError('Không tìm thấy gói tập');
             return;
         }
         
@@ -618,35 +618,35 @@ async function showEditMembershipModal(membershipId) {
         modal.innerHTML = `
             <div class="gym-modal" style="position: relative;">
                 <button class="gym-modal-close" onclick="this.closest('.gym-modal-overlay').remove()" style="position: absolute; top: 16px; right: 16px; background: none; border: none; font-size: 24px; cursor: pointer; color: #999;">&times;</button>
-                <h3>âœï¸ Sá»­a GÃ³i Táº­p</h3>
+                <h3>✏️ Sửa Gói Tập</h3>
                 <form id="editMembershipForm">
                     <div class="form-group">
                         <label>Member ID</label>
                         <input type="text" value="${membership.memberId}" disabled style="background: #f5f5f5;">
                     </div>
                     <div class="form-group">
-                        <label>TÃªn gÃ³i <span class="required">*</span></label>
+                        <label>Tên gói <span class="required">*</span></label>
                         <input type="text" id="editPackageName" name="packageName" value="${escapeHtml(membership.packageName)}" required>
                         <div class="error" id="editPackageNameError"></div>
                     </div>
                     <div class="form-group">
-                        <label>GiÃ¡ (VNÄ) <span class="required">*</span></label>
+                        <label>Giá (VNĐ) <span class="required">*</span></label>
                         <input type="number" id="editPrice" name="price" value="${membership.price}" required min="0" step="1000">
                         <div class="error" id="editPriceError"></div>
                     </div>
                     <div class="form-group">
-                        <label>NgÃ y báº¯t Ä‘áº§u <span class="required">*</span></label>
+                        <label>Ngày bắt đầu <span class="required">*</span></label>
                         <input type="date" id="editStartDate" name="startDate" value="${membership.startDate.split('T')[0]}" required>
                         <div class="error" id="editStartDateError"></div>
                     </div>
                     <div class="form-group">
-                        <label>NgÃ y káº¿t thÃºc <span class="required">*</span></label>
+                        <label>Ngày kết thúc <span class="required">*</span></label>
                         <input type="date" id="editEndDate" name="endDate" value="${membership.endDate.split('T')[0]}" required>
                         <div class="error" id="editEndDateError"></div>
                     </div>
                     <div class="gym-modal-buttons">
-                        <button type="button" class="btn btn-secondary" onclick="this.closest('.gym-modal-overlay').remove()">Há»§y</button>
-                        <button type="submit" class="btn btn-primary">Cáº­p Nháº­t</button>
+                        <button type="button" class="btn btn-secondary" onclick="this.closest('.gym-modal-overlay').remove()">Hủy</button>
+                        <button type="submit" class="btn btn-primary">Cập Nhật</button>
                     </div>
                 </form>
             </div>
@@ -655,39 +655,100 @@ async function showEditMembershipModal(membershipId) {
         
         // Form submit handler
         const form = document.getElementById('editMembershipForm');
+        
+        console.log('✅ Edit membership form event listener attached for membership:', membershipId);
+        
         form.addEventListener('submit', async (e) => {
             e.preventDefault();
             
-            if (!validateMembershipForm(true)) {
+            console.log('🔥 FORM SUBMITTED! Starting validation...');
+            console.log('=== EDIT MEMBERSHIP VALIDATION ===');
+            
+            // Simple inline validation instead of calling complex function
+            const packageNameValue = document.getElementById('editPackageName').value.trim();
+            const priceValue = document.getElementById('editPrice').value;
+            const startDateValue = document.getElementById('editStartDate').value;
+            const endDateValue = document.getElementById('editEndDate').value;
+            
+            console.log('Form data:', {
+                packageName: packageNameValue,
+                price: priceValue,
+                startDate: startDateValue,
+                endDate: endDateValue
+            });
+            
+            if (!packageNameValue) {
+                showError('Vui lòng nhập tên gói');
                 return;
             }
             
+            if (!priceValue || parseFloat(priceValue) <= 0) {
+                showError('Vui lòng nhập giá hợp lệ');
+                return;
+            }
+            
+            if (!startDateValue) {
+                showError('Vui lòng chọn ngày bắt đầu');
+                return;
+            }
+            
+            if (!endDateValue) {
+                showError('Vui lòng chọn ngày kết thúc');
+                return;
+            }
+            
+            if (new Date(endDateValue) <= new Date(startDateValue)) {
+                showError('Ngày kết thúc phải sau ngày bắt đầu');
+                return;
+            }
+            
+            console.log('✅ All validation passed');
+            
             const formData = {
-                packageName: document.getElementById('editPackageName').value.trim(),
-                price: parseFloat(document.getElementById('editPrice').value),
-                startDate: new Date(document.getElementById('editStartDate').value).toISOString(),
-                endDate: new Date(document.getElementById('editEndDate').value + 'T23:59:59').toISOString()
+                packageName: packageNameValue,
+                price: parseFloat(priceValue),
+                startDate: new Date(startDateValue).toISOString(),
+                endDate: new Date(endDateValue + 'T23:59:59').toISOString()
             };
+            
+            console.log('📤 PUT request payload:', formData);
+            console.log('📍 API endpoint:', `/api/Membership/${membershipId}`);
+            console.log('🔍 Token:', localStorage.getItem('gym_token') ? 'Present' : 'Missing');
             
             try {
                 showLoading();
-                await apiFetch(`/api/Membership/${membershipId}`, {
+                console.log('⏳ Calling API...');
+                
+                const response = await apiFetch(`/api/Membership/${membershipId}`, {
                     method: 'PUT',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
                     body: JSON.stringify(formData)
                 });
+                
+                console.log('✅ API response:', response);
                 hideLoading();
-                showSuccess('Cáº­p nháº­t gÃ³i táº­p thÃ nh cÃ´ng!');
+                showSuccess('Cập nhật gói tập thành công!');
+                console.log('🚪 Closing modal and reloading...');
                 modal.remove();
                 await loadMemberships();
+                console.log('✅ Done!');
             } catch (error) {
+                console.error('❌ API Error:', error);
+                console.error('❌ Error details:', {
+                    message: error.message,
+                    stack: error.stack,
+                    name: error.name
+                });
                 hideLoading();
-                showError('Lá»—i cáº­p nháº­t gÃ³i táº­p: ' + error.message);
+                showError('Lỗi cập nhật gói tập: ' + error.message);
             }
         });
         
     } catch (error) {
         hideLoading();
-        showError('Lá»—i táº£i thÃ´ng tin gÃ³i táº­p: ' + error.message);
+        showError('Lỗi tải thông tin gói tập: ' + error.message);
     }
 }
 
@@ -712,7 +773,7 @@ function validateMembershipForm(isEdit = false) {
     
     // Validate package name
     if (!packageName.value.trim()) {
-        document.getElementById(prefix + 'packageNameError').textContent = 'Vui lÃ²ng nháº­p tÃªn gÃ³i';
+        document.getElementById(prefix + 'packageNameError').textContent = 'Vui lòng nhập tên gói';
         packageName.classList.add('invalid');
         isValid = false;
     }
@@ -720,27 +781,27 @@ function validateMembershipForm(isEdit = false) {
     // Validate price
     const priceValue = parseFloat(price.value);
     if (!price.value || priceValue < 0) {
-        document.getElementById(prefix + 'priceError').textContent = 'Vui lÃ²ng nháº­p giÃ¡ há»£p lá»‡';
+        document.getElementById(prefix + 'priceError').textContent = 'Vui lòng nhập giá hợp lệ';
         price.classList.add('invalid');
         isValid = false;
     }
     
     // Validate dates
     if (!startDate.value) {
-        document.getElementById(prefix + 'startDateError').textContent = 'Vui lÃ²ng chá»n ngÃ y báº¯t Ä‘áº§u';
+        document.getElementById(prefix + 'startDateError').textContent = 'Vui lòng chọn ngày bắt đầu';
         startDate.classList.add('invalid');
         isValid = false;
     }
     
     if (!endDate.value) {
-        document.getElementById(prefix + 'endDateError').textContent = 'Vui lÃ²ng chá»n ngÃ y káº¿t thÃºc';
+        document.getElementById(prefix + 'endDateError').textContent = 'Vui lòng chọn ngày kết thúc';
         endDate.classList.add('invalid');
         isValid = false;
     }
     
     // Validate end date after start date
     if (startDate.value && endDate.value && new Date(endDate.value) <= new Date(startDate.value)) {
-        document.getElementById(prefix + 'endDateError').textContent = 'NgÃ y káº¿t thÃºc pháº£i sau ngÃ y báº¯t Ä‘áº§u';
+        document.getElementById(prefix + 'endDateError').textContent = 'Ngày kết thúc phải sau ngày bắt đầu';
         endDate.classList.add('invalid');
         isValid = false;
     }
@@ -749,7 +810,7 @@ function validateMembershipForm(isEdit = false) {
     if (!isEdit) {
         const memberId = document.getElementById('memberId');
         if (!memberId.value) {
-            document.getElementById('memberIdError').textContent = 'Vui lÃ²ng chá»n thÃ nh viÃªn';
+            document.getElementById('memberIdError').textContent = 'Vui lòng chọn thành viên';
             memberId.classList.add('invalid');
             isValid = false;
         }
@@ -766,17 +827,17 @@ async function cancelMembership(membershipId) {
     modal.className = 'gym-modal-overlay';
     modal.innerHTML = `
         <div class="gym-modal">
-            <h3>XÃ¡c Nháº­n Há»§y GÃ³i Táº­p</h3>
+            <h3>Xác Nhận Hủy Gói Tập</h3>
             <div class="warning-text">
-                âš ï¸ GÃ³i táº­p sáº½ káº¿t thÃºc ngay hÃ´m nay. HÃ nh Ä‘á»™ng nÃ y khÃ´ng thá»ƒ hoÃ n tÃ¡c.
+                ⚠️ Gói tập sẽ kết thúc ngay hôm nay. Hành động này không thể hoàn tác.
             </div>
             <div class="confirm-input-group">
-                <label for="cancelConfirmInput">Nháº­p "XÃ¡c Nháº­n" Ä‘á»ƒ tiáº¿p tá»¥c:</label>
-                <input type="text" id="cancelConfirmInput" placeholder='Nháº­p "XÃ¡c Nháº­n"'>
+                <label for="cancelConfirmInput">Nhập "Xác Nhận" để tiếp tục:</label>
+                <input type="text" id="cancelConfirmInput" placeholder='Nhập "Xác Nhận"'>
             </div>
             <div class="gym-modal-buttons">
-                <button class="btn btn-secondary" onclick="this.closest('.gym-modal-overlay').remove()">Há»§y Bá»</button>
-                <button class="btn btn-danger" id="confirmCancelBtn" disabled onclick="executeCancelMembership(${membershipId}); this.closest('.gym-modal-overlay').remove();">Há»§y GÃ³i Táº­p</button>
+                <button class="btn btn-secondary" onclick="this.closest('.gym-modal-overlay').remove()">Hủy Bỏ</button>
+                <button class="btn btn-danger" id="confirmCancelBtn" disabled onclick="executeCancelMembership(${membershipId}); this.closest('.gym-modal-overlay').remove();">Hủy Gói Tập</button>
             </div>
         </div>
     `;
@@ -796,7 +857,7 @@ async function executeCancelMembership(membershipId) {
         showLoading();
         await apiFetch(`/api/Membership/${membershipId}/cancel`, { method: 'POST' });
         hideLoading();
-        showToast('Há»§y gÃ³i táº­p thÃ nh cÃ´ng!', 'success');
+        showToast('Hủy gói tập thành công!', 'success');
         
         // Reload membership list
         const role = getRole();
@@ -809,7 +870,7 @@ async function executeCancelMembership(membershipId) {
         }
     } catch (err) {
         hideLoading();
-        showToast('Lá»—i há»§y gÃ³i: ' + err.message, 'error');
+        showToast('Lỗi hủy gói: ' + err.message, 'error');
     }
 }
 

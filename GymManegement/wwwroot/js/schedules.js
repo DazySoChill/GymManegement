@@ -691,8 +691,15 @@ async function showCreateScheduleModal() {
         ]);
         hideLoading();
         
-        const trainers = trainersData.items || [];
-        const facilities = facilitiesData.items || [];
+        const trainers = trainersData?.data || trainersData?.items || [];
+        const allFacilities = facilitiesData?.data || facilitiesData?.items || [];
+        
+        // Filter only Available and Active facilities for scheduling
+        const facilities = allFacilities.filter(f => f.status === 'Available' || f.status === 'Active');
+        
+        console.log('Trainers for scheduling:', trainers);
+        console.log('Facilities for scheduling:', facilities);
+        console.log('Sample facility:', facilities[0]);
         
         const modal = document.createElement('div');
         modal.className = 'gym-modal-overlay';
@@ -718,7 +725,7 @@ async function showCreateScheduleModal() {
                         <label>Phòng tập <span class="required">*</span></label>
                         <select id="facilityId" name="facilityId" required>
                             <option value="">-- Chọn phòng --</option>
-                            ${facilities.map(f => `<option value="${f.facilityId}">${escapeHtml(f.facilityName)}</option>`).join('')}
+                            ${facilities.map(f => `<option value="${f.facilityId}">${escapeHtml(f.facilityName || f.name || 'Facility ' + f.facilityId)}</option>`).join('')}
                         </select>
                         <div class="error" id="facilityIdError"></div>
                     </div>
@@ -803,8 +810,11 @@ async function showEditScheduleModal(scheduleId) {
             return;
         }
         
-        const trainers = trainersData.items || [];
-        const facilities = facilitiesData.items || [];
+        const trainers = trainersData?.data || trainersData?.items || [];
+        const allFacilities = facilitiesData?.data || facilitiesData?.items || [];
+        
+        // Filter only Available and Active facilities
+        const facilities = allFacilities.filter(f => f.status === 'Available' || f.status === 'Active');
         
         // Convert UTC to local datetime-local format
         const startTimeLocal = new Date(schedule.startTime).toISOString().slice(0, 16);
@@ -834,7 +844,7 @@ async function showEditScheduleModal(scheduleId) {
                         <label>Phòng tập <span class="required">*</span></label>
                         <select id="editFacilityId" name="facilityId" required>
                             <option value="">-- Chọn phòng --</option>
-                            ${facilities.map(f => `<option value="${f.facilityId}" ${f.facilityId === schedule.facilityId ? 'selected' : ''}>${escapeHtml(f.facilityName)}</option>`).join('')}
+                            ${facilities.map(f => `<option value="${f.facilityId}" ${f.facilityId === schedule.facilityId ? 'selected' : ''}>${escapeHtml(f.facilityName || f.name || 'Facility ' + f.facilityId)}</option>`).join('')}
                         </select>
                         <div class="error" id="editFacilityIdError"></div>
                     </div>

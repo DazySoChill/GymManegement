@@ -332,31 +332,58 @@ async function showEditTrainerModal(trainerId) {
         form.addEventListener('submit', async (e) => {
             e.preventDefault();
             
-            // Validate form
-            if (!validateTrainerForm(true)) {
+            console.log('Form submitted!');
+            
+            // Simplified validation - just check required fields
+            const fullName = document.getElementById('editFullName').value.trim();
+            const email = document.getElementById('editEmail').value.trim();
+            const phone = document.getElementById('editPhone').value.trim();
+            const specialization = document.getElementById('editSpecialization').value.trim();
+            
+            if (!fullName) {
+                showError('Vui lòng nhập họ tên');
+                return;
+            }
+            
+            if (!email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+                showError('Email không hợp lệ');
+                return;
+            }
+            
+            if (!phone) {
+                showError('Vui lòng nhập số điện thoại');
+                return;
+            }
+            
+            if (!specialization) {
+                showError('Vui lòng nhập chuyên môn');
                 return;
             }
             
             // Gather data
             const formData = {
-                fullName: document.getElementById('editFullName').value.trim(),
-                email: document.getElementById('editEmail').value.trim(),
-                phone: document.getElementById('editPhone').value.trim(),
-                specialization: document.getElementById('editSpecialization').value.trim()
+                fullName: fullName,
+                email: email,
+                phone: phone,
+                specialization: specialization
             };
+            
+            console.log('Updating trainer with data:', formData);
             
             try {
                 showLoading();
-                await apiFetch(`/api/Trainer/${trainerId}`, {
+                const result = await apiFetch(`/api/Trainer/${trainerId}`, {
                     method: 'PUT',
                     body: JSON.stringify(formData)
                 });
                 hideLoading();
+                console.log('Update success:', result);
                 showSuccess('Cập nhật HLV thành công!');
                 modal.remove();
                 await loadTrainers();
             } catch (error) {
                 hideLoading();
+                console.error('Update error:', error);
                 showError('Lỗi cập nhật HLV: ' + error.message);
             }
         });
@@ -374,13 +401,25 @@ function validateTrainerForm(isEdit = false) {
     const phone = document.getElementById(prefix + 'phone');
     const specialization = document.getElementById(prefix + 'specialization');
     
+    // Check if elements exist
+    if (!fullName || !email || !phone || !specialization) {
+        console.error('Form elements not found');
+        return false;
+    }
+    
     let isValid = true;
     
-    // Clear previous errors
-    document.getElementById(prefix + 'fullNameError').textContent = '';
-    document.getElementById(prefix + 'emailError').textContent = '';
-    document.getElementById(prefix + 'phoneError').textContent = '';
-    document.getElementById(prefix + 'specializationError').textContent = '';
+    // Clear previous errors - with defensive checks
+    const fullNameError = document.getElementById(prefix + 'fullNameError');
+    const emailError = document.getElementById(prefix + 'emailError');
+    const phoneError = document.getElementById(prefix + 'phoneError');
+    const specializationError = document.getElementById(prefix + 'specializationError');
+    
+    if (fullNameError) fullNameError.textContent = '';
+    if (emailError) emailError.textContent = '';
+    if (phoneError) phoneError.textContent = '';
+    if (specializationError) specializationError.textContent = '';
+    
     fullName.classList.remove('invalid');
     email.classList.remove('invalid');
     phone.classList.remove('invalid');
@@ -388,7 +427,7 @@ function validateTrainerForm(isEdit = false) {
     
     // Validate full name
     if (!fullName.value.trim()) {
-        document.getElementById(prefix + 'fullNameError').textContent = 'Vui lòng nhập họ tên';
+        if (fullNameError) fullNameError.textContent = 'Vui lòng nhập họ tên';
         fullName.classList.add('invalid');
         isValid = false;
     }
@@ -396,25 +435,25 @@ function validateTrainerForm(isEdit = false) {
     // Validate email
     const emailValue = email.value.trim();
     if (!emailValue) {
-        document.getElementById(prefix + 'emailError').textContent = 'Vui lòng nhập email';
+        if (emailError) emailError.textContent = 'Vui lòng nhập email';
         email.classList.add('invalid');
         isValid = false;
     } else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(emailValue)) {
-        document.getElementById(prefix + 'emailError').textContent = 'Email không hợp lệ';
+        if (emailError) emailError.textContent = 'Email không hợp lệ';
         email.classList.add('invalid');
         isValid = false;
     }
     
     // Validate phone
     if (!phone.value.trim()) {
-        document.getElementById(prefix + 'phoneError').textContent = 'Vui lòng nhập số điện thoại';
+        if (phoneError) phoneError.textContent = 'Vui lòng nhập số điện thoại';
         phone.classList.add('invalid');
         isValid = false;
     }
     
     // Validate specialization
     if (!specialization.value.trim()) {
-        document.getElementById(prefix + 'specializationError').textContent = 'Vui lòng nhập chuyên môn';
+        if (specializationError) specializationError.textContent = 'Vui lòng nhập chuyên môn';
         specialization.classList.add('invalid');
         isValid = false;
     }

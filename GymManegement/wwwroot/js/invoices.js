@@ -75,13 +75,15 @@ async function renderAllInvoices(container) {
             </div>
             
             <div class="filters">
-                <select id="invoiceStatusFilter" onchange="loadInvoicesByStatus()">
-                    <option value="">Tất cả</option>
-                    <option value="Pending">Pending</option>
-                    <option value="Paid">Paid</option>
-                    <option value="Overdue">Overdue</option>
+                <input type="text" id="invoiceMemberIdFilter" placeholder="Tìm theo Member ID..." style="width: 200px;">
+                <select id="invoiceStatusFilter" onchange="loadInvoicesByFilter()">
+                    <option value="">Tất cả trạng thái</option>
+                    <option value="Pending">Pending (Chưa thanh toán)</option>
+                    <option value="Paid">Paid (Đã thanh toán)</option>
+                    <option value="Overdue">Overdue (Quá hạn)</option>
                 </select>
-                <button class="btn btn-info" onclick="loadInvoices()">🔍 Tất cả</button>
+                <button class="btn btn-info" onclick="loadInvoicesByFilter()">🔍 Tìm</button>
+                <button class="btn btn-secondary" onclick="clearInvoiceFilters()">↺ Reset</button>
             </div>
             
             <div class="table-container" id="invoicesTableContainer"></div>
@@ -95,7 +97,7 @@ async function renderAllInvoices(container) {
 async function loadInvoices() {
     try {
         showLoading();
-        const data = await apiFetch(`/api/Invoice?pageNumber=${invoicesCurrentPage}&pageSize=${invoicesPageSize}`);
+        const data = await apiFetch(`/api/Invoice?pageNumber=${invoicesCurrentPage}&pageSize=${invoicesPageSize}&sortBy=InvoiceDate&sortDir=desc`);
         hideLoading();
         
         renderInvoicesTable(data);
@@ -109,10 +111,14 @@ async function loadInvoices() {
 // Store filtered invoices for client-side pagination
 let filteredInvoices = [];
 
-async function loadInvoicesByStatus() {
+async function loadInvoicesByFilter() {
+    const memberIdInput = document.getElementById('invoiceMemberIdFilter').value.trim();
     const status = document.getElementById('invoiceStatusFilter').value;
     
-    if (!status) {
+    console.log('Loading invoices with filters:', { memberId: memberIdInput, status });
+    
+    // If no filters, load all
+    if (!memberIdInput && !status) {
         filteredInvoices = [];
         invoicesCurrentPage = 1;
         loadInvoices();
@@ -121,7 +127,32 @@ async function loadInvoicesByStatus() {
     
     try {
         showLoading();
-        const allItems = await apiFetch(`/api/Invoice/status/${status}`);
+        
+        let allItems = [];
+        
+        // Filter by Member ID first (if provided)
+        if (memberIdInput) {
+            const memberId = parseInt(memberIdInput);
+            if (isNaN(memberId)) {
+                hideLoading();
+                showError('Member ID phải là số');
+                return;
+            }
+            
+            allItems = await apiFetch(`/api/Invoice/member/${memberId}`);
+            console.log('Invoices for member:', allItems);
+        } else if (status) {
+            // Filter by status only
+            allItems = await apiFetch(`/api/Invoice/status/${status}`);
+            console.log('Invoices by status:', allItems);
+        }
+        
+        // Apply status filter if both filters are present
+        if (memberIdInput && status && allItems) {
+            allItems = allItems.filter(inv => inv.status === status);
+            console.log('Filtered by status:', allItems);
+        }
+        
         hideLoading();
         
         // Reset to first page when filter changes
@@ -149,6 +180,19 @@ async function loadInvoicesByStatus() {
         hideLoading();
         showError('Lỗi tải hóa đơn: ' + error.message);
     }
+}
+
+function clearInvoiceFilters() {
+    document.getElementById('invoiceMemberIdFilter').value = '';
+    document.getElementById('invoiceStatusFilter').value = '';
+    filteredInvoices = [];
+    invoicesCurrentPage = 1;
+    loadInvoices();
+}
+
+async function loadInvoicesByStatus() {
+    // Redirect to the new filter function
+    loadInvoicesByFilter();
 }
 
 function renderInvoicesTable(data) {
@@ -263,6 +307,13 @@ function changeInvoicesPage(page) {
 }
 
 async function updateInvoiceStatus(invoiceId, status) {
+    // Confirmation cho status Paid
+    if (status === 'Paid') {
+        if (!confirm('Bạn chắc chắn khoản này đã thanh toán?')) {
+            return;
+        }
+    }
+    
     try {
         showLoading();
         await apiFetch(`/api/Invoice/${invoiceId}/status`, {
@@ -375,17 +426,20 @@ function injectInvoiceModalStyles() {
 async function showCreateInvoiceModal() {
     injectInvoiceModalStyles();
     
+    // Define available packages (same as memberships.js)
+    const AVAILABLE_PACKAGES = [
+        { id: 'basic', name: 'Gói Cơ Bản', price: 500000, durationDays: 30 },
+        { id: 'advanced', name: 'Gói Nâng Cao', price: 1200000, durationDays: 90 },
+        { id: 'vip', name: 'Gói VIP', price: 2000000, durationDays: 180 },
+        { id: 'annual', name: 'Gói Năm', price: 3500000, durationDays: 365 }
+    ];
+    
     try {
         showLoading();
-        // Fetch members and memberships for dropdowns
-        const [membersData, membershipsData] = await Promise.all([
-            apiFetch('/api/Member?pageNumber=1&pageSize=1000'),
-            apiFetch('/api/Membership?pageNumber=1&pageSize=1000')
-        ]);
+        const membersData = await apiFetch('/api/Member?pageNumber=1&pageSize=1000');
         hideLoading();
         
         const members = membersData?.Data || membersData?.data || membersData?.items || [];
-        const memberships = membershipsData?.Data || membershipsData?.data || membershipsData?.items || [];
         
         const modal = document.createElement('div');
         modal.className = 'gym-modal-overlay';
@@ -403,18 +457,33 @@ async function showCreateInvoiceModal() {
                         <div class="error" id="memberIdError"></div>
                     </div>
                     <div class="form-group">
-                        <!-- MembershipId is optional — invoices may be standalone for ad-hoc fees (e.g., locker rental, personal training top-up). -->
-                        <!-- If business rule requires membership linkage for subscription invoices, add: if (!membershipId && invoiceType === 'subscription') return showError(...) -->
-                        <label>Gói tập (Để trống nếu là phí phát sinh)</label>
-                        <select id="membershipId" name="membershipId">
-                            <option value="">-- Không liên kết --</option>
-                            ${memberships.filter(ms => ms.status === 'Active').map(ms => `<option value="${ms.membershipId}">${escapeHtml(ms.packageName)} - ${escapeHtml(ms.memberName)} (${formatCurrency(ms.price)})</option>`).join('')}
+                        <label>Gói tập / Dịch vụ</label>
+                        <select id="packageSelection" name="packageSelection">
+                            <option value="">-- Chọn gói hoặc dịch vụ --</option>
+                            <optgroup label="📦 Gói Tập Có Sẵn">
+                                ${AVAILABLE_PACKAGES.map(pkg => `<option value="package:${pkg.id}" data-price="${pkg.price}">${escapeHtml(pkg.name)} - ${formatCurrency(pkg.price)} (${pkg.durationDays} ngày)</option>`).join('')}
+                            </optgroup>
+                            <optgroup label="🔧 Khác">
+                                <option value="custom">✏️ Gói Tự Chọn (Admin nhập)</option>
+                                <option value="other">Phí phát sinh khác</option>
+                            </optgroup>
                         </select>
-                        <div class="error" id="membershipIdError"></div>
+                        <input type="hidden" id="membershipId" name="membershipId">
+                        <div class="error" id="packageSelectionError"></div>
+                    </div>
+                    <div class="form-group" id="customPackageGroup" style="display: none;">
+                        <label>Tên gói tự chọn <span class="required">*</span></label>
+                        <input type="text" id="customPackageName" placeholder="VD: Gói 6 tháng đặc biệt">
+                        <div class="error" id="customPackageNameError"></div>
+                    </div>
+                    <div class="form-group" id="customPriceGroup" style="display: none;">
+                        <label>Giá gói tự chọn (VNĐ) <span class="required">*</span></label>
+                        <input type="number" id="customPackagePrice" min="1" step="1000" placeholder="VD: 1500000">
+                        <div class="error" id="customPackagePriceError"></div>
                     </div>
                     <div class="form-group">
                         <label>Số tiền (VNĐ) <span class="required">*</span></label>
-                        <input type="number" id="totalAmount" name="totalAmount" required min="1" step="1000" placeholder="500000">
+                        <input type="number" id="totalAmount" name="totalAmount" required min="1" step="1" placeholder="Tự động điền khi chọn gói">
                         <div class="error" id="totalAmountError"></div>
                     </div>
                     <div class="form-group">
@@ -450,16 +519,131 @@ async function showCreateInvoiceModal() {
         document.getElementById('invoiceDate').value = today;
         document.getElementById('dueDate').value = dueDate;
         
+        // Package selection handler - auto-fill amount
+        const packageSelect = document.getElementById('packageSelection');
+        packageSelect.addEventListener('change', (e) => {
+            const value = e.target.value;
+            const amountInput = document.getElementById('totalAmount');
+            const membershipIdInput = document.getElementById('membershipId');
+            const customPackageGroup = document.getElementById('customPackageGroup');
+            const customPriceGroup = document.getElementById('customPriceGroup');
+            const customPackageNameInput = document.getElementById('customPackageName');
+            const customPackagePriceInput = document.getElementById('customPackagePrice');
+            
+            console.log('Package selected:', value);
+            
+            // Clear membershipId by default
+            membershipIdInput.value = '';
+            
+            // Hide custom package fields by default
+            customPackageGroup.style.display = 'none';
+            customPriceGroup.style.display = 'none';
+            
+            if (value.startsWith('package:')) {
+                // Available package selected
+                const packageId = value.split(':')[1];
+                const pkg = AVAILABLE_PACKAGES.find(p => p.id === packageId);
+                if (pkg) {
+                    amountInput.value = pkg.price;
+                    amountInput.readOnly = true; // Lock for predefined packages
+                }
+            } else if (value === 'custom') {
+                // Custom package - show fields for admin to enter name and price
+                customPackageGroup.style.display = 'block';
+                customPriceGroup.style.display = 'block';
+                amountInput.value = '';
+                amountInput.readOnly = false; // Allow manual entry if needed
+                customPackageNameInput.value = '';
+                customPackagePriceInput.value = '';
+                
+                // Link custom price to totalAmount with one-time listener
+                const updateAmount = () => {
+                    amountInput.value = customPackagePriceInput.value;
+                };
+                
+                // Remove old listener if exists and add new one
+                customPackagePriceInput.removeEventListener('input', updateAmount);
+                customPackagePriceInput.addEventListener('input', updateAmount);
+            } else if (value === 'other') {
+                // Other fee
+                amountInput.value = '';
+                amountInput.readOnly = false;
+                amountInput.placeholder = 'Nhập số tiền phí phát sinh';
+            } else {
+                // Reset
+                amountInput.value = '';
+                amountInput.readOnly = false;
+                amountInput.placeholder = 'Tự động điền khi chọn gói';
+            }
+        });
+        
         // Form submit handler
         const form = document.getElementById('createInvoiceForm');
         form.addEventListener('submit', async (e) => {
             e.preventDefault();
             
-            if (!validateInvoiceForm()) {
+            console.log('=== INVOICE FORM VALIDATION ===');
+            
+            const memberIdValue = document.getElementById('memberId').value;
+            const totalAmountValue = document.getElementById('totalAmount').value;
+            
+            console.log('Form values:', {
+                memberId: memberIdValue,
+                totalAmount: totalAmountValue,
+                packageSelection: document.getElementById('packageSelection').value
+            });
+            
+            // Validate member selection
+            if (!memberIdValue) {
+                showError('Vui lòng chọn thành viên');
                 return;
             }
             
+            // Validate custom package if selected
+            const packageSelection = document.getElementById('packageSelection').value;
+            if (packageSelection === 'custom') {
+                const customPackageName = document.getElementById('customPackageName').value.trim();
+                const customPackagePrice = document.getElementById('customPackagePrice').value;
+                
+                console.log('Custom package validation:', {
+                    name: customPackageName,
+                    price: customPackagePrice
+                });
+                
+                if (!customPackageName) {
+                    showError('Vui lòng nhập tên gói tự chọn');
+                    return;
+                }
+                
+                if (!customPackagePrice || parseFloat(customPackagePrice) <= 0) {
+                    showError('Vui lòng nhập giá gói tự chọn hợp lệ');
+                    return;
+                }
+            }
+            
+            // Validate total amount
+            if (!totalAmountValue || parseFloat(totalAmountValue) <= 0) {
+                showError('Vui lòng nhập số tiền hợp lệ');
+                return;
+            }
+            
+            console.log('✅ Custom validation passed, calling validateInvoiceForm()...');
+            
+            if (!validateInvoiceForm()) {
+                console.log('❌ validateInvoiceForm() failed');
+                return;
+            }
+            
+            console.log('✅ All validation passed');
+            
             const membershipIdValue = document.getElementById('membershipId').value;
+            let description = document.getElementById('description').value.trim();
+            
+            // If custom package, prepend package name to description
+            if (packageSelection === 'custom') {
+                const customPackageName = document.getElementById('customPackageName').value.trim();
+                description = `Gói tự chọn: ${customPackageName}${description ? ' - ' + description : ''}`;
+            }
             
             const formData = {
                 memberId: parseInt(document.getElementById('memberId').value),
@@ -467,8 +651,10 @@ async function showCreateInvoiceModal() {
                 totalAmount: parseFloat(document.getElementById('totalAmount').value),
                 invoiceDate: new Date(document.getElementById('invoiceDate').value).toISOString(),
                 dueDate: new Date(document.getElementById('dueDate').value + 'T23:59:59').toISOString(),
-                description: document.getElementById('description').value.trim() || null
+                description: description || null
             };
+            
+            console.log('Invoice data:', formData);
             
             try {
                 showLoading();
