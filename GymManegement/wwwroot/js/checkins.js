@@ -300,7 +300,7 @@ function renderMemberCheckinsTable(checkins) {
 
 async function renderAllCheckins(container) {
     const role = getRole();
-    const canManage = role === 'Admin' || role === 'Trainer';
+    const canManage = role === 'Admin';
     
     container.innerHTML = `
         <div class="card">

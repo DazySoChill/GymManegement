@@ -778,7 +778,7 @@ async function rejectTrainerSession(sessionId) {
 
 async function renderAllSessions(container) {
     const role = getRole();
-    const canManage = role === 'Admin' || role === 'Trainer';
+    const canManage = role === 'Admin';
     
     const currentWeek = getCurrentWeekBounds();
     const nextWeek = getNextWeekBounds();
@@ -836,7 +836,7 @@ async function loadSessions() {
 async function renderSessionsTable(data) {
     const container = document.getElementById('sessionsTableContainer');
     const role = getRole();
-    const canManage = role === 'Admin' || role === 'Trainer';
+    const canManage = role === 'Admin';
     
     const items = data?.Data || data?.data || data?.items || [];
     

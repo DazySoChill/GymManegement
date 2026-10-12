@@ -821,17 +821,6 @@ async function showEditScheduleModal(scheduleId) {
             apiFetch('/api/Facility?pageNumber=1&pageSize=1000')
         ]);
         
-        // Ownership check for Trainer role
-        const _editRole = getRole();
-        if (_editRole === 'Trainer') {
-            const _editCurrentTrainerId = await getTrainerId();
-            if (schedule.trainerId !== _editCurrentTrainerId) {
-                hideLoading();
-                showError('Bạn chỉ có thể sửa lịch tập do bạn tạo ra.');
-                return;
-            }
-        }
-        
         const role = getRole();
         let currentTrainerId = null;
         if (role === 'Trainer') {
@@ -1033,19 +1022,6 @@ function validateScheduleForm(isEdit = false) {
 
 async function deleteSchedule(scheduleId) {
     try {
-        // Ownership check for Trainer role
-        const role = getRole();
-        if (role === 'Trainer') {
-            showLoading();
-            const schedule = await apiFetch(`/api/Schedule/${scheduleId}`);
-            const currentTrainerId = await getTrainerId();
-            hideLoading();
-            if (schedule.trainerId !== currentTrainerId) {
-                showError('Bạn chỉ có thể xóa lịch tập do bạn tạo ra.');
-                return;
-            }
-        }
-        
         if (!confirm('Bạn có chắc chắn muốn xóa lịch tập này?')) {
             return;
         }

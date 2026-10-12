@@ -1,6 +1,7 @@
 # Trainer Frontend Reset - Changes Log
 
 ## Date: 2024-10-09
+## Fix Iteration: 2024-10-09 (Second Pass)
 
 ## Objective
 Reset the Trainer frontend to be IDENTICAL to Member - same pages, same views, same behavior. This is a simplification task to remove Trainer-specific functionality.
@@ -245,17 +246,100 @@ These can be removed in a future cleanup if confirmed they're not needed.
 
 ---
 
+## Fix Iteration Details
+
+### Review Findings Addressed (Second Pass)
+
+Four blocking issues were identified and fixed:
+
+#### 1. Removed Schedule Edit Ownership Check (schedules.js)
+**Location:** lines 825-833
+
+**Removed:**
+```javascript
+// Ownership check for Trainer role
+const _editRole = getRole();
+if (_editRole === 'Trainer') {
+    const _editCurrentTrainerId = await getTrainerId();
+    if (schedule.trainerId !== _editCurrentTrainerId) {
+        hideLoading();
+        showError('Bạn chỉ có thể sửa lịch tập do bạn tạo ra.');
+        return;
+    }
+}
+```
+
+**Rationale:** Trainers should not see edit buttons at all (Member behavior). The ownership check implied Trainers had editing capabilities, which violates the requirement.
+
+#### 2. Removed Schedule Delete Ownership Check (schedules.js)
+**Location:** lines 1038-1047
+
+**Removed:**
+```javascript
+// Ownership check for Trainer role
+const role = getRole();
+if (role === 'Trainer') {
+    showLoading();
+    const schedule = await apiFetch(`/api/Schedule/${scheduleId}`);
+    const currentTrainerId = await getTrainerId();
+    hideLoading();
+    if (schedule.trainerId !== currentTrainerId) {
+        showError('Bạn chỉ có thể xóa lịch tập do bạn tạo ra.');
+        return;
+    }
+}
+```
+
+**Rationale:** Trainers should not see delete buttons at all (Member behavior). The ownership check implied Trainers had deletion capabilities, which violates the requirement.
+
+#### 3. Removed Trainer from Checkins Management Privilege (checkins.js)
+**Location:** line 303
+
+**Before:**
+```javascript
+const canManage = role === 'Admin' || role === 'Trainer';
+```
+
+**After:**
+```javascript
+const canManage = role === 'Admin';
+```
+
+**Rationale:** The manual check-in button should only appear for Admins. Trainers should see the Member view only (personal check-in history + quick check-in).
+
+#### 4. Removed Trainer from Sessions Management Privilege (sessions.js)
+**Location:** lines 781 and 839
+
+**Before:**
+```javascript
+const canManage = role === 'Admin' || role === 'Trainer';
+```
+
+**After:**
+```javascript
+const canManage = role === 'Admin';
+```
+
+**Rationale:** Session approval buttons (approve/reject registrations) should only appear for Admins. Trainers should see the Member view only (available classes + registered sessions).
+
+---
+
 ## Build Status
 
 JavaScript changes completed successfully. Files modified:
 - app.js
 - dashboard.js
 - memberships.js
-- schedules.js
-- sessions.js
-- checkins.js
+- schedules.js (ownership checks removed in fix iteration)
+- sessions.js (management privileges removed in fix iteration)
+- checkins.js (management privileges removed in fix iteration)
 
 No syntax errors detected in modified files.
+
+Verified:
+- ✅ No "Ownership check for Trainer" patterns remain
+- ✅ All `canManage` checks in checkins.js and sessions.js only include Admin
+- ✅ No `role === 'Admin' || role === 'Trainer'` patterns in modified files
 
 ---
 
