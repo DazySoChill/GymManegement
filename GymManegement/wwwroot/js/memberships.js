@@ -118,11 +118,11 @@ async function renderMemberships(container) {
     const role = getRole();
     const memberId = getMemberId();
     
-    if (role === 'Member' && memberId) {
-        // Member view - show only own memberships
+    if ((role === 'Member' || role === 'Trainer') && memberId) {
+        // Member/Trainer view - show only own memberships
         await renderMemberMemberships(container, memberId);
     } else {
-        // Admin/Trainer view - show all memberships
+        // Admin view - show all memberships
         await renderAllMemberships(container);
     }
 }

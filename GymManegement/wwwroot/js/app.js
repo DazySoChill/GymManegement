@@ -5,7 +5,7 @@
 // Role-based page access control
 const allowedPagesByRole = {
     'Admin': ['dashboard', 'members', 'memberships', 'trainers', 'facilities', 'schedules', 'checkins', 'invoices', 'payments', 'reports', 'users', 'profile'],
-    'Trainer': ['dashboard', 'schedules', 'checkins', 'profile'],
+    'Trainer': ['dashboard', 'memberships', 'schedules', 'sessions', 'checkins', 'member-schedule', 'profile'],
     'Member': ['dashboard', 'memberships', 'schedules', 'sessions', 'checkins', 'member-schedule', 'profile']
 };
 

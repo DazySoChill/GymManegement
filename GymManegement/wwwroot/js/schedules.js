@@ -220,10 +220,9 @@ async function submitSchedulePreferences() {
 async function renderSchedules(container) {
     const role = getRole();
     const memberId = getMemberId();
-    const canManage = role === 'Admin' || role === 'Trainer';
     
-    if (role === 'Member') {
-        // Member view - Show both personal schedule preferences and registered classes
+    if (role === 'Member' || role === 'Trainer') {
+        // Member/Trainer view - Show both personal schedule preferences and registered classes
         container.innerHTML = `
             <div class="card">
                 <div class="card-header">
@@ -258,7 +257,8 @@ async function renderSchedules(container) {
         ]);
         
     } else {
-        // Admin/Trainer view
+        // Admin view
+        const canManage = role === 'Admin';
         container.innerHTML = `
             <div class="card">
                 <div class="card-header">
@@ -513,13 +513,7 @@ async function loadSchedulesByDate() {
 async function renderSchedulesTable(data) {
     const container = document.getElementById('schedulesTableContainer');
     const role = getRole();
-    const canManage = role === 'Admin' || role === 'Trainer';
-    
-    // Get current trainerId if Trainer role
-    let currentTrainerId = null;
-    if (role === 'Trainer') {
-        currentTrainerId = await getTrainerId();
-    }
+    const canManage = role === 'Admin';
     
     const items = data?.Data || data?.data || data?.items || [];
     
@@ -546,9 +540,6 @@ async function renderSchedulesTable(data) {
     `;
     
     items.forEach(schedule => {
-        // For Trainer: only show edit/delete if they own this schedule
-        const canEdit = role === 'Admin' || (role === 'Trainer' && schedule.trainerId === currentTrainerId);
-        
         html += `
             <tr>
                 <td>${schedule.scheduleId}</td>
@@ -561,12 +552,8 @@ async function renderSchedulesTable(data) {
                 ${canManage ? `
                     <td>
                         <div class="action-buttons">
-                            ${canEdit ? `
-                                <button class="btn btn-sm btn-info" onclick="showEditScheduleModal(${schedule.scheduleId})">✏️</button>
-                                <button class="btn btn-sm btn-danger" onclick="deleteSchedule(${schedule.scheduleId})">🗑️</button>
-                            ` : `
-                                <span style="color: #999; font-size: 0.9em;">Chỉ xem</span>
-                            `}
+                            <button class="btn btn-sm btn-info" onclick="showEditScheduleModal(${schedule.scheduleId})">✏️</button>
+                            <button class="btn btn-sm btn-danger" onclick="deleteSchedule(${schedule.scheduleId})">🗑️</button>
                         </div>
                     </td>
                 ` : ''}

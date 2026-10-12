@@ -7,9 +7,7 @@ async function renderDashboard(container) {
     
     if (isAdmin()) {
         await renderAdminDashboard(container);
-    } else if (role === 'Trainer') {
-        await renderTrainerDashboard(container);
-    } else if (role === 'Member') {
+    } else if (role === 'Member' || role === 'Trainer') {
         await renderMemberDashboard(container);
     }
 }

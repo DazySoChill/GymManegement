@@ -188,10 +188,8 @@ async function renderSessions(container) {
     const role = getRole();
     const memberId = getMemberId();
     
-    if (role === 'Member' && memberId) {
+    if ((role === 'Member' || role === 'Trainer') && memberId) {
         await renderMemberSessions(container, memberId);
-    } else if (role === 'Trainer') {
-        await renderTrainerSessions(container);
     } else {
         await renderAllSessions(container);
     }
