@@ -196,7 +196,7 @@ async function quickCheckin(memberId) {
         
         // Reload member checkins view
         const role = getRole();
-        if (role === 'Member') {
+        if (role === 'Member' || role === 'Trainer') {
             // Re-render member view
             const container = document.getElementById('main-content');
             if (container) {

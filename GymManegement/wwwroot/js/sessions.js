@@ -49,7 +49,7 @@ function saveNoteFromModal(sessionId) {
     // Reload current view
     const role = getRole();
     const memberId = getMemberId();
-    if (role === 'Member' && memberId) {
+    if ((role === 'Member' || role === 'Trainer') && memberId) {
         loadMemberSessionsData(memberId, mySessionWeekFilter);
     } else {
         loadSessions();
@@ -949,7 +949,7 @@ async function updateSessionStatus(sessionId, status) {
         // Reload appropriate view
         const role = getRole();
         const memberId = getMemberId();
-        if (role === 'Member' && memberId) {
+        if ((role === 'Member' || role === 'Trainer') && memberId) {
             loadMemberSessionsData(memberId, mySessionWeekFilter);
         } else {
             loadSessions();
