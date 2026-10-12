@@ -227,6 +227,8 @@ async function renderCheckins(container) {
     
     if (role === 'Member' && memberId) {
         await renderMemberCheckins(container, memberId);
+    } else if (role === 'Trainer') {
+        await renderTrainerCheckins(container);
     } else {
         await renderAllCheckins(container);
     }
@@ -296,6 +298,353 @@ function renderMemberCheckinsTable(checkins) {
     
     html += '</tbody></table>';
     container.innerHTML = html;
+}
+
+async function renderTrainerCheckins(container) {
+    console.log('[TRAINER CHECKINS] Starting render');
+    
+    const trainerId = await getTrainerId();
+    console.log('[TRAINER CHECKINS] Trainer ID:', trainerId);
+    
+    if (!trainerId) {
+        container.innerHTML = `
+            <div class="empty-state">
+                <div class="empty-state-icon">⚠️</div>
+                <div class="empty-state-text">Không tìm thấy thông tin trainer. Vui lòng liên hệ Admin.</div>
+            </div>`;
+        return;
+    }
+    
+    ensureModalStyles();
+    
+    container.innerHTML = `
+        <div class="card">
+            <div class="card-header">
+                <h2 class="card-title">Check-in Thủ Công - Huấn Luyện Viên</h2>
+            </div>
+            
+            <!-- Manual Check-in Form -->
+            <div style="padding: 20px; border-bottom: 2px solid #e0e0e0;">
+                <h3 style="margin: 0 0 16px 0; color: #2c3e50;">✅ Thực Hiện Check-in</h3>
+                <form id="trainerCheckinForm" style="display: grid; gap: 16px; max-width: 600px;">
+                    <div class="form-group">
+                        <label for="trainerScheduleSelect">Chọn lớp học:</label>
+                        <select id="trainerScheduleSelect" required style="width:100%;padding:10px;border:1px solid #ddd;border-radius:6px;">
+                            <option value="">-- Chọn lớp --</option>
+                        </select>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="trainerMemberSelect">Chọn member:</label>
+                        <select id="trainerMemberSelect" required style="width:100%;padding:10px;border:1px solid #ddd;border-radius:6px;" disabled>
+                            <option value="">-- Chọn lớp trước --</option>
+                        </select>
+                    </div>
+                    
+                    <div style="display: flex; gap: 8px;">
+                        <button type="submit" class="btn btn-success" id="trainerCheckinBtn" disabled>✅ Check-in</button>
+                        <button type="button" class="btn btn-secondary" onclick="resetTrainerCheckinForm()">🔄 Làm mới</button>
+                    </div>
+                </form>
+            </div>
+            
+            <!-- Today's Check-ins -->
+            <div style="padding: 20px;">
+                <h3 style="margin: 0 0 16px 0; color: #2c3e50; display: flex; justify-content: space-between; align-items: center;">
+                    <span>📋 Check-in Hôm Nay</span>
+                    <button class="btn btn-sm btn-secondary" onclick="loadTrainerTodayCheckins()" title="Làm mới">🔄</button>
+                </h3>
+                <div id="trainerTodayCheckinsContainer">
+                    <div style="text-align: center; padding: 20px;">
+                        <div class="spinner"></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    `;
+    
+    // Load trainer's schedules
+    await loadTrainerSchedulesForCheckin(trainerId);
+    
+    // Load today's check-ins
+    await loadTrainerTodayCheckins();
+    
+    // Setup form handlers
+    setupTrainerCheckinFormHandlers(trainerId);
+}
+
+async function loadTrainerSchedulesForCheckin(trainerId) {
+    try {
+        console.log('[TRAINER CHECKINS] Loading schedules for trainer:', trainerId);
+        
+        // Fetch all schedules
+        const schedulesData = await apiFetch('/api/Schedule?pageNumber=1&pageSize=1000');
+        
+        // Handle different response formats
+        let allSchedules = [];
+        if (Array.isArray(schedulesData)) {
+            allSchedules = schedulesData;
+        } else if (schedulesData && Array.isArray(schedulesData.data)) {
+            allSchedules = schedulesData.data;
+        } else if (schedulesData && Array.isArray(schedulesData.Data)) {
+            allSchedules = schedulesData.Data;
+        } else if (schedulesData && Array.isArray(schedulesData.items)) {
+            allSchedules = schedulesData.items;
+        }
+        
+        // Filter schedules by trainerId
+        const trainerSchedules = allSchedules.filter(s => {
+            const scheduleTrainerId = s.trainerId || s.TrainerId;
+            return scheduleTrainerId === trainerId;
+        });
+        
+        console.log('[TRAINER CHECKINS] Trainer schedules:', trainerSchedules.length);
+        
+        const select = document.getElementById('trainerScheduleSelect');
+        if (!select) return;
+        
+        if (trainerSchedules.length === 0) {
+            select.innerHTML = '<option value="">Bạn chưa có lớp nào</option>';
+            return;
+        }
+        
+        // Populate schedule dropdown
+        select.innerHTML = '<option value="">-- Chọn lớp --</option>';
+        trainerSchedules.forEach(s => {
+            const option = document.createElement('option');
+            option.value = s.scheduleId;
+            option.textContent = `${s.className} - ${formatDateTime(s.startTime)}`;
+            select.appendChild(option);
+        });
+        
+    } catch (error) {
+        console.error('[TRAINER CHECKINS] Error loading schedules:', error);
+        showError('Lỗi tải danh sách lớp: ' + error.message);
+    }
+}
+
+function setupTrainerCheckinFormHandlers(trainerId) {
+    const form = document.getElementById('trainerCheckinForm');
+    const scheduleSelect = document.getElementById('trainerScheduleSelect');
+    const memberSelect = document.getElementById('trainerMemberSelect');
+    const checkinBtn = document.getElementById('trainerCheckinBtn');
+    
+    if (!form || !scheduleSelect || !memberSelect || !checkinBtn) return;
+    
+    // Handle schedule selection
+    scheduleSelect.addEventListener('change', async () => {
+        const scheduleId = scheduleSelect.value;
+        
+        if (!scheduleId) {
+            memberSelect.innerHTML = '<option value="">-- Chọn lớp trước --</option>';
+            memberSelect.disabled = true;
+            checkinBtn.disabled = true;
+            return;
+        }
+        
+        try {
+            showLoading();
+            console.log('[TRAINER CHECKINS] Loading members for schedule:', scheduleId);
+            
+            // Fetch sessions for the schedule
+            const sessionsData = await apiFetch(`/api/Session/schedule/${scheduleId}`);
+            
+            // Handle different response formats
+            let sessions = [];
+            if (Array.isArray(sessionsData)) {
+                sessions = sessionsData;
+            } else if (sessionsData && Array.isArray(sessionsData.data)) {
+                sessions = sessionsData.data;
+            } else if (sessionsData && Array.isArray(sessionsData.Data)) {
+                sessions = sessionsData.Data;
+            }
+            
+            // Filter only approved members
+            const approvedSessions = sessions.filter(s => s.status === 'Approved');
+            
+            console.log('[TRAINER CHECKINS] Approved sessions:', approvedSessions.length);
+            
+            hideLoading();
+            
+            memberSelect.innerHTML = '';
+            
+            if (approvedSessions.length === 0) {
+                memberSelect.innerHTML = '<option value="">Chưa có member nào được duyệt</option>';
+                memberSelect.disabled = true;
+                checkinBtn.disabled = true;
+                return;
+            }
+            
+            memberSelect.innerHTML = '<option value="">-- Chọn member --</option>';
+            approvedSessions.forEach(s => {
+                const option = document.createElement('option');
+                option.value = s.memberId;
+                option.textContent = `${s.memberName || `Member ${s.memberId}`} (ID: ${s.memberId})`;
+                memberSelect.appendChild(option);
+            });
+            
+            memberSelect.disabled = false;
+            
+        } catch (error) {
+            hideLoading();
+            console.error('[TRAINER CHECKINS] Error loading members:', error);
+            showError('Lỗi tải danh sách member: ' + error.message);
+            memberSelect.innerHTML = '<option value="">Lỗi tải dữ liệu</option>';
+            memberSelect.disabled = true;
+            checkinBtn.disabled = true;
+        }
+    });
+    
+    // Handle member selection
+    memberSelect.addEventListener('change', () => {
+        checkinBtn.disabled = !memberSelect.value;
+    });
+    
+    // Handle form submission
+    form.addEventListener('submit', async (e) => {
+        e.preventDefault();
+        await submitTrainerCheckin();
+    });
+}
+
+async function submitTrainerCheckin() {
+    const memberSelect = document.getElementById('trainerMemberSelect');
+    const memberId = parseInt(memberSelect.value);
+    
+    if (!memberId) {
+        showError('Vui lòng chọn member');
+        return;
+    }
+    
+    try {
+        showLoading();
+        console.log('[TRAINER CHECKINS] Submitting check-in for member:', memberId);
+        
+        await apiFetch('/api/Checkin/manual', {
+            method: 'POST',
+            body: JSON.stringify({
+                memberId: memberId,
+                checkinTime: new Date().toISOString()
+            })
+        });
+        
+        hideLoading();
+        showToast('✅ Check-in thành công!', 'success');
+        
+        // Reset form
+        resetTrainerCheckinForm();
+        
+        // Reload today's check-ins
+        await loadTrainerTodayCheckins();
+        
+    } catch (error) {
+        hideLoading();
+        console.error('[TRAINER CHECKINS] Submit error:', error);
+        
+        if (error.message.includes('already') || error.message.includes('duplicate')) {
+            showError('Member đã check-in hôm nay rồi');
+        } else {
+            showError('Lỗi check-in: ' + error.message);
+        }
+    }
+}
+
+function resetTrainerCheckinForm() {
+    const form = document.getElementById('trainerCheckinForm');
+    const scheduleSelect = document.getElementById('trainerScheduleSelect');
+    const memberSelect = document.getElementById('trainerMemberSelect');
+    const checkinBtn = document.getElementById('trainerCheckinBtn');
+    
+    if (form) form.reset();
+    if (scheduleSelect) scheduleSelect.value = '';
+    if (memberSelect) {
+        memberSelect.innerHTML = '<option value="">-- Chọn lớp trước --</option>';
+        memberSelect.disabled = true;
+    }
+    if (checkinBtn) checkinBtn.disabled = true;
+}
+
+async function loadTrainerTodayCheckins() {
+    const container = document.getElementById('trainerTodayCheckinsContainer');
+    if (!container) return;
+    
+    try {
+        console.log('[TRAINER CHECKINS] Loading today\'s check-ins');
+        
+        // Fetch recent check-ins
+        const checkinsData = await apiFetch('/api/Checkin?pageNumber=1&pageSize=200');
+        
+        // Handle different response formats
+        let allCheckins = [];
+        if (Array.isArray(checkinsData)) {
+            allCheckins = checkinsData;
+        } else if (checkinsData && Array.isArray(checkinsData.data)) {
+            allCheckins = checkinsData.data;
+        } else if (checkinsData && Array.isArray(checkinsData.Data)) {
+            allCheckins = checkinsData.Data;
+        }
+        
+        // Filter by today's date
+        const today = new Date();
+        today.setHours(0, 0, 0, 0);
+        const todayCheckins = allCheckins.filter(c => {
+            const checkinDate = new Date(c.checkinTime);
+            checkinDate.setHours(0, 0, 0, 0);
+            return checkinDate.getTime() === today.getTime();
+        });
+        
+        console.log('[TRAINER CHECKINS] Today\'s check-ins:', todayCheckins.length);
+        
+        if (todayCheckins.length === 0) {
+            container.innerHTML = `
+                <div class="empty-state">
+                    <div class="empty-state-icon">✅</div>
+                    <div class="empty-state-text">Chưa có check-in nào hôm nay</div>
+                </div>`;
+            return;
+        }
+        
+        // Fetch member names in parallel
+        const memberIds = [...new Set(todayCheckins.map(c => c.memberId))];
+        await Promise.all(memberIds.map(id => fetchCheckinMemberName(id)));
+        
+        let html = `
+            <table>
+                <thead>
+                    <tr>
+                        <th>ID</th>
+                        <th>Tên Member</th>
+                        <th>Thời gian vào</th>
+                        <th>Thời gian ra</th>
+                    </tr>
+                </thead>
+                <tbody>
+        `;
+        
+        for (const c of todayCheckins) {
+            const memberName = await fetchCheckinMemberName(c.memberId);
+            
+            html += `
+                <tr>
+                    <td>${c.checkinId}</td>
+                    <td>${escapeHtml(memberName)}</td>
+                    <td>${formatDateTimeWithSeconds(c.checkinTime)}</td>
+                    <td>${c.checkoutTime ? formatDateTimeWithSeconds(c.checkoutTime) : 'Chưa ra'}</td>
+                </tr>
+            `;
+        }
+        
+        html += '</tbody></table>';
+        container.innerHTML = html;
+        
+    } catch (error) {
+        console.error('[TRAINER CHECKINS] Error loading today\'s check-ins:', error);
+        container.innerHTML = `
+            <div class="empty-state">
+                <div class="empty-state-icon">⚠️</div>
+                <div class="empty-state-text">Lỗi tải check-in: ${error.message}</div>
+            </div>`;
+    }
 }
 
 async function renderAllCheckins(container) {

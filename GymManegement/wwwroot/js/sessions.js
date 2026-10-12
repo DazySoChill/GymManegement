@@ -190,6 +190,8 @@ async function renderSessions(container) {
     
     if (role === 'Member' && memberId) {
         await renderMemberSessions(container, memberId);
+    } else if (role === 'Trainer') {
+        await renderTrainerSessions(container);
     } else {
         await renderAllSessions(container);
     }
@@ -486,6 +488,287 @@ async function renderMemberSessionsTable(sessions) {
     
     html += '</tbody></table>';
     myContainer.innerHTML = html;
+}
+
+async function renderTrainerSessions(container) {
+    console.log('[TRAINER SESSIONS] Starting render');
+    
+    const trainerId = await getTrainerId();
+    console.log('[TRAINER SESSIONS] Trainer ID:', trainerId);
+    
+    if (!trainerId) {
+        container.innerHTML = `
+            <div class="empty-state">
+                <div class="empty-state-icon">⚠️</div>
+                <div class="empty-state-text">Không tìm thấy thông tin trainer. Vui lòng liên hệ Admin.</div>
+            </div>`;
+        return;
+    }
+    
+    container.innerHTML = `
+        <div class="card">
+            <div class="card-header">
+                <h2 class="card-title">Quản Lý Đăng Ký - Huấn Luyện Viên</h2>
+                <div style="display:flex;gap:8px;">
+                    <button class="btn btn-secondary" onclick="renderTrainerSessions(document.getElementById('main-content'))" title="Làm mới dữ liệu">🔄 Làm mới</button>
+                </div>
+            </div>
+            
+            <div class="filters" style="display:flex;gap:12px;flex-wrap:wrap;align-items:center;margin-bottom:16px;">
+                <button class="btn btn-sm btn-info" onclick="filterTrainerSessions('all')">Tất cả</button>
+                <button class="btn btn-sm btn-warning" onclick="filterTrainerSessions('pending')">⏳ Chờ duyệt</button>
+                <span id="trainerSessionFilter" style="margin-left:12px;color:#666;font-size:14px;">Đang hiển thị: Tất cả</span>
+            </div>
+            
+            <div class="table-container" id="trainerSessionsContainer">
+                <div style="text-align: center; padding: 20px;">
+                    <div class="spinner"></div>
+                </div>
+            </div>
+        </div>
+    `;
+    
+    await loadTrainerSessions(trainerId, 'all');
+}
+
+// Global filter state for trainer sessions
+let trainerSessionsFilterStatus = 'all';
+
+async function filterTrainerSessions(filterType) {
+    trainerSessionsFilterStatus = filterType;
+    const trainerId = await getTrainerId();
+    
+    if (!trainerId) {
+        showError('Không tìm thấy thông tin trainer');
+        return;
+    }
+    
+    const display = document.getElementById('trainerSessionFilter');
+    if (display) {
+        display.textContent = filterType === 'pending' ? 'Đang hiển thị: Chờ duyệt' : 'Đang hiển thị: Tất cả';
+    }
+    
+    await loadTrainerSessions(trainerId, filterType);
+}
+
+async function loadTrainerSessions(trainerId, filterType) {
+    try {
+        showLoading();
+        console.log('[TRAINER SESSIONS] Loading sessions for trainer:', trainerId);
+        
+        // Fetch all schedules
+        const schedulesData = await apiFetch('/api/Schedule?pageNumber=1&pageSize=1000');
+        console.log('[TRAINER SESSIONS] Raw schedules response:', schedulesData);
+        
+        // Handle different response formats
+        let allSchedules = [];
+        if (Array.isArray(schedulesData)) {
+            allSchedules = schedulesData;
+        } else if (schedulesData && Array.isArray(schedulesData.data)) {
+            allSchedules = schedulesData.data;
+        } else if (schedulesData && Array.isArray(schedulesData.Data)) {
+            allSchedules = schedulesData.Data;
+        } else if (schedulesData && Array.isArray(schedulesData.items)) {
+            allSchedules = schedulesData.items;
+        }
+        
+        console.log('[TRAINER SESSIONS] All schedules:', allSchedules.length);
+        
+        // Filter schedules by trainerId
+        const trainerSchedules = allSchedules.filter(s => {
+            const scheduleTrainerId = s.trainerId || s.TrainerId;
+            return scheduleTrainerId === trainerId;
+        });
+        
+        console.log('[TRAINER SESSIONS] Trainer schedules:', trainerSchedules.length);
+        
+        if (trainerSchedules.length === 0) {
+            hideLoading();
+            const container = document.getElementById('trainerSessionsContainer');
+            if (container) {
+                container.innerHTML = `
+                    <div class="empty-state">
+                        <div class="empty-state-icon">📚</div>
+                        <div class="empty-state-text">Bạn chưa có lớp học nào. Vui lòng liên hệ Admin để được phân công.</div>
+                    </div>`;
+            }
+            return;
+        }
+        
+        // Fetch sessions for each schedule
+        const allSessions = [];
+        for (const schedule of trainerSchedules) {
+            try {
+                const sessionsData = await apiFetch(`/api/Session/schedule/${schedule.scheduleId}`);
+                console.log(`[TRAINER SESSIONS] Sessions for schedule ${schedule.scheduleId}:`, sessionsData);
+                
+                // Handle different response formats
+                let sessions = [];
+                if (Array.isArray(sessionsData)) {
+                    sessions = sessionsData;
+                } else if (sessionsData && Array.isArray(sessionsData.data)) {
+                    sessions = sessionsData.data;
+                } else if (sessionsData && Array.isArray(sessionsData.Data)) {
+                    sessions = sessionsData.Data;
+                }
+                
+                // Add each session to the collection
+                sessions.forEach(s => {
+                    allSessions.push({
+                        ...s,
+                        scheduleId: schedule.scheduleId,
+                        className: s.className || schedule.className,
+                        trainerName: s.trainerName || schedule.trainerName
+                    });
+                });
+            } catch (error) {
+                console.error(`[TRAINER SESSIONS] Error fetching sessions for schedule ${schedule.scheduleId}:`, error);
+            }
+        }
+        
+        console.log('[TRAINER SESSIONS] Total sessions:', allSessions.length);
+        
+        // Apply filter
+        let filteredSessions = allSessions;
+        if (filterType === 'pending') {
+            filteredSessions = allSessions.filter(s => s.status === 'Registered');
+        }
+        
+        console.log('[TRAINER SESSIONS] Filtered sessions:', filteredSessions.length);
+        
+        hideLoading();
+        await renderTrainerSessionsTable(filteredSessions);
+        
+    } catch (error) {
+        hideLoading();
+        console.error('[TRAINER SESSIONS] Error:', error);
+        showError('Lỗi tải danh sách đăng ký: ' + error.message);
+    }
+}
+
+async function renderTrainerSessionsTable(sessions) {
+    const container = document.getElementById('trainerSessionsContainer');
+    if (!container) return;
+    
+    if (!sessions || sessions.length === 0) {
+        container.innerHTML = `
+            <div class="empty-state">
+                <div class="empty-state-icon">📝</div>
+                <div class="empty-state-text">Không có đăng ký nào</div>
+            </div>`;
+        return;
+    }
+    
+    let html = `
+        <table>
+            <thead>
+                <tr>
+                    <th>Session ID</th>
+                    <th>Tên Member</th>
+                    <th>Lớp học</th>
+                    <th>Ngày đăng ký</th>
+                    <th>Trạng thái</th>
+                    <th>Thao tác</th>
+                </tr>
+            </thead>
+            <tbody>
+    `;
+    
+    for (const s of sessions) {
+        const memberName = s.memberName || `Member ${s.memberId}`;
+        const statusBadge = 
+            s.status === 'Registered' ? 'badge-warning' :
+            s.status === 'Approved' ? 'badge-success' :
+            s.status === 'Cancelled' ? 'badge-danger' :
+            s.status === 'Attended' ? 'badge-info' : 'badge-secondary';
+        
+        const isPending = s.status === 'Registered';
+        
+        html += `
+            <tr>
+                <td>${s.sessionId}</td>
+                <td>${escapeHtml(memberName)}</td>
+                <td>${escapeHtml(s.className || '-')}</td>
+                <td>${formatDate(s.registrationDate)}</td>
+                <td><span class="badge ${statusBadge}">${s.status}</span></td>
+                <td>
+                    ${isPending ? `
+                        <div class="action-buttons">
+                            <button class="btn btn-sm btn-success" onclick="approveTrainerSession(${s.sessionId})" title="Duyệt">✓ Duyệt</button>
+                            <button class="btn btn-sm btn-danger" onclick="rejectTrainerSession(${s.sessionId})" title="Từ chối">✗ Từ chối</button>
+                        </div>
+                    ` : '<span style="color:#999;">-</span>'}
+                </td>
+            </tr>
+        `;
+    }
+    
+    html += '</tbody></table>';
+    container.innerHTML = html;
+}
+
+async function approveTrainerSession(sessionId) {
+    if (!confirm('Bạn có chắc muốn duyệt đăng ký này?')) {
+        return;
+    }
+    
+    try {
+        showLoading();
+        console.log('[TRAINER SESSIONS] Approving session:', sessionId);
+        
+        await apiFetch(`/api/Session/${sessionId}`, {
+            method: 'PUT',
+            body: JSON.stringify({
+                status: 'Approved'
+            })
+        });
+        
+        hideLoading();
+        showToast('✅ Đã duyệt!', 'success');
+        
+        // Reload trainer sessions
+        const trainerId = await getTrainerId();
+        if (trainerId) {
+            await loadTrainerSessions(trainerId, trainerSessionsFilterStatus);
+        }
+        
+    } catch (error) {
+        hideLoading();
+        console.error('[TRAINER SESSIONS] Approve error:', error);
+        showError('Lỗi duyệt: ' + error.message);
+    }
+}
+
+async function rejectTrainerSession(sessionId) {
+    if (!confirm('Bạn có chắc muốn từ chối đăng ký này?')) {
+        return;
+    }
+    
+    try {
+        showLoading();
+        console.log('[TRAINER SESSIONS] Rejecting session:', sessionId);
+        
+        await apiFetch(`/api/Session/${sessionId}`, {
+            method: 'PUT',
+            body: JSON.stringify({
+                status: 'Cancelled'
+            })
+        });
+        
+        hideLoading();
+        showToast('✅ Đã từ chối!', 'success');
+        
+        // Reload trainer sessions
+        const trainerId = await getTrainerId();
+        if (trainerId) {
+            await loadTrainerSessions(trainerId, trainerSessionsFilterStatus);
+        }
+        
+    } catch (error) {
+        hideLoading();
+        console.error('[TRAINER SESSIONS] Reject error:', error);
+        showError('Lỗi từ chối: ' + error.message);
+    }
 }
 
 async function renderAllSessions(container) {
