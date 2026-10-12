@@ -57,8 +57,8 @@ async function renderProfile(container) {
 async function handleChangePassword(e) {
     e.preventDefault();
     
-    const oldPassword = document.getElementById('oldPassword').value.trim();
-    const newPassword = document.getElementById('newPassword').value.trim();
+    const oldPassword = document.getElementById('oldPassword').value;
+    const newPassword = document.getElementById('newPassword').value;
     const confirmPassword = document.getElementById('confirmPassword').value.trim();
     
     // Validation
@@ -85,7 +85,7 @@ async function handleChangePassword(e) {
     try {
         showLoading();
         
-        await apiFetch('/api/Auth/change-password', {
+        const result = await apiFetch('/api/Auth/change-password', {
             method: 'POST',
             body: JSON.stringify({
                 oldPassword: oldPassword,
@@ -94,6 +94,11 @@ async function handleChangePassword(e) {
         });
         
         hideLoading();
+        
+        if (result === null) {
+            // apiFetch already called logout() for 401
+            return;
+        }
         
         // Success
         showToast('✅ Đổi mật khẩu thành công!', 'success');
@@ -115,9 +120,7 @@ async function handleChangePassword(e) {
         let errorMessage = 'Lỗi đổi mật khẩu';
         
         if (error.message.includes('401') || error.message.includes('Unauthorized')) {
-            errorMessage = '❌ Mật khẩu cũ không đúng';
-        } else if (error.message.includes('400') || error.message.includes('Bad Request')) {
-            errorMessage = '❌ Dữ liệu không hợp lệ';
+            errorMessage = '❌ Phiên đăng nhập đã hết hạn, vui lòng đăng nhập lại';
         } else if (error.message) {
             errorMessage = '❌ ' + error.message;
         }

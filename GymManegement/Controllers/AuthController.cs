@@ -70,6 +70,7 @@ namespace GymManegement.Controllers
         [Authorize]
         public async Task<IActionResult> ChangePassword([FromBody] ChangePasswordRequest request)
         {
+            if (!ModelState.IsValid) return BadRequest(ModelState);
             var userIdStr = User.FindFirstValue(System.IdentityModel.Tokens.Jwt.JwtRegisteredClaimNames.Sub);
             if (!int.TryParse(userIdStr, out var userId)) return Unauthorized();
             var ok = await _service.ChangePasswordAsync(userId, request);
