@@ -476,23 +476,9 @@ async function cancelRegisteredClass(sessionId) {
 }
 
 async function loadSchedules() {
-    const role = getRole();
     try {
         showLoading();
-        let data;
-        if (role === 'Trainer') {
-            const trainerId = await getTrainerId();
-            if (!trainerId) {
-                hideLoading();
-                showError('Không tìm thấy thông tin trainer');
-                return;
-            }
-            // GetByTrainerIdAsync returns IEnumerable, not paginated
-            const items = await apiFetch(`/api/Schedule/trainer/${trainerId}`);
-            data = { items: items, pageNumber: 1, totalPages: 1 };
-        } else {
-            data = await apiFetch(`/api/Schedule?pageNumber=${schedulesCurrentPage}&pageSize=${schedulesPageSize}`);
-        }
+        const data = await apiFetch(`/api/Schedule?pageNumber=${schedulesCurrentPage}&pageSize=${schedulesPageSize}`);
         hideLoading();
         
         renderSchedulesTable(data);
@@ -512,26 +498,9 @@ async function loadSchedulesByDate() {
         return;
     }
     
-    const role = getRole();
     try {
         showLoading();
-        let items;
-        if (role === 'Trainer') {
-            const trainerId = await getTrainerId();
-            if (!trainerId) {
-                hideLoading();
-                showError('Không tìm thấy thông tin trainer');
-                return;
-            }
-            // Fetch trainer's schedules and filter by date client-side
-            const allItems = await apiFetch(`/api/Schedule/trainer/${trainerId}`);
-            items = allItems.filter(s => {
-                const d = new Date(s.startTime);
-                return d.toISOString().startsWith(date);
-            });
-        } else {
-            items = await apiFetch(`/api/Schedule/date/${date}`);
-        }
+        const items = await apiFetch(`/api/Schedule/date/${date}`);
         hideLoading();
         
         renderSchedulesTable({ items, pageNumber: 1, totalPages: 1 });
@@ -545,6 +514,12 @@ async function renderSchedulesTable(data) {
     const container = document.getElementById('schedulesTableContainer');
     const role = getRole();
     const canManage = role === 'Admin' || role === 'Trainer';
+    
+    // Get current trainerId if Trainer role
+    let currentTrainerId = null;
+    if (role === 'Trainer') {
+        currentTrainerId = await getTrainerId();
+    }
     
     const items = data?.Data || data?.data || data?.items || [];
     
@@ -571,6 +546,9 @@ async function renderSchedulesTable(data) {
     `;
     
     items.forEach(schedule => {
+        // For Trainer: only show edit/delete if they own this schedule
+        const canEdit = role === 'Admin' || (role === 'Trainer' && schedule.trainerId === currentTrainerId);
+        
         html += `
             <tr>
                 <td>${schedule.scheduleId}</td>
@@ -583,8 +561,12 @@ async function renderSchedulesTable(data) {
                 ${canManage ? `
                     <td>
                         <div class="action-buttons">
-                            <button class="btn btn-sm btn-info" onclick="showEditScheduleModal(${schedule.scheduleId})">✏️</button>
-                            <button class="btn btn-sm btn-danger" onclick="deleteSchedule(${schedule.scheduleId})">🗑️</button>
+                            ${canEdit ? `
+                                <button class="btn btn-sm btn-info" onclick="showEditScheduleModal(${schedule.scheduleId})">✏️</button>
+                                <button class="btn btn-sm btn-danger" onclick="deleteSchedule(${schedule.scheduleId})">🗑️</button>
+                            ` : `
+                                <span style="color: #999; font-size: 0.9em;">Chỉ xem</span>
+                            `}
                         </div>
                     </td>
                 ` : ''}
@@ -852,6 +834,17 @@ async function showEditScheduleModal(scheduleId) {
             apiFetch('/api/Facility?pageNumber=1&pageSize=1000')
         ]);
         
+        // Ownership check for Trainer role
+        const _editRole = getRole();
+        if (_editRole === 'Trainer') {
+            const _editCurrentTrainerId = await getTrainerId();
+            if (schedule.trainerId !== _editCurrentTrainerId) {
+                hideLoading();
+                showError('Bạn chỉ có thể sửa lịch tập do bạn tạo ra.');
+                return;
+            }
+        }
+        
         const role = getRole();
         let currentTrainerId = null;
         if (role === 'Trainer') {
@@ -1052,11 +1045,24 @@ function validateScheduleForm(isEdit = false) {
 }
 
 async function deleteSchedule(scheduleId) {
-    if (!confirm('Bạn có chắc chắn muốn xóa lịch tập này?')) {
-        return;
-    }
-    
     try {
+        // Ownership check for Trainer role
+        const role = getRole();
+        if (role === 'Trainer') {
+            showLoading();
+            const schedule = await apiFetch(`/api/Schedule/${scheduleId}`);
+            const currentTrainerId = await getTrainerId();
+            hideLoading();
+            if (schedule.trainerId !== currentTrainerId) {
+                showError('Bạn chỉ có thể xóa lịch tập do bạn tạo ra.');
+                return;
+            }
+        }
+        
+        if (!confirm('Bạn có chắc chắn muốn xóa lịch tập này?')) {
+            return;
+        }
+        
         showLoading();
         await apiFetch(`/api/Schedule/${scheduleId}`, {
             method: 'DELETE'
