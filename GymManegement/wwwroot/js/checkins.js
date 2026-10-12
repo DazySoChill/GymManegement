@@ -225,10 +225,8 @@ async function renderCheckins(container) {
     const role = getRole();
     const memberId = getMemberId();
     
-    if (role === 'Member' && memberId) {
+    if ((role === 'Member' || role === 'Trainer') && memberId) {
         await renderMemberCheckins(container, memberId);
-    } else if (role === 'Trainer') {
-        await renderTrainerCheckins(container);
     } else {
         await renderAllCheckins(container);
     }
