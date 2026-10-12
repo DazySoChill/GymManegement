@@ -15,16 +15,16 @@ namespace GymManegement.Service.BUS.Implementations
     {
         private readonly IUserRepository _userRepo;
         private readonly IMemberRepository _memberRepo;
+        private readonly ITrainerRepository _trainerRepo;
         private readonly DapperContext _db;
         private readonly IConfiguration _config;
 
-        public AuthService(IUserRepository userRepo, IMemberRepository memberRepo, DapperContext db, IConfiguration config)
+        public AuthService(IUserRepository userRepo, IMemberRepository memberRepo, ITrainerRepository trainerRepo, DapperContext db, IConfiguration config)
         {
             _userRepo = userRepo;
             _memberRepo = memberRepo;
+            _trainerRepo = trainerRepo;
             _db = db;
-            _config = config;
-            _memberRepo = memberRepo;
             _config = config;
         }
 
@@ -138,6 +138,31 @@ namespace GymManegement.Service.BUS.Implementations
             };
             await _userRepo.CreateAsync(user, request.Password);
 
+            // Auto-create Trainer record if role is Trainer
+            if (user.Role == "Trainer")
+            {
+                try
+                {
+                    var existingTrainer = await _trainerRepo.GetByEmailAsync(user.Email);
+                    if (existingTrainer == null)
+                    {
+                        var trainer = new Trainer
+                        {
+                            FullName = user.FullName,
+                            Email = user.Email,
+                            Phone = string.Empty,
+                            Specialization = "General"
+                        };
+                        await _trainerRepo.CreateAsync(trainer);
+                    }
+                }
+                catch (Exception ex)
+                {
+                    // Log warning but don't fail User creation
+                    Console.WriteLine($"[WARNING] Failed to auto-create Trainer record for {user.Email}: {ex.Message}");
+                }
+            }
+
             return ToResponse(user);
         }
 
@@ -181,6 +206,51 @@ namespace GymManegement.Service.BUS.Implementations
             // Update role
             user.Role = newRole;
             await _userRepo.UpdateAsync(user);
+
+            // Auto-create Trainer/Member record if missing for the new role
+            try
+            {
+                if (newRole == "Trainer")
+                {
+                    var existingTrainer = await _trainerRepo.GetByEmailAsync(user.Email);
+                    if (existingTrainer == null)
+                    {
+                        var trainer = new Trainer
+                        {
+                            FullName = user.FullName,
+                            Email = user.Email,
+                            Phone = string.Empty,
+                            Specialization = "General"
+                        };
+                        await _trainerRepo.CreateAsync(trainer);
+                    }
+                }
+                else if (newRole == "Member")
+                {
+                    var existingMember = await _memberRepo.GetByEmailAsync(user.Email);
+                    if (existingMember == null)
+                    {
+                        using var conn = _db.CreateConnection();
+                        var nextMemberId = await conn.ExecuteScalarAsync<int>(
+                            "SELECT ISNULL(IDENT_CURRENT('Members'), 0) + 1");
+                        var qrCode = $"M{nextMemberId:D6}";
+                        var member = new Member
+                        {
+                            FullName = user.FullName,
+                            Email = user.Email,
+                            Phone = null,
+                            DateOfBirth = null,
+                            QRCode = qrCode
+                        };
+                        await _memberRepo.CreateAsync(member);
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"[WARNING] Failed to auto-create Trainer/Member record for {user.Email}: {ex.Message}");
+            }
+
             return true;
         }
 
