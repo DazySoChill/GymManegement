@@ -307,10 +307,17 @@ async function renderTrainerCheckins(container) {
     console.log('[TRAINER CHECKINS] Trainer ID:', trainerId);
     
     if (!trainerId) {
+        // Get user info to show detailed error message
+        const user = getUser();
+        const userEmail = user?.email || 'không xác định';
+        
         container.innerHTML = `
             <div class="empty-state">
                 <div class="empty-state-icon">⚠️</div>
-                <div class="empty-state-text">Không tìm thấy thông tin trainer. Vui lòng liên hệ Admin.</div>
+                <div class="empty-state-text">
+                    Không tìm thấy thông tin trainer cho email: ${escapeHtml(userEmail)}<br>
+                    Vui lòng kiểm tra Console (F12) để xem chi tiết lỗi hoặc liên hệ Admin.
+                </div>
             </div>`;
         return;
     }
@@ -364,13 +371,15 @@ async function renderTrainerCheckins(container) {
     `;
     
     // Load trainer's schedules
-    await loadTrainerSchedulesForCheckin(trainerId);
+    const scheduleCount = await loadTrainerSchedulesForCheckin(trainerId);
     
-    // Load today's check-ins
+    // Load today's check-ins (still show even if no schedules)
     await loadTrainerTodayCheckins();
     
-    // Setup form handlers
-    setupTrainerCheckinFormHandlers(trainerId);
+    // Setup form handlers only if there are schedules
+    if (scheduleCount > 0) {
+        setupTrainerCheckinFormHandlers(trainerId);
+    }
 }
 
 async function loadTrainerSchedulesForCheckin(trainerId) {
@@ -401,11 +410,22 @@ async function loadTrainerSchedulesForCheckin(trainerId) {
         console.log('[TRAINER CHECKINS] Trainer schedules:', trainerSchedules.length);
         
         const select = document.getElementById('trainerScheduleSelect');
-        if (!select) return;
+        if (!select) return trainerSchedules.length;
         
         if (trainerSchedules.length === 0) {
             select.innerHTML = '<option value="">Bạn chưa có lớp nào</option>';
-            return;
+            
+            // Hide check-in form and show empty state
+            const container = document.querySelector('#trainerCheckinForm').closest('div');
+            if (container) {
+                container.innerHTML = `
+                    <div class="empty-state">
+                        <div class="empty-state-icon">📚</div>
+                        <div class="empty-state-text">Bạn chưa có lớp học nào. Vui lòng liên hệ Admin để được phân công.<br>Sau khi có lớp học, bạn có thể thực hiện check-in cho member.</div>
+                    </div>`;
+            }
+            
+            return 0;
         }
         
         // Populate schedule dropdown
@@ -417,9 +437,12 @@ async function loadTrainerSchedulesForCheckin(trainerId) {
             select.appendChild(option);
         });
         
+        return trainerSchedules.length;
+        
     } catch (error) {
         console.error('[TRAINER CHECKINS] Error loading schedules:', error);
         showError('Lỗi tải danh sách lớp: ' + error.message);
+        return 0;
     }
 }
 
@@ -443,6 +466,11 @@ function setupTrainerCheckinFormHandlers(trainerId) {
         }
         
         try {
+            // Clear error state before loading
+            memberSelect.innerHTML = '<option value="">Đang tải...</option>';
+            memberSelect.disabled = true;
+            checkinBtn.disabled = true;
+            
             showLoading();
             console.log('[TRAINER CHECKINS] Loading members for schedule:', scheduleId);
             

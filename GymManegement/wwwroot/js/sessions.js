@@ -497,10 +497,17 @@ async function renderTrainerSessions(container) {
     console.log('[TRAINER SESSIONS] Trainer ID:', trainerId);
     
     if (!trainerId) {
+        // Get user info to show detailed error message
+        const user = getUser();
+        const userEmail = user?.email || 'không xác định';
+        
         container.innerHTML = `
             <div class="empty-state">
                 <div class="empty-state-icon">⚠️</div>
-                <div class="empty-state-text">Không tìm thấy thông tin trainer. Vui lòng liên hệ Admin.</div>
+                <div class="empty-state-text">
+                    Không tìm thấy thông tin trainer cho email: ${escapeHtml(userEmail)}<br>
+                    Vui lòng kiểm tra Console (F12) để xem chi tiết lỗi hoặc liên hệ Admin.
+                </div>
             </div>`;
         return;
     }
