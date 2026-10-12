@@ -45,9 +45,9 @@ namespace GymManegement.Service.BUS.Implementations
             // Update last login
             await _userRepo.UpdateLastLoginAsync(user.UserId);
 
-            // Find MemberId if role is Member
+            // Find MemberId if role is Member or Trainer
             int? memberId = null;
-            if (user.Role == "Member")
+            if (user.Role == "Member" || user.Role == "Trainer")
             {
                 var member = await _memberRepo.GetByEmailAsync(user.Email);
                 memberId = member?.MemberId;
