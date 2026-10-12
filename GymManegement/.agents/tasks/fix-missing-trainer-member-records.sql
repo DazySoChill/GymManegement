@@ -25,15 +25,14 @@ WHERE u.Role = 'Trainer'
 
 PRINT CONCAT('Trainer records inserted: ', @@ROWCOUNT);
 
--- Step 2: Create Member records for existing Member-role users who lack one
+-- Step 2: Create Member records with temporary QRCodes
 INSERT INTO Members (FullName, Email, Phone, DateOfBirth, QRCode, CreatedAt, UpdatedAt, IsDeleted)
 SELECT
     u.FullName,
     u.Email,
     NULL AS Phone,
     NULL AS DateOfBirth,
-    'M' + RIGHT('000000' + CAST(ROW_NUMBER() OVER (ORDER BY u.UserId) +
-        ISNULL((SELECT MAX(MemberId) FROM Members), 0) AS VARCHAR), 6) AS QRCode,
+    'TEMP_' + CAST(u.UserId AS VARCHAR) AS QRCode, -- Temporary unique QRCode
     GETDATE() AS CreatedAt,
     GETDATE() AS UpdatedAt,
     0 AS IsDeleted
@@ -45,9 +44,18 @@ WHERE u.Role = 'Member'
       WHERE m.Email = u.Email AND m.IsDeleted = 0
   );
 
-PRINT CONCAT('Member records inserted: ', @@ROWCOUNT);
+DECLARE @MemberInsertCount INT = @@ROWCOUNT;
+PRINT CONCAT('Member records inserted: ', @MemberInsertCount);
 
--- Step 3: Verification query - shows current sync status
+-- Step 3: Update QRCodes using the assigned MemberIds (concurrency-safe)
+UPDATE Members
+SET QRCode = 'M' + RIGHT('000000' + CAST(MemberId AS VARCHAR), 6),
+    UpdatedAt = GETDATE()
+WHERE QRCode LIKE 'TEMP_%';
+
+PRINT CONCAT('QRCodes updated: ', @@ROWCOUNT);
+
+-- Step 4: Verification query - shows current sync status
 SELECT
     u.UserId,
     u.FullName,
@@ -55,9 +63,11 @@ SELECT
     u.Role,
     t.TrainerId,
     m.MemberId,
+    m.QRCode,
     CASE
         WHEN u.Role = 'Trainer' AND t.TrainerId IS NULL THEN 'MISSING TRAINER RECORD'
         WHEN u.Role = 'Member'  AND m.MemberId IS NULL THEN 'MISSING MEMBER RECORD'
+        WHEN u.Role = 'Member'  AND m.QRCode LIKE 'TEMP_%' THEN 'QRCODE NOT UPDATED'
         ELSE 'OK'
     END AS SyncStatus
 FROM Users u

@@ -18,14 +18,16 @@ namespace GymManegement.Service.BUS.Implementations
         private readonly ITrainerRepository _trainerRepo;
         private readonly DapperContext _db;
         private readonly IConfiguration _config;
+        private readonly ILogger<AuthService> _logger;
 
-        public AuthService(IUserRepository userRepo, IMemberRepository memberRepo, ITrainerRepository trainerRepo, DapperContext db, IConfiguration config)
+        public AuthService(IUserRepository userRepo, IMemberRepository memberRepo, ITrainerRepository trainerRepo, DapperContext db, IConfiguration config, ILogger<AuthService> logger)
         {
             _userRepo = userRepo;
             _memberRepo = memberRepo;
             _trainerRepo = trainerRepo;
             _db = db;
             _config = config;
+            _logger = logger;
         }
 
         /// <summary>
@@ -89,25 +91,23 @@ namespace GymManegement.Service.BUS.Implementations
             };
             await _userRepo.CreateAsync(user, request.Password);
 
-            // 2. Auto create Member with sequential QRCode
-            // Get next available MemberId from sequence to generate QRCode before insert
-            using var conn = _db.CreateConnection();
-            
-            // Get next MemberId (IDENT_CURRENT returns last inserted, add 1 for next)
-            var nextMemberId = await conn.ExecuteScalarAsync<int>(
-                "SELECT ISNULL(IDENT_CURRENT('Members'), 0) + 1");
-            
-            var qrCode = $"M{nextMemberId:D6}";
-            
+            // 2. Auto create Member with QRCode generated from assigned MemberId
             var member = new Member
             {
                 FullName = user.FullName,
                 Email = user.Email,
-                Phone = null, // Nullable
-                DateOfBirth = null, // Nullable
-                QRCode = qrCode // Pre-generated sequential QRCode
+                Phone = null,
+                DateOfBirth = null,
+                QRCode = "TEMP" // Temporary, will be updated after insert
             };
             await _memberRepo.CreateAsync(member);
+            
+            // 3. Update QRCode using the assigned MemberId (concurrency-safe)
+            using var conn = _db.CreateConnection();
+            var qrCode = $"M{member.MemberId:D6}";
+            await conn.ExecuteAsync(
+                "UPDATE Members SET QRCode = @QRCode, UpdatedAt = GETDATE() WHERE MemberId = @MemberId",
+                new { QRCode = qrCode, member.MemberId });
 
             return ToResponse(user);
         }
@@ -154,12 +154,13 @@ namespace GymManegement.Service.BUS.Implementations
                             Specialization = "General"
                         };
                         await _trainerRepo.CreateAsync(trainer);
+                        _logger.LogInformation("Auto-created Trainer record for email: {Email}", user.Email);
                     }
                 }
                 catch (Exception ex)
                 {
                     // Log warning but don't fail User creation
-                    Console.WriteLine($"[WARNING] Failed to auto-create Trainer record for {user.Email}: {ex.Message}");
+                    _logger.LogWarning(ex, "Failed to auto-create Trainer record for {Email}. User was created successfully.", user.Email);
                 }
             }
 
@@ -223,6 +224,7 @@ namespace GymManegement.Service.BUS.Implementations
                             Specialization = "General"
                         };
                         await _trainerRepo.CreateAsync(trainer);
+                        _logger.LogInformation("Auto-created Trainer record for UserId {UserId} (email: {Email})", userId, user.Email);
                     }
                 }
                 else if (newRole == "Member")
@@ -230,25 +232,31 @@ namespace GymManegement.Service.BUS.Implementations
                     var existingMember = await _memberRepo.GetByEmailAsync(user.Email);
                     if (existingMember == null)
                     {
-                        using var conn = _db.CreateConnection();
-                        var nextMemberId = await conn.ExecuteScalarAsync<int>(
-                            "SELECT ISNULL(IDENT_CURRENT('Members'), 0) + 1");
-                        var qrCode = $"M{nextMemberId:D6}";
+                        // Create Member with temporary QRCode, then update with actual MemberId-based QRCode
                         var member = new Member
                         {
                             FullName = user.FullName,
                             Email = user.Email,
                             Phone = null,
                             DateOfBirth = null,
-                            QRCode = qrCode
+                            QRCode = "TEMP" // Temporary, will be updated after insert
                         };
                         await _memberRepo.CreateAsync(member);
+                        
+                        // Generate QRCode from assigned MemberId (concurrency-safe)
+                        using var conn = _db.CreateConnection();
+                        var qrCode = $"M{member.MemberId:D6}";
+                        await conn.ExecuteAsync(
+                            "UPDATE Members SET QRCode = @QRCode, UpdatedAt = GETDATE() WHERE MemberId = @MemberId",
+                            new { QRCode = qrCode, member.MemberId });
+                        
+                        _logger.LogInformation("Auto-created Member record for UserId {UserId} (email: {Email}, QRCode: {QRCode})", userId, user.Email, qrCode);
                     }
                 }
             }
             catch (Exception ex)
             {
-                Console.WriteLine($"[WARNING] Failed to auto-create Trainer/Member record for {user.Email}: {ex.Message}");
+                _logger.LogWarning(ex, "Failed to auto-create entity record for UserId {UserId} with role {Role}. Role update succeeded.", userId, newRole);
             }
 
             return true;
