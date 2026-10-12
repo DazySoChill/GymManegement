@@ -221,8 +221,8 @@ async function renderSchedules(container) {
     const role = getRole();
     const memberId = getMemberId();
     
-    if (role === 'Member' || role === 'Trainer') {
-        // Member/Trainer view - Show both personal schedule preferences and registered classes
+    if (role === 'Member') {
+        // Member view - Show both personal schedule preferences and registered classes
         container.innerHTML = `
             <div class="card">
                 <div class="card-header">
@@ -257,8 +257,8 @@ async function renderSchedules(container) {
         ]);
         
     } else {
-        // Admin view
-        const canManage = role === 'Admin';
+        // Admin and Trainer view - Full schedule management
+        const canManage = role === 'Admin' || role === 'Trainer';
         container.innerHTML = `
             <div class="card">
                 <div class="card-header">
@@ -513,7 +513,12 @@ async function loadSchedulesByDate() {
 async function renderSchedulesTable(data) {
     const container = document.getElementById('schedulesTableContainer');
     const role = getRole();
-    const canManage = role === 'Admin';
+    
+    // Get trainer ID if role is Trainer
+    let currentTrainerId = null;
+    if (role === 'Trainer') {
+        currentTrainerId = await getTrainerId();
+    }
     
     const items = data?.Data || data?.data || data?.items || [];
     
@@ -521,6 +526,9 @@ async function renderSchedulesTable(data) {
         container.innerHTML = '<div class="empty-state"><div class="empty-state-icon">📅</div><div class="empty-state-text">Không có lịch tập nào</div></div>';
         return;
     }
+    
+    // Show actions column for Admin and Trainer
+    const showActionsColumn = role === 'Admin' || role === 'Trainer';
     
     let html = `
         <table>
@@ -533,13 +541,16 @@ async function renderSchedulesTable(data) {
                     <th>Bắt đầu</th>
                     <th>Kết thúc</th>
                     <th>Sức chứa</th>
-                    ${canManage ? '<th>Thao tác</th>' : ''}
+                    ${showActionsColumn ? '<th>Thao tác</th>' : ''}
                 </tr>
             </thead>
             <tbody>
     `;
     
     items.forEach(schedule => {
+        // Check if Trainer can edit this schedule (ownership check)
+        const canEdit = role === 'Admin' || (role === 'Trainer' && schedule.trainerId === currentTrainerId);
+        
         html += `
             <tr>
                 <td>${schedule.scheduleId}</td>
@@ -549,12 +560,16 @@ async function renderSchedulesTable(data) {
                 <td>${formatDateTime(schedule.startTime)}</td>
                 <td>${formatDateTime(schedule.endTime)}</td>
                 <td>${schedule.maxCapacity}</td>
-                ${canManage ? `
+                ${showActionsColumn ? `
                     <td>
-                        <div class="action-buttons">
-                            <button class="btn btn-sm btn-info" onclick="showEditScheduleModal(${schedule.scheduleId})">✏️</button>
-                            <button class="btn btn-sm btn-danger" onclick="deleteSchedule(${schedule.scheduleId})">🗑️</button>
-                        </div>
+                        ${canEdit ? `
+                            <div class="action-buttons">
+                                <button class="btn btn-sm btn-info" onclick="showEditScheduleModal(${schedule.scheduleId})">✏️</button>
+                                <button class="btn btn-sm btn-danger" onclick="deleteSchedule(${schedule.scheduleId})">🗑️</button>
+                            </div>
+                        ` : `
+                            <span style="color: #999; font-size: 0.9em;">Chỉ xem</span>
+                        `}
                     </td>
                 ` : ''}
             </tr>
@@ -815,22 +830,35 @@ async function showEditScheduleModal(scheduleId) {
     
     try {
         showLoading();
+        
+        // Get trainer ID first if role is Trainer
+        const role = getRole();
+        let currentTrainerId = null;
+        if (role === 'Trainer') {
+            currentTrainerId = await getTrainerId();
+            if (!currentTrainerId) {
+                hideLoading();
+                showError('Không tìm thấy thông tin trainer');
+                return;
+            }
+        }
+        
         const [schedule, trainersData, facilitiesData] = await Promise.all([
             apiFetch(`/api/Schedule/${scheduleId}`),
             apiFetch('/api/Trainer?pageNumber=1&pageSize=1000'),
             apiFetch('/api/Facility?pageNumber=1&pageSize=1000')
         ]);
         
-        const role = getRole();
-        let currentTrainerId = null;
-        if (role === 'Trainer') {
-            currentTrainerId = await getTrainerId();
-        }
-        
         hideLoading();
         
         if (!schedule) {
             showError('Không tìm thấy lịch tập');
+            return;
+        }
+        
+        // Ownership check for Trainer role
+        if (role === 'Trainer' && schedule.trainerId !== currentTrainerId) {
+            showError('Bạn chỉ có thể sửa lịch tập do bạn tạo ra.');
             return;
         }
         
@@ -1027,6 +1055,26 @@ async function deleteSchedule(scheduleId) {
         }
         
         showLoading();
+        
+        // Ownership check for Trainer role
+        const role = getRole();
+        if (role === 'Trainer') {
+            const currentTrainerId = await getTrainerId();
+            if (!currentTrainerId) {
+                hideLoading();
+                showError('Không tìm thấy thông tin trainer');
+                return;
+            }
+            
+            // Fetch the schedule to check ownership
+            const schedule = await apiFetch(`/api/Schedule/${scheduleId}`);
+            if (schedule.trainerId !== currentTrainerId) {
+                hideLoading();
+                showError('Bạn chỉ có thể xóa lịch tập do bạn tạo ra.');
+                return;
+            }
+        }
+        
         await apiFetch(`/api/Schedule/${scheduleId}`, {
             method: 'DELETE'
         });
