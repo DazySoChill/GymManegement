@@ -14,7 +14,7 @@ namespace GymManegement.DAL.Repositories.Implementations
         public async Task<IEnumerable<Checkin>> GetAllAsync()
         {
             using var conn = _db.CreateConnection();
-            var sql = "SELECT * FROM Checkins WHERE IsDeleted = 0 ORDER BY CheckinTime DESC";
+            var sql = "SELECT * FROM Checkins WHERE IsDeleted = 0 ORDER BY CheckinTime ASC";
             return await conn.QueryAsync<Checkin>(sql);
         }
 
@@ -64,7 +64,7 @@ namespace GymManegement.DAL.Repositories.Implementations
         public async Task<IEnumerable<Checkin>> GetByMemberIdAsync(int memberId)
         {
             using var conn = _db.CreateConnection();
-            var sql = "SELECT * FROM Checkins WHERE MemberId = @MemberId AND IsDeleted = 0 ORDER BY CheckinTime DESC";
+            var sql = "SELECT * FROM Checkins WHERE MemberId = @MemberId AND IsDeleted = 0 ORDER BY CheckinTime ASC";
             return await conn.QueryAsync<Checkin>(sql, new { MemberId = memberId });
         }
 
@@ -74,7 +74,7 @@ namespace GymManegement.DAL.Repositories.Implementations
             var sql = @"
                 SELECT * FROM Checkins 
                 WHERE CheckinTime >= @From AND CheckinTime <= @To AND IsDeleted = 0 
-                ORDER BY CheckinTime DESC";
+                ORDER BY CheckinTime ASC";
             return await conn.QueryAsync<Checkin>(sql, new { From = from, To = to });
         }
 
@@ -85,7 +85,7 @@ namespace GymManegement.DAL.Repositories.Implementations
                 SELECT * FROM Checkins 
                 WHERE CAST(CheckinTime AS DATE) = CAST(@Date AS DATE)
                   AND IsDeleted = 0
-                ORDER BY CheckinTime DESC";
+                ORDER BY CheckinTime ASC";
             return await conn.QueryAsync<Checkin>(sql, new { Date = date });
         }
 
