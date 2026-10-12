@@ -47,6 +47,12 @@ async function login(username, password) {
 function logout() {
     localStorage.removeItem('gym_token');
     localStorage.removeItem('gym_user');
+    
+    // Clear cached trainer ID to prevent stale data on re-login
+    if (typeof clearTrainerIdCache === 'function') {
+        clearTrainerIdCache();
+    }
+    
     window.location.href = 'login.html';
 }
 

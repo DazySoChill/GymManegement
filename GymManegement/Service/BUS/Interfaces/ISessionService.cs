@@ -11,7 +11,7 @@ namespace GymManegement.Service.BUS.Interfaces
         Task<IEnumerable<SessionResponse>> GetByMemberIdAsync(int memberId);
         Task<IEnumerable<SessionResponse>> GetByStatusAsync(string status);
         Task<SessionResponse> CreateAsync(CreateSessionRequest request);
-        Task<SessionResponse?> UpdateAsync(int id, UpdateSessionRequest request);
+        Task<SessionResponse?> UpdateAsync(int id, UpdateSessionRequest request, string? userRole = null, string? userEmail = null);
         Task<bool> DeleteAsync(int id);
     }
 }

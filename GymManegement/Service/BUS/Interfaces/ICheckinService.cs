@@ -10,7 +10,7 @@ namespace GymManegement.Service.BUS.Interfaces
         Task<IEnumerable<CheckinResponse>> GetByMemberIdAsync(int memberId);
         Task<IEnumerable<CheckinResponse>> GetByDateRangeAsync(DateTime from, DateTime to);
         Task<IEnumerable<CheckinResponse>> GetByDateAsync(DateTime date);
-        Task<CheckinResponse> CreateManualAsync(CreateCheckinRequest request);
+        Task<CheckinResponse> CreateManualAsync(CreateCheckinRequest request, string? userRole = null, string? userEmail = null);
         Task<CheckinResponse> CheckinByQRAsync(QRCheckinRequest request);
         Task<CheckinResponse?> CheckoutAsync(int checkinId);
     }

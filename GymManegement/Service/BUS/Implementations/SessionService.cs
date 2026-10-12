@@ -189,10 +189,32 @@ namespace GymManegement.Service.BUS.Implementations
             return await ToResponseAsync(entity);
         }
 
-        public async Task<SessionResponse?> UpdateAsync(int id, UpdateSessionRequest request)
+        public async Task<SessionResponse?> UpdateAsync(int id, UpdateSessionRequest request, string? userRole = null, string? userEmail = null)
         {
             var entity = await _repo.GetByIdAsync(id);
             if (entity is null) return null;
+
+            // Ownership validation: Trainers can only update sessions for their own schedules
+            if (userRole == "Trainer" && !string.IsNullOrEmpty(userEmail))
+            {
+                // Fetch the schedule to get the trainerId
+                var schedule = await _scheduleRepo.GetByIdAsync(entity.ScheduleId);
+                if (schedule is null)
+                    throw new InvalidOperationException("Lịch học không tồn tại.");
+
+                // Fetch all trainers to match email
+                var trainersResult = await _trainerRepo.GetAllAsync(1, 1000, null, null, null);
+                var trainers = trainersResult.Data;
+                
+                var trainer = trainers.FirstOrDefault(t => 
+                    !string.IsNullOrEmpty(t.Email) && 
+                    t.Email.Trim().Equals(userEmail.Trim(), StringComparison.OrdinalIgnoreCase));
+
+                if (trainer is null || schedule.TrainerId != trainer.TrainerId)
+                {
+                    throw new UnauthorizedAccessException("Bạn chỉ có thể duyệt đăng ký cho lớp học của mình.");
+                }
+            }
 
             entity.Status = request.Status;
             await _repo.UpdateAsync(entity);

@@ -218,6 +218,14 @@ async function loadActiveFacilities() {
 let _cachedTrainerId = null;
 
 /**
+ * Clear cached trainer ID (called on logout)
+ */
+function clearTrainerIdCache() {
+    _cachedTrainerId = null;
+    console.log('[clearTrainerIdCache] Cache cleared');
+}
+
+/**
  * Gets the trainer's TrainerId (from Trainers table).
  * Strategy: Fetch all trainers and match by email from JWT token.
  * The JWT token includes user email but not trainerId.
@@ -230,32 +238,37 @@ async function getTrainerId() {
     try {
         const user = getUser();
         if (!user || !user.email) {
-            console.error('No user email found in JWT');
+            console.error('[getTrainerId] FAILED: No user email found in JWT token');
             return null;
         }
         
+        // Trim whitespace from user email for comparison
+        const userEmail = user.email.trim().toLowerCase();
+        
         // Fetch all trainers and find by email
         const result = await apiFetch('/api/Trainer?pageNumber=1&pageSize=1000');
-        console.log('Get TrainerId - API Response:', result);
+        console.log('[getTrainerId] API Response:', result);
         
         const trainers = result?.data || result?.Data || [];
-        console.log('Get TrainerId - Trainers array:', trainers);
+        console.log(`[getTrainerId] Searching for email "${userEmail}" in ${trainers.length} trainers`);
         
         const trainer = trainers.find(t => {
             const trainerEmail = t.email || t.Email;
-            return trainerEmail && trainerEmail.toLowerCase() === user.email.toLowerCase();
+            if (!trainerEmail) return false;
+            // Trim whitespace from trainer email too
+            return trainerEmail.trim().toLowerCase() === userEmail;
         });
         
         if (trainer) {
             _cachedTrainerId = trainer.trainerId || trainer.TrainerId;
-            console.log('Get TrainerId - Found trainer:', _cachedTrainerId);
-            return trainer.trainerId || trainer.TrainerId;
+            console.log(`[getTrainerId] SUCCESS: Found trainerId ${_cachedTrainerId} for email ${userEmail}`);
+            return _cachedTrainerId;
         }
         
-        console.error('No trainer found with email:', user.email);
+        console.error(`[getTrainerId] FAILED: No trainer found with email "${userEmail}". Available emails: ${trainers.map(t => t.email || t.Email).filter(e => e).join(', ')}`);
         return null;
     } catch (error) {
-        console.error('Error fetching trainerId:', error);
+        console.error('[getTrainerId] FAILED: API error:', error);
         return null;
     }
 }

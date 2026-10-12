@@ -2,6 +2,7 @@ using GymManegement.API.DTOs.Checkin;
 using GymManegement.Service.BUS.Interfaces;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using System.Security.Claims;
 
 namespace GymManegement.Controllers
 {
@@ -44,6 +45,9 @@ namespace GymManegement.Controllers
         {
             if (!ModelState.IsValid) return BadRequest(ModelState);
             
+            var userRole = User.FindFirstValue(System.Security.Claims.ClaimTypes.Role) ?? User.FindFirstValue("role");
+            var userEmail = User.FindFirstValue(System.IdentityModel.Tokens.Jwt.JwtRegisteredClaimNames.Email);
+            
             // Member can only check-in for themselves
             if (User.IsInRole("Member"))
             {
@@ -60,7 +64,7 @@ namespace GymManegement.Controllers
                 }
             }
             
-            var result = await _service.CreateManualAsync(request);
+            var result = await _service.CreateManualAsync(request, userRole, userEmail);
             return CreatedAtAction(nameof(GetById), new { id = result.CheckinId }, result);
         }
 

@@ -10,11 +10,22 @@ namespace GymManegement.Service.BUS.Implementations
     {
         private readonly ICheckinRepository _repo;
         private readonly IMemberRepository  _memberRepo;
+        private readonly ISessionRepository _sessionRepo;
+        private readonly IScheduleRepository _scheduleRepo;
+        private readonly ITrainerRepository _trainerRepo;
 
-        public CheckinService(ICheckinRepository repo, IMemberRepository memberRepo)
+        public CheckinService(
+            ICheckinRepository repo, 
+            IMemberRepository memberRepo,
+            ISessionRepository sessionRepo,
+            IScheduleRepository scheduleRepo,
+            ITrainerRepository trainerRepo)
         {
             _repo = repo;
             _memberRepo = memberRepo;
+            _sessionRepo = sessionRepo;
+            _scheduleRepo = scheduleRepo;
+            _trainerRepo = trainerRepo;
         }
 
         public async Task<PagedResult<CheckinResponse>> GetAllAsync(int pageNumber = 1, int pageSize = 10, string? searchTerm = null, string? sortBy = null, string? sortDir = null)
@@ -59,12 +70,45 @@ namespace GymManegement.Service.BUS.Implementations
             return list.Select(ToResponse);
         }
 
-        public async Task<CheckinResponse> CreateManualAsync(CreateCheckinRequest request)
+        public async Task<CheckinResponse> CreateManualAsync(CreateCheckinRequest request, string? userRole = null, string? userEmail = null)
         {
             // Validate member exists
             var member = await _memberRepo.GetByIdAsync(request.MemberId);
             if (member is null)
                 throw new InvalidOperationException("Hội viên không tồn tại.");
+
+            // Ownership validation: Trainers can only check-in members enrolled in their own schedules
+            if (userRole == "Trainer" && !string.IsNullOrEmpty(userEmail))
+            {
+                // Get all sessions for this member with status 'Approved'
+                var memberSessions = (await _sessionRepo.GetByMemberIdAsync(request.MemberId))
+                    .Where(s => s.Status == "Approved")
+                    .ToList();
+
+                if (!memberSessions.Any())
+                    throw new UnauthorizedAccessException("Member chưa được duyệt vào lớp nào.");
+
+                // Get schedule IDs from approved sessions
+                var scheduleIds = memberSessions.Select(s => s.ScheduleId).Distinct().ToList();
+                var schedules = await _scheduleRepo.GetByIdsAsync(scheduleIds);
+
+                // Find trainer by email
+                var trainersResult = await _trainerRepo.GetAllAsync(1, 1000, null, null, null);
+                var trainers = trainersResult.Data;
+                
+                var trainer = trainers.FirstOrDefault(t => 
+                    !string.IsNullOrEmpty(t.Email) && 
+                    t.Email.Trim().Equals(userEmail.Trim(), StringComparison.OrdinalIgnoreCase));
+
+                if (trainer is null)
+                    throw new UnauthorizedAccessException("Không tìm thấy thông tin trainer.");
+
+                // Check if any of the member's schedules belong to this trainer
+                var hasAccessToMember = schedules.Any(s => s.TrainerId == trainer.TrainerId);
+
+                if (!hasAccessToMember)
+                    throw new UnauthorizedAccessException("Bạn chỉ có thể check-in member trong lớp học của mình.");
+            }
 
             var entity = new Checkin
             {

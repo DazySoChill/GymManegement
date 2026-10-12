@@ -2,6 +2,7 @@ using GymManegement.API.DTOs.Session;
 using GymManegement.Service.BUS.Interfaces;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using System.Security.Claims;
 
 namespace GymManegement.Controllers
 {
@@ -47,7 +48,12 @@ namespace GymManegement.Controllers
         public async Task<IActionResult> Update(int id, [FromBody] UpdateSessionRequest request)
         {
             if (!ModelState.IsValid) return BadRequest(ModelState);
-            var result = await _service.UpdateAsync(id, request);
+            
+            // Get current user's role and email for ownership validation
+            var role = User.FindFirstValue(System.Security.Claims.ClaimTypes.Role) ?? User.FindFirstValue("role");
+            var email = User.FindFirstValue(System.IdentityModel.Tokens.Jwt.JwtRegisteredClaimNames.Email);
+            
+            var result = await _service.UpdateAsync(id, request, role, email);
             return result != null ? Ok(result) : NotFound();
         }
 
@@ -62,7 +68,12 @@ namespace GymManegement.Controllers
         public async Task<IActionResult> UpdateStatus(int id, [FromBody] UpdateSessionRequest request)
         {
             if (!ModelState.IsValid) return BadRequest(ModelState);
-            var result = await _service.UpdateAsync(id, request);
+            
+            // Get current user's role and email for ownership validation
+            var role = User.FindFirstValue(System.Security.Claims.ClaimTypes.Role) ?? User.FindFirstValue("role");
+            var email = User.FindFirstValue(System.IdentityModel.Tokens.Jwt.JwtRegisteredClaimNames.Email);
+            
+            var result = await _service.UpdateAsync(id, request, role, email);
             return result != null ? Ok(result) : NotFound();
         }
     }
