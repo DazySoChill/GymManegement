@@ -476,9 +476,23 @@ async function cancelRegisteredClass(sessionId) {
 }
 
 async function loadSchedules() {
+    const role = getRole();
     try {
         showLoading();
-        const data = await apiFetch(`/api/Schedule?pageNumber=${schedulesCurrentPage}&pageSize=${schedulesPageSize}`);
+        let data;
+        if (role === 'Trainer') {
+            const trainerId = await getTrainerId();
+            if (!trainerId) {
+                hideLoading();
+                showError('Không tìm thấy thông tin trainer');
+                return;
+            }
+            // GetByTrainerIdAsync returns IEnumerable, not paginated
+            const items = await apiFetch(`/api/Schedule/trainer/${trainerId}`);
+            data = { items: items, pageNumber: 1, totalPages: 1 };
+        } else {
+            data = await apiFetch(`/api/Schedule?pageNumber=${schedulesCurrentPage}&pageSize=${schedulesPageSize}`);
+        }
         hideLoading();
         
         renderSchedulesTable(data);
@@ -498,12 +512,29 @@ async function loadSchedulesByDate() {
         return;
     }
     
+    const role = getRole();
     try {
         showLoading();
-        const data = await apiFetch(`/api/Schedule/date/${date}`);
+        let items;
+        if (role === 'Trainer') {
+            const trainerId = await getTrainerId();
+            if (!trainerId) {
+                hideLoading();
+                showError('Không tìm thấy thông tin trainer');
+                return;
+            }
+            // Fetch trainer's schedules and filter by date client-side
+            const allItems = await apiFetch(`/api/Schedule/trainer/${trainerId}`);
+            items = allItems.filter(s => {
+                const d = new Date(s.startTime);
+                return d.toISOString().startsWith(date);
+            });
+        } else {
+            items = await apiFetch(`/api/Schedule/date/${date}`);
+        }
         hideLoading();
         
-        renderSchedulesTable({ items: data, pageNumber: 1, totalPages: 1 });
+        renderSchedulesTable({ items, pageNumber: 1, totalPages: 1 });
     } catch (error) {
         hideLoading();
         showError('Lỗi tải lịch tập: ' + error.message);
@@ -689,6 +720,18 @@ async function showCreateScheduleModal() {
             apiFetch('/api/Trainer?pageNumber=1&pageSize=1000'),
             apiFetch('/api/Facility?pageNumber=1&pageSize=1000')
         ]);
+        
+        const role = getRole();
+        let currentTrainerId = null;
+        if (role === 'Trainer') {
+            currentTrainerId = await getTrainerId();
+            if (!currentTrainerId) {
+                hideLoading();
+                showError('Không tìm thấy thông tin trainer');
+                return;
+            }
+        }
+        
         hideLoading();
         
         const trainers = trainersData?.data || trainersData?.items || [];
@@ -715,10 +758,11 @@ async function showCreateScheduleModal() {
                     </div>
                     <div class="form-group">
                         <label>Huấn luyện viên <span class="required">*</span></label>
-                        <select id="trainerId" name="trainerId" required>
+                        <select id="trainerId" name="trainerId" ${role === 'Trainer' ? 'disabled style="background:#f5f5f5;cursor:not-allowed;"' : ''} required>
                             <option value="">-- Chọn HLV --</option>
-                            ${trainers.map(t => `<option value="${t.trainerId}">${escapeHtml(t.fullName)}</option>`).join('')}
+                            ${trainers.map(t => `<option value="${t.trainerId}" ${role === 'Trainer' && t.trainerId === currentTrainerId ? 'selected' : ''}>${escapeHtml(t.fullName)}</option>`).join('')}
                         </select>
+                        ${role === 'Trainer' ? `<input type="hidden" id="trainerIdHidden" value="${currentTrainerId}">` : ''}
                         <div class="error" id="trainerIdError"></div>
                     </div>
                     <div class="form-group">
@@ -762,9 +806,13 @@ async function showCreateScheduleModal() {
                 return;
             }
             
+            const trainerId = getRole() === 'Trainer'
+                ? parseInt(document.getElementById('trainerIdHidden').value)
+                : parseInt(document.getElementById('trainerId').value);
+            
             const formData = {
                 className: document.getElementById('className').value.trim(),
-                trainerId: parseInt(document.getElementById('trainerId').value),
+                trainerId: trainerId,
                 facilityId: parseInt(document.getElementById('facilityId').value),
                 startTime: new Date(document.getElementById('startTime').value).toISOString(),
                 endTime: new Date(document.getElementById('endTime').value).toISOString(),
@@ -803,6 +851,13 @@ async function showEditScheduleModal(scheduleId) {
             apiFetch('/api/Trainer?pageNumber=1&pageSize=1000'),
             apiFetch('/api/Facility?pageNumber=1&pageSize=1000')
         ]);
+        
+        const role = getRole();
+        let currentTrainerId = null;
+        if (role === 'Trainer') {
+            currentTrainerId = await getTrainerId();
+        }
+        
         hideLoading();
         
         if (!schedule) {
@@ -834,10 +889,11 @@ async function showEditScheduleModal(scheduleId) {
                     </div>
                     <div class="form-group">
                         <label>Huấn luyện viên <span class="required">*</span></label>
-                        <select id="editTrainerId" name="trainerId" required>
+                        <select id="editTrainerId" name="trainerId" ${role === 'Trainer' ? 'disabled style="background:#f5f5f5;cursor:not-allowed;"' : ''} required>
                             <option value="">-- Chọn HLV --</option>
                             ${trainers.map(t => `<option value="${t.trainerId}" ${t.trainerId === schedule.trainerId ? 'selected' : ''}>${escapeHtml(t.fullName)}</option>`).join('')}
                         </select>
+                        ${role === 'Trainer' ? `<input type="hidden" id="editTrainerIdHidden" value="${schedule.trainerId}">` : ''}
                         <div class="error" id="editTrainerIdError"></div>
                     </div>
                     <div class="form-group">
@@ -881,9 +937,13 @@ async function showEditScheduleModal(scheduleId) {
                 return;
             }
             
+            const trainerId = getRole() === 'Trainer'
+                ? parseInt(document.getElementById('editTrainerIdHidden').value)
+                : parseInt(document.getElementById('editTrainerId').value);
+            
             const formData = {
                 className: document.getElementById('editClassName').value.trim(),
-                trainerId: parseInt(document.getElementById('editTrainerId').value),
+                trainerId: trainerId,
                 facilityId: parseInt(document.getElementById('editFacilityId').value),
                 startTime: new Date(document.getElementById('editStartTime').value).toISOString(),
                 endTime: new Date(document.getElementById('editEndTime').value).toISOString(),
@@ -944,11 +1004,13 @@ function validateScheduleForm(isEdit = false) {
         isValid = false;
     }
     
-    // Validate trainer
-    if (!trainerId.value) {
-        document.getElementById(prefix + 'trainerIdError').textContent = 'Vui lòng chọn HLV';
-        trainerId.classList.add('invalid');
-        isValid = false;
+    // Validate trainer (skip for Trainer role - trainerId is auto-filled via hidden input)
+    if (getRole() !== 'Trainer') {
+        if (!trainerId.value) {
+            document.getElementById(prefix + 'trainerIdError').textContent = 'Vui lòng chọn HLV';
+            trainerId.classList.add('invalid');
+            isValid = false;
+        }
     }
     
     // Validate facility
