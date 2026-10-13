@@ -1,0 +1,9 @@
+{
+  "verdict": "CHANGES_REQUESTED",
+  "findings": [
+    "Edit modal fetches unused currentTrainerId — showEditScheduleModal fetches currentTrainerId via getTrainerId() for Trainer role but never uses it. The hidden input carries schedule.trainerId (the trainer already assigned to the schedule) instead of currentTrainerId. This is dead code. Remove the fetch or use currentTrainerId to validate that the current trainer owns the schedule before allowing edits.",
+    "Date filter client-side for Trainer, server-side for Admin — loadSchedulesByDate fetches all trainer schedules and filters by date in JavaScript, while Admin calls /api/Schedule/date/{date} which filters server-side. This asymmetry is functional but creates maintenance risk: changes to date filtering logic must be mirrored in two places. Consider adding a /api/Schedule/trainer/{trainerId}/date/{date} endpoint to keep filtering server-side for both roles.",
+    "Role check pattern repeated in five functions — getRole() === 'Trainer' appears in loadSchedules, loadSchedulesByDate, showCreateScheduleModal, showEditScheduleModal, and validateScheduleForm. If role names change or new roles need schedule filtering (e.g., Admin with limited scope), all five call sites must be updated. Extract a helper: function shouldFilterByTrainer() { return getRole() === 'Trainer'; } and use it consistently."
+  ],
+  "reviewDoc": "d:\\Workspace\\Độ án 2\\GymManegement\\GymManegement\\.agents\\tasks\\trainer-schedules-review.md"
+}

@@ -1,0 +1,12 @@
+{
+  "verdict": "APPROVED",
+  "findings": [
+    "Revenue detail format mismatch — Backend may return invoice list, not daily aggregation. Frontend handles both but displays 'count' column with '-' for invoice format. Verify backend returns aggregated data or remove count column.",
+    "Member navigation property assumption — Expiring memberships reads item.member.fullName, assuming backend includes Member navigation. If not included, names show as '-'. Verify backend includes Member or flatten the response.",
+    "Session endpoint response inconsistency — loadTrainerMonthlyAttended checks both array and wrapped formats for session responses. Backend should return consistent format. Verify /api/Session/schedule/{id} returns unwrapped array or always wrapped.",
+    "Trainer lookup inefficiency — Trainer dashboard fetches all 1000 trainers to match email on every render (cached per session). If trainer count grows, consider backend endpoint /api/Trainer/by-email/{email} to avoid bulk fetch.",
+    "Client-side filtering at scale — Dashboard fetches up to 1000 records (payments, checkins, facilities, schedules) and filters client-side. For large gyms, this becomes slow. Consider backend query params (e.g., ?fromDate=2026-10-01&toDate=2026-10-31) or report endpoints.",
+    "Hardcoded page size limits — Multiple endpoints use pageSize=1000 assuming small datasets. If member count exceeds 1000, pagination breaks. Backend should support date/status filters or dedicated aggregate endpoints."
+  ],
+  "reviewDoc": "d:\\Workspace\\Độ án 2\\GymManegement\\GymManegement\\.agents\\tasks\\dashboard-reports-review.md"
+}
