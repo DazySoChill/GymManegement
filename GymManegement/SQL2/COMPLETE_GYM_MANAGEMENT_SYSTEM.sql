@@ -4,7 +4,7 @@
 -- =============================================
 -- 
 -- VERIFICATION NOTE:
--- This file contains 2 stored procedures (sp_AuditLog_Create, sp_AuditLog_GetByRecord).
+-- This file contains 97 stored procedures for comprehensive CRUD operations.
 -- All 12 tables use NVARCHAR for text columns with N-prefix for Vietnamese literals.
 -- Trainers have both Trainer records AND Member records to support check-in functionality.
 -- All foreign key references verified. Zero VARCHAR violations confirmed.
@@ -416,7 +416,2167 @@ GO
 PRINT '  ✓ sp_AuditLog_GetByRecord created';
 GO
 
-PRINT 'All stored procedures created successfully (2 total)';
+-- =============================================
+-- Users Procedures (11 total)
+-- =============================================
+
+-- sp_Users_GetAll
+CREATE PROCEDURE sp_Users_GetAll
+    @SearchTerm NVARCHAR(100) = NULL
+AS
+BEGIN
+    SET NOCOUNT ON;
+    BEGIN TRY
+        SELECT UserId, Username, PasswordHash, FullName, Email, Role, IsActive,
+               LastLoginAt, CreatedAt, UpdatedAt, IsDeleted, DeletedAt
+        FROM Users
+        WHERE IsDeleted = 0
+          AND (@SearchTerm IS NULL OR FullName LIKE N'%' + @SearchTerm + N'%'
+               OR Username LIKE N'%' + @SearchTerm + N'%'
+               OR Email LIKE N'%' + @SearchTerm + N'%')
+        ORDER BY CreatedAt DESC;
+    END TRY
+    BEGIN CATCH THROW; END CATCH
+END
+GO
+
+PRINT '  ✓ sp_Users_GetAll created';
+GO
+
+-- sp_Users_GetById
+CREATE PROCEDURE sp_Users_GetById
+    @UserId INT
+AS
+BEGIN
+    SET NOCOUNT ON;
+    BEGIN TRY
+        SELECT UserId, Username, PasswordHash, FullName, Email, Role, IsActive,
+               LastLoginAt, CreatedAt, UpdatedAt, IsDeleted, DeletedAt
+        FROM Users
+        WHERE UserId = @UserId AND IsDeleted = 0;
+    END TRY
+    BEGIN CATCH THROW; END CATCH
+END
+GO
+
+PRINT '  ✓ sp_Users_GetById created';
+GO
+
+-- sp_Users_GetByUsername
+CREATE PROCEDURE sp_Users_GetByUsername
+    @Username NVARCHAR(50)
+AS
+BEGIN
+    SET NOCOUNT ON;
+    BEGIN TRY
+        SELECT UserId, Username, PasswordHash, FullName, Email, Role, IsActive,
+               LastLoginAt, CreatedAt, UpdatedAt, IsDeleted, DeletedAt
+        FROM Users
+        WHERE Username = @Username AND IsDeleted = 0;
+    END TRY
+    BEGIN CATCH THROW; END CATCH
+END
+GO
+
+PRINT '  ✓ sp_Users_GetByUsername created';
+GO
+
+-- sp_Users_GetByEmail
+CREATE PROCEDURE sp_Users_GetByEmail
+    @Email NVARCHAR(100)
+AS
+BEGIN
+    SET NOCOUNT ON;
+    BEGIN TRY
+        SELECT UserId, Username, PasswordHash, FullName, Email, Role, IsActive,
+               LastLoginAt, CreatedAt, UpdatedAt, IsDeleted, DeletedAt
+        FROM Users
+        WHERE Email = @Email AND IsDeleted = 0;
+    END TRY
+    BEGIN CATCH THROW; END CATCH
+END
+GO
+
+PRINT '  ✓ sp_Users_GetByEmail created';
+GO
+
+-- sp_Users_Create
+CREATE PROCEDURE sp_Users_Create
+    @Username NVARCHAR(50),
+    @PasswordHash NVARCHAR(255),
+    @FullName NVARCHAR(100),
+    @Email NVARCHAR(100),
+    @Role NVARCHAR(20) = N'Member',
+    @IsActive BIT = 1
+AS
+BEGIN
+    SET NOCOUNT ON;
+    BEGIN TRY
+        INSERT INTO Users (Username, PasswordHash, FullName, Email, Role, IsActive, CreatedAt, UpdatedAt, IsDeleted)
+        VALUES (@Username, @PasswordHash, @FullName, @Email, @Role, @IsActive, GETDATE(), GETDATE(), 0);
+        SELECT SCOPE_IDENTITY() AS NewId;
+    END TRY
+    BEGIN CATCH THROW; END CATCH
+END
+GO
+
+PRINT '  ✓ sp_Users_Create created';
+GO
+
+-- sp_Users_Update
+CREATE PROCEDURE sp_Users_Update
+    @UserId INT,
+    @FullName NVARCHAR(100),
+    @Email NVARCHAR(100),
+    @Role NVARCHAR(20),
+    @IsActive BIT
+AS
+BEGIN
+    SET NOCOUNT ON;
+    BEGIN TRY
+        UPDATE Users
+        SET FullName = @FullName,
+            Email = @Email,
+            Role = @Role,
+            IsActive = @IsActive,
+            UpdatedAt = GETDATE()
+        WHERE UserId = @UserId AND IsDeleted = 0;
+        SELECT @@ROWCOUNT AS AffectedRows;
+    END TRY
+    BEGIN CATCH THROW; END CATCH
+END
+GO
+
+PRINT '  ✓ sp_Users_Update created';
+GO
+
+-- sp_Users_UpdatePassword
+CREATE PROCEDURE sp_Users_UpdatePassword
+    @UserId INT,
+    @PasswordHash NVARCHAR(255)
+AS
+BEGIN
+    SET NOCOUNT ON;
+    BEGIN TRY
+        UPDATE Users
+        SET PasswordHash = @PasswordHash,
+            UpdatedAt = GETDATE()
+        WHERE UserId = @UserId AND IsDeleted = 0;
+        SELECT @@ROWCOUNT AS AffectedRows;
+    END TRY
+    BEGIN CATCH THROW; END CATCH
+END
+GO
+
+PRINT '  ✓ sp_Users_UpdatePassword created';
+GO
+
+-- sp_Users_UpdateLastLogin
+CREATE PROCEDURE sp_Users_UpdateLastLogin
+    @UserId INT,
+    @LastLoginAt DATETIME
+AS
+BEGIN
+    SET NOCOUNT ON;
+    BEGIN TRY
+        UPDATE Users
+        SET LastLoginAt = @LastLoginAt,
+            UpdatedAt = GETDATE()
+        WHERE UserId = @UserId AND IsDeleted = 0;
+        SELECT @@ROWCOUNT AS AffectedRows;
+    END TRY
+    BEGIN CATCH THROW; END CATCH
+END
+GO
+
+PRINT '  ✓ sp_Users_UpdateLastLogin created';
+GO
+
+-- sp_Users_SetActive
+CREATE PROCEDURE sp_Users_SetActive
+    @UserId INT,
+    @IsActive BIT
+AS
+BEGIN
+    SET NOCOUNT ON;
+    BEGIN TRY
+        UPDATE Users
+        SET IsActive = @IsActive,
+            UpdatedAt = GETDATE()
+        WHERE UserId = @UserId AND IsDeleted = 0;
+        SELECT @@ROWCOUNT AS AffectedRows;
+    END TRY
+    BEGIN CATCH THROW; END CATCH
+END
+GO
+
+PRINT '  ✓ sp_Users_SetActive created';
+GO
+
+-- sp_Users_UsernameExists
+CREATE PROCEDURE sp_Users_UsernameExists
+    @Username NVARCHAR(50),
+    @ExcludeUserId INT = 0
+AS
+BEGIN
+    SET NOCOUNT ON;
+    BEGIN TRY
+        SELECT CAST(CASE WHEN EXISTS(
+            SELECT 1 FROM Users
+            WHERE Username = @Username AND IsDeleted = 0 AND UserId <> @ExcludeUserId
+        ) THEN 1 ELSE 0 END AS BIT) AS [Exists];
+    END TRY
+    BEGIN CATCH THROW; END CATCH
+END
+GO
+
+PRINT '  ✓ sp_Users_UsernameExists created';
+GO
+
+-- sp_Users_EmailExists
+CREATE PROCEDURE sp_Users_EmailExists
+    @Email NVARCHAR(100),
+    @ExcludeUserId INT = 0
+AS
+BEGIN
+    SET NOCOUNT ON;
+    BEGIN TRY
+        SELECT CAST(CASE WHEN EXISTS(
+            SELECT 1 FROM Users
+            WHERE Email = @Email AND IsDeleted = 0 AND UserId <> @ExcludeUserId
+        ) THEN 1 ELSE 0 END AS BIT) AS [Exists];
+    END TRY
+    BEGIN CATCH THROW; END CATCH
+END
+GO
+
+PRINT '  ✓ sp_Users_EmailExists created';
+GO
+
+-- =============================================
+-- Members Procedures (9 total)
+-- =============================================
+
+-- sp_Members_GetAll
+CREATE PROCEDURE sp_Members_GetAll
+    @PageNumber INT = 1,
+    @PageSize INT = 10,
+    @SearchTerm NVARCHAR(100) = NULL
+AS
+BEGIN
+    SET NOCOUNT ON;
+    BEGIN TRY
+        SELECT MemberId, FullName, Email, Phone, DateOfBirth, QRCode,
+               CreatedAt, UpdatedAt, IsDeleted, DeletedAt
+        FROM Members
+        WHERE IsDeleted = 0
+          AND (@SearchTerm IS NULL OR FullName LIKE N'%' + @SearchTerm + N'%'
+               OR Email LIKE N'%' + @SearchTerm + N'%'
+               OR Phone LIKE N'%' + @SearchTerm + N'%')
+        ORDER BY CreatedAt DESC
+        OFFSET (@PageNumber - 1) * @PageSize ROWS
+        FETCH NEXT @PageSize ROWS ONLY;
+
+        SELECT COUNT(*) AS TotalCount
+        FROM Members
+        WHERE IsDeleted = 0
+          AND (@SearchTerm IS NULL OR FullName LIKE N'%' + @SearchTerm + N'%'
+               OR Email LIKE N'%' + @SearchTerm + N'%'
+               OR Phone LIKE N'%' + @SearchTerm + N'%');
+    END TRY
+    BEGIN CATCH THROW; END CATCH
+END
+GO
+
+PRINT '  ✓ sp_Members_GetAll created';
+GO
+
+-- sp_Members_GetById
+CREATE PROCEDURE sp_Members_GetById
+    @MemberId INT
+AS
+BEGIN
+    SET NOCOUNT ON;
+    BEGIN TRY
+        SELECT MemberId, FullName, Email, Phone, DateOfBirth, QRCode,
+               CreatedAt, UpdatedAt, IsDeleted, DeletedAt
+        FROM Members
+        WHERE MemberId = @MemberId AND IsDeleted = 0;
+    END TRY
+    BEGIN CATCH THROW; END CATCH
+END
+GO
+
+PRINT '  ✓ sp_Members_GetById created';
+GO
+
+-- sp_Members_GetByEmail
+CREATE PROCEDURE sp_Members_GetByEmail
+    @Email NVARCHAR(100)
+AS
+BEGIN
+    SET NOCOUNT ON;
+    BEGIN TRY
+        SELECT MemberId, FullName, Email, Phone, DateOfBirth, QRCode,
+               CreatedAt, UpdatedAt, IsDeleted, DeletedAt
+        FROM Members
+        WHERE Email = @Email AND IsDeleted = 0;
+    END TRY
+    BEGIN CATCH THROW; END CATCH
+END
+GO
+
+PRINT '  ✓ sp_Members_GetByEmail created';
+GO
+
+-- sp_Members_GetByQRCode
+CREATE PROCEDURE sp_Members_GetByQRCode
+    @QRCode NVARCHAR(255)
+AS
+BEGIN
+    SET NOCOUNT ON;
+    BEGIN TRY
+        SELECT MemberId, FullName, Email, Phone, DateOfBirth, QRCode,
+               CreatedAt, UpdatedAt, IsDeleted, DeletedAt
+        FROM Members
+        WHERE QRCode = @QRCode AND IsDeleted = 0;
+    END TRY
+    BEGIN CATCH THROW; END CATCH
+END
+GO
+
+PRINT '  ✓ sp_Members_GetByQRCode created';
+GO
+
+-- sp_Members_GetByIds
+CREATE PROCEDURE sp_Members_GetByIds
+    @MemberIds NVARCHAR(MAX)
+AS
+BEGIN
+    SET NOCOUNT ON;
+    BEGIN TRY
+        SELECT MemberId, FullName, Email, Phone, DateOfBirth, QRCode,
+               CreatedAt, UpdatedAt, IsDeleted, DeletedAt
+        FROM Members
+        WHERE IsDeleted = 0
+          AND MemberId IN (
+              SELECT CAST(value AS INT)
+              FROM STRING_SPLIT(@MemberIds, N',')
+              WHERE LTRIM(RTRIM(value)) <> N''
+          );
+    END TRY
+    BEGIN CATCH THROW; END CATCH
+END
+GO
+
+PRINT '  ✓ sp_Members_GetByIds created';
+GO
+
+-- sp_Members_Create
+CREATE PROCEDURE sp_Members_Create
+    @FullName NVARCHAR(100),
+    @Email NVARCHAR(100),
+    @Phone NVARCHAR(20) = NULL,
+    @DateOfBirth DATETIME = NULL,
+    @QRCode NVARCHAR(255)
+AS
+BEGIN
+    SET NOCOUNT ON;
+    BEGIN TRY
+        INSERT INTO Members (FullName, Email, Phone, DateOfBirth, QRCode, CreatedAt, UpdatedAt, IsDeleted)
+        VALUES (@FullName, @Email, @Phone, @DateOfBirth, @QRCode, GETDATE(), GETDATE(), 0);
+        SELECT SCOPE_IDENTITY() AS NewId;
+    END TRY
+    BEGIN CATCH THROW; END CATCH
+END
+GO
+
+PRINT '  ✓ sp_Members_Create created';
+GO
+
+-- sp_Members_Update
+CREATE PROCEDURE sp_Members_Update
+    @MemberId INT,
+    @FullName NVARCHAR(100),
+    @Email NVARCHAR(100),
+    @Phone NVARCHAR(20) = NULL,
+    @DateOfBirth DATETIME = NULL
+AS
+BEGIN
+    SET NOCOUNT ON;
+    BEGIN TRY
+        UPDATE Members
+        SET FullName = @FullName,
+            Email = @Email,
+            Phone = @Phone,
+            DateOfBirth = @DateOfBirth,
+            UpdatedAt = GETDATE()
+        WHERE MemberId = @MemberId AND IsDeleted = 0;
+        SELECT @@ROWCOUNT AS AffectedRows;
+    END TRY
+    BEGIN CATCH THROW; END CATCH
+END
+GO
+
+PRINT '  ✓ sp_Members_Update created';
+GO
+
+-- sp_Members_Delete
+CREATE PROCEDURE sp_Members_Delete
+    @MemberId INT
+AS
+BEGIN
+    SET NOCOUNT ON;
+    BEGIN TRY
+        UPDATE Members
+        SET IsDeleted = 1,
+            DeletedAt = GETDATE(),
+            UpdatedAt = GETDATE()
+        WHERE MemberId = @MemberId AND IsDeleted = 0;
+        SELECT @@ROWCOUNT AS AffectedRows;
+    END TRY
+    BEGIN CATCH THROW; END CATCH
+END
+GO
+
+PRINT '  ✓ sp_Members_Delete created';
+GO
+
+-- sp_Members_EmailExists
+CREATE PROCEDURE sp_Members_EmailExists
+    @Email NVARCHAR(100),
+    @ExcludeMemberId INT = 0
+AS
+BEGIN
+    SET NOCOUNT ON;
+    BEGIN TRY
+        SELECT CAST(CASE WHEN EXISTS(
+            SELECT 1 FROM Members
+            WHERE Email = @Email AND IsDeleted = 0 AND MemberId <> @ExcludeMemberId
+        ) THEN 1 ELSE 0 END AS BIT) AS [Exists];
+    END TRY
+    BEGIN CATCH THROW; END CATCH
+END
+GO
+
+PRINT '  ✓ sp_Members_EmailExists created';
+GO
+
+-- =============================================
+-- Trainers Procedures (8 total)
+-- =============================================
+
+-- sp_Trainers_GetAll
+CREATE PROCEDURE sp_Trainers_GetAll
+    @PageNumber INT = 1,
+    @PageSize INT = 10,
+    @SortBy NVARCHAR(50) = N'FullName'
+AS
+BEGIN
+    SET NOCOUNT ON;
+    BEGIN TRY
+        SELECT TrainerId, FullName, Email, Phone, Specialization,
+               CreatedAt, UpdatedAt, IsDeleted, DeletedAt
+        FROM Trainers
+        WHERE IsDeleted = 0
+        ORDER BY
+            CASE WHEN @SortBy = N'FullName' THEN FullName END ASC,
+            CASE WHEN @SortBy = N'Email' THEN Email END ASC,
+            CASE WHEN @SortBy = N'CreatedAt' THEN CreatedAt END DESC,
+            TrainerId ASC
+        OFFSET (@PageNumber - 1) * @PageSize ROWS
+        FETCH NEXT @PageSize ROWS ONLY;
+
+        SELECT COUNT(*) AS TotalCount FROM Trainers WHERE IsDeleted = 0;
+    END TRY
+    BEGIN CATCH THROW; END CATCH
+END
+GO
+
+PRINT '  ✓ sp_Trainers_GetAll created';
+GO
+
+-- sp_Trainers_GetById
+CREATE PROCEDURE sp_Trainers_GetById
+    @TrainerId INT
+AS
+BEGIN
+    SET NOCOUNT ON;
+    BEGIN TRY
+        SELECT TrainerId, FullName, Email, Phone, Specialization,
+               CreatedAt, UpdatedAt, IsDeleted, DeletedAt
+        FROM Trainers
+        WHERE TrainerId = @TrainerId AND IsDeleted = 0;
+    END TRY
+    BEGIN CATCH THROW; END CATCH
+END
+GO
+
+PRINT '  ✓ sp_Trainers_GetById created';
+GO
+
+-- sp_Trainers_GetByEmail
+CREATE PROCEDURE sp_Trainers_GetByEmail
+    @Email NVARCHAR(100)
+AS
+BEGIN
+    SET NOCOUNT ON;
+    BEGIN TRY
+        SELECT TrainerId, FullName, Email, Phone, Specialization,
+               CreatedAt, UpdatedAt, IsDeleted, DeletedAt
+        FROM Trainers
+        WHERE Email = @Email AND IsDeleted = 0;
+    END TRY
+    BEGIN CATCH THROW; END CATCH
+END
+GO
+
+PRINT '  ✓ sp_Trainers_GetByEmail created';
+GO
+
+-- sp_Trainers_GetByIds
+CREATE PROCEDURE sp_Trainers_GetByIds
+    @TrainerIds NVARCHAR(MAX)
+AS
+BEGIN
+    SET NOCOUNT ON;
+    BEGIN TRY
+        SELECT TrainerId, FullName, Email, Phone, Specialization,
+               CreatedAt, UpdatedAt, IsDeleted, DeletedAt
+        FROM Trainers
+        WHERE IsDeleted = 0
+          AND TrainerId IN (
+              SELECT CAST(value AS INT)
+              FROM STRING_SPLIT(@TrainerIds, N',')
+              WHERE LTRIM(RTRIM(value)) <> N''
+          );
+    END TRY
+    BEGIN CATCH THROW; END CATCH
+END
+GO
+
+PRINT '  ✓ sp_Trainers_GetByIds created';
+GO
+
+-- sp_Trainers_GetWithSchedules
+CREATE PROCEDURE sp_Trainers_GetWithSchedules
+AS
+BEGIN
+    SET NOCOUNT ON;
+    BEGIN TRY
+        SELECT t.TrainerId, t.FullName, t.Email, t.Phone, t.Specialization,
+               t.CreatedAt, t.UpdatedAt,
+               s.ScheduleId, s.ClassName, s.StartTime, s.EndTime, s.MaxCapacity, s.FacilityId
+        FROM Trainers t
+        LEFT JOIN Schedules s ON s.TrainerId = t.TrainerId AND s.IsDeleted = 0
+        WHERE t.IsDeleted = 0
+        ORDER BY t.TrainerId, s.StartTime;
+    END TRY
+    BEGIN CATCH THROW; END CATCH
+END
+GO
+
+PRINT '  ✓ sp_Trainers_GetWithSchedules created';
+GO
+
+-- sp_Trainers_Create
+CREATE PROCEDURE sp_Trainers_Create
+    @FullName NVARCHAR(100),
+    @Email NVARCHAR(100),
+    @Phone NVARCHAR(20) = NULL,
+    @Specialization NVARCHAR(200) = NULL
+AS
+BEGIN
+    SET NOCOUNT ON;
+    BEGIN TRY
+        INSERT INTO Trainers (FullName, Email, Phone, Specialization, CreatedAt, UpdatedAt, IsDeleted)
+        VALUES (@FullName, @Email, @Phone, @Specialization, GETDATE(), GETDATE(), 0);
+        SELECT SCOPE_IDENTITY() AS NewId;
+    END TRY
+    BEGIN CATCH THROW; END CATCH
+END
+GO
+
+PRINT '  ✓ sp_Trainers_Create created';
+GO
+
+-- sp_Trainers_Update
+CREATE PROCEDURE sp_Trainers_Update
+    @TrainerId INT,
+    @FullName NVARCHAR(100),
+    @Email NVARCHAR(100),
+    @Phone NVARCHAR(20) = NULL,
+    @Specialization NVARCHAR(200) = NULL
+AS
+BEGIN
+    SET NOCOUNT ON;
+    BEGIN TRY
+        UPDATE Trainers
+        SET FullName = @FullName,
+            Email = @Email,
+            Phone = @Phone,
+            Specialization = @Specialization,
+            UpdatedAt = GETDATE()
+        WHERE TrainerId = @TrainerId AND IsDeleted = 0;
+        SELECT @@ROWCOUNT AS AffectedRows;
+    END TRY
+    BEGIN CATCH THROW; END CATCH
+END
+GO
+
+PRINT '  ✓ sp_Trainers_Update created';
+GO
+
+-- sp_Trainers_Delete
+CREATE PROCEDURE sp_Trainers_Delete
+    @TrainerId INT
+AS
+BEGIN
+    SET NOCOUNT ON;
+    BEGIN TRY
+        UPDATE Trainers
+        SET IsDeleted = 1,
+            DeletedAt = GETDATE(),
+            UpdatedAt = GETDATE()
+        WHERE TrainerId = @TrainerId AND IsDeleted = 0;
+        SELECT @@ROWCOUNT AS AffectedRows;
+    END TRY
+    BEGIN CATCH THROW; END CATCH
+END
+GO
+
+PRINT '  ✓ sp_Trainers_Delete created';
+GO
+
+-- =============================================
+-- Schedules Procedures (10 total)
+-- =============================================
+
+-- sp_Schedules_GetAll
+CREATE PROCEDURE sp_Schedules_GetAll
+    @PageNumber INT = 1,
+    @PageSize INT = 10
+AS
+BEGIN
+    SET NOCOUNT ON;
+    BEGIN TRY
+        SELECT ScheduleId, TrainerId, FacilityId, ClassName, StartTime, EndTime,
+               MaxCapacity, CreatedAt, UpdatedAt, IsDeleted, DeletedAt
+        FROM Schedules
+        WHERE IsDeleted = 0
+        ORDER BY StartTime DESC
+        OFFSET (@PageNumber - 1) * @PageSize ROWS
+        FETCH NEXT @PageSize ROWS ONLY;
+
+        SELECT COUNT(*) AS TotalCount FROM Schedules WHERE IsDeleted = 0;
+    END TRY
+    BEGIN CATCH THROW; END CATCH
+END
+GO
+
+PRINT '  ✓ sp_Schedules_GetAll created';
+GO
+
+-- sp_Schedules_GetById
+CREATE PROCEDURE sp_Schedules_GetById
+    @ScheduleId INT
+AS
+BEGIN
+    SET NOCOUNT ON;
+    BEGIN TRY
+        SELECT ScheduleId, TrainerId, FacilityId, ClassName, StartTime, EndTime,
+               MaxCapacity, CreatedAt, UpdatedAt, IsDeleted, DeletedAt
+        FROM Schedules
+        WHERE ScheduleId = @ScheduleId AND IsDeleted = 0;
+    END TRY
+    BEGIN CATCH THROW; END CATCH
+END
+GO
+
+PRINT '  ✓ sp_Schedules_GetById created';
+GO
+
+-- sp_Schedules_GetByTrainerId
+CREATE PROCEDURE sp_Schedules_GetByTrainerId
+    @TrainerId INT
+AS
+BEGIN
+    SET NOCOUNT ON;
+    BEGIN TRY
+        SELECT ScheduleId, TrainerId, FacilityId, ClassName, StartTime, EndTime,
+               MaxCapacity, CreatedAt, UpdatedAt, IsDeleted, DeletedAt
+        FROM Schedules
+        WHERE TrainerId = @TrainerId AND IsDeleted = 0
+        ORDER BY StartTime ASC;
+    END TRY
+    BEGIN CATCH THROW; END CATCH
+END
+GO
+
+PRINT '  ✓ sp_Schedules_GetByTrainerId created';
+GO
+
+-- sp_Schedules_GetByFacilityId
+CREATE PROCEDURE sp_Schedules_GetByFacilityId
+    @FacilityId INT
+AS
+BEGIN
+    SET NOCOUNT ON;
+    BEGIN TRY
+        SELECT ScheduleId, TrainerId, FacilityId, ClassName, StartTime, EndTime,
+               MaxCapacity, CreatedAt, UpdatedAt, IsDeleted, DeletedAt
+        FROM Schedules
+        WHERE FacilityId = @FacilityId AND IsDeleted = 0
+        ORDER BY StartTime ASC;
+    END TRY
+    BEGIN CATCH THROW; END CATCH
+END
+GO
+
+PRINT '  ✓ sp_Schedules_GetByFacilityId created';
+GO
+
+-- sp_Schedules_GetByDate
+CREATE PROCEDURE sp_Schedules_GetByDate
+    @Date DATETIME
+AS
+BEGIN
+    SET NOCOUNT ON;
+    BEGIN TRY
+        SELECT ScheduleId, TrainerId, FacilityId, ClassName, StartTime, EndTime,
+               MaxCapacity, CreatedAt, UpdatedAt, IsDeleted, DeletedAt
+        FROM Schedules
+        WHERE CAST(StartTime AS DATE) = CAST(@Date AS DATE)
+          AND IsDeleted = 0
+        ORDER BY StartTime ASC;
+    END TRY
+    BEGIN CATCH THROW; END CATCH
+END
+GO
+
+PRINT '  ✓ sp_Schedules_GetByDate created';
+GO
+
+-- sp_Schedules_GetByIds
+CREATE PROCEDURE sp_Schedules_GetByIds
+    @ScheduleIds NVARCHAR(MAX)
+AS
+BEGIN
+    SET NOCOUNT ON;
+    BEGIN TRY
+        SELECT ScheduleId, TrainerId, FacilityId, ClassName, StartTime, EndTime,
+               MaxCapacity, CreatedAt, UpdatedAt, IsDeleted, DeletedAt
+        FROM Schedules
+        WHERE IsDeleted = 0
+          AND ScheduleId IN (
+              SELECT CAST(value AS INT)
+              FROM STRING_SPLIT(@ScheduleIds, N',')
+              WHERE LTRIM(RTRIM(value)) <> N''
+          );
+    END TRY
+    BEGIN CATCH THROW; END CATCH
+END
+GO
+
+PRINT '  ✓ sp_Schedules_GetByIds created';
+GO
+
+-- sp_Schedules_HasConflict
+CREATE PROCEDURE sp_Schedules_HasConflict
+    @TrainerId INT,
+    @FacilityId INT,
+    @StartTime DATETIME,
+    @EndTime DATETIME,
+    @ExcludeScheduleId INT = 0
+AS
+BEGIN
+    SET NOCOUNT ON;
+    BEGIN TRY
+        SELECT CAST(CASE WHEN EXISTS(
+            SELECT 1 FROM Schedules
+            WHERE IsDeleted = 0
+              AND ScheduleId <> @ExcludeScheduleId
+              AND (TrainerId = @TrainerId OR FacilityId = @FacilityId)
+              AND StartTime < @EndTime
+              AND EndTime > @StartTime
+        ) THEN 1 ELSE 0 END AS BIT) AS HasConflict;
+    END TRY
+    BEGIN CATCH THROW; END CATCH
+END
+GO
+
+PRINT '  ✓ sp_Schedules_HasConflict created';
+GO
+
+-- sp_Schedules_Create
+CREATE PROCEDURE sp_Schedules_Create
+    @TrainerId INT,
+    @FacilityId INT,
+    @ClassName NVARCHAR(100),
+    @StartTime DATETIME,
+    @EndTime DATETIME,
+    @MaxCapacity INT = 20
+AS
+BEGIN
+    SET NOCOUNT ON;
+    BEGIN TRY
+        INSERT INTO Schedules (TrainerId, FacilityId, ClassName, StartTime, EndTime, MaxCapacity, CreatedAt, UpdatedAt, IsDeleted)
+        VALUES (@TrainerId, @FacilityId, @ClassName, @StartTime, @EndTime, @MaxCapacity, GETDATE(), GETDATE(), 0);
+        SELECT SCOPE_IDENTITY() AS NewId;
+    END TRY
+    BEGIN CATCH THROW; END CATCH
+END
+GO
+
+PRINT '  ✓ sp_Schedules_Create created';
+GO
+
+-- sp_Schedules_Update
+CREATE PROCEDURE sp_Schedules_Update
+    @ScheduleId INT,
+    @TrainerId INT,
+    @FacilityId INT,
+    @ClassName NVARCHAR(100),
+    @StartTime DATETIME,
+    @EndTime DATETIME,
+    @MaxCapacity INT
+AS
+BEGIN
+    SET NOCOUNT ON;
+    BEGIN TRY
+        UPDATE Schedules
+        SET TrainerId = @TrainerId,
+            FacilityId = @FacilityId,
+            ClassName = @ClassName,
+            StartTime = @StartTime,
+            EndTime = @EndTime,
+            MaxCapacity = @MaxCapacity,
+            UpdatedAt = GETDATE()
+        WHERE ScheduleId = @ScheduleId AND IsDeleted = 0;
+        SELECT @@ROWCOUNT AS AffectedRows;
+    END TRY
+    BEGIN CATCH THROW; END CATCH
+END
+GO
+
+PRINT '  ✓ sp_Schedules_Update created';
+GO
+
+-- sp_Schedules_Delete
+CREATE PROCEDURE sp_Schedules_Delete
+    @ScheduleId INT
+AS
+BEGIN
+    SET NOCOUNT ON;
+    BEGIN TRY
+        UPDATE Schedules
+        SET IsDeleted = 1,
+            DeletedAt = GETDATE(),
+            UpdatedAt = GETDATE()
+        WHERE ScheduleId = @ScheduleId AND IsDeleted = 0;
+        SELECT @@ROWCOUNT AS AffectedRows;
+    END TRY
+    BEGIN CATCH THROW; END CATCH
+END
+GO
+
+PRINT '  ✓ sp_Schedules_Delete created';
+GO
+
+-- =============================================
+-- Checkins Procedures (8 total)
+-- =============================================
+
+-- sp_Checkins_GetAll
+CREATE PROCEDURE sp_Checkins_GetAll
+    @PageNumber INT = 1,
+    @PageSize INT = 10
+AS
+BEGIN
+    SET NOCOUNT ON;
+    BEGIN TRY
+        SELECT CheckinId, MemberId, CheckinTime, CheckoutTime,
+               CreatedAt, UpdatedAt, IsDeleted, DeletedAt
+        FROM Checkins
+        WHERE IsDeleted = 0
+        ORDER BY CheckinTime ASC
+        OFFSET (@PageNumber - 1) * @PageSize ROWS
+        FETCH NEXT @PageSize ROWS ONLY;
+
+        SELECT COUNT(*) AS TotalCount FROM Checkins WHERE IsDeleted = 0;
+    END TRY
+    BEGIN CATCH THROW; END CATCH
+END
+GO
+
+PRINT '  ✓ sp_Checkins_GetAll created';
+GO
+
+-- sp_Checkins_GetById
+CREATE PROCEDURE sp_Checkins_GetById
+    @CheckinId INT
+AS
+BEGIN
+    SET NOCOUNT ON;
+    BEGIN TRY
+        SELECT CheckinId, MemberId, CheckinTime, CheckoutTime,
+               CreatedAt, UpdatedAt, IsDeleted, DeletedAt
+        FROM Checkins
+        WHERE CheckinId = @CheckinId AND IsDeleted = 0;
+    END TRY
+    BEGIN CATCH THROW; END CATCH
+END
+GO
+
+PRINT '  ✓ sp_Checkins_GetById created';
+GO
+
+-- sp_Checkins_GetByMemberId
+CREATE PROCEDURE sp_Checkins_GetByMemberId
+    @MemberId INT
+AS
+BEGIN
+    SET NOCOUNT ON;
+    BEGIN TRY
+        SELECT CheckinId, MemberId, CheckinTime, CheckoutTime,
+               CreatedAt, UpdatedAt, IsDeleted, DeletedAt
+        FROM Checkins
+        WHERE MemberId = @MemberId AND IsDeleted = 0
+        ORDER BY CheckinTime ASC;
+    END TRY
+    BEGIN CATCH THROW; END CATCH
+END
+GO
+
+PRINT '  ✓ sp_Checkins_GetByMemberId created';
+GO
+
+-- sp_Checkins_GetByDate
+CREATE PROCEDURE sp_Checkins_GetByDate
+    @Date DATETIME
+AS
+BEGIN
+    SET NOCOUNT ON;
+    BEGIN TRY
+        SELECT CheckinId, MemberId, CheckinTime, CheckoutTime,
+               CreatedAt, UpdatedAt, IsDeleted, DeletedAt
+        FROM Checkins
+        WHERE CAST(CheckinTime AS DATE) = CAST(@Date AS DATE)
+          AND IsDeleted = 0
+        ORDER BY CheckinTime ASC;
+    END TRY
+    BEGIN CATCH THROW; END CATCH
+END
+GO
+
+PRINT '  ✓ sp_Checkins_GetByDate created';
+GO
+
+-- sp_Checkins_GetByDateRange
+CREATE PROCEDURE sp_Checkins_GetByDateRange
+    @From DATETIME,
+    @To DATETIME
+AS
+BEGIN
+    SET NOCOUNT ON;
+    BEGIN TRY
+        SELECT CheckinId, MemberId, CheckinTime, CheckoutTime,
+               CreatedAt, UpdatedAt, IsDeleted, DeletedAt
+        FROM Checkins
+        WHERE CheckinTime >= @From
+          AND CheckinTime <= @To
+          AND IsDeleted = 0
+        ORDER BY CheckinTime ASC;
+    END TRY
+    BEGIN CATCH THROW; END CATCH
+END
+GO
+
+PRINT '  ✓ sp_Checkins_GetByDateRange created';
+GO
+
+-- sp_Checkins_GetByQRCode
+CREATE PROCEDURE sp_Checkins_GetByQRCode
+    @QRCode NVARCHAR(255)
+AS
+BEGIN
+    SET NOCOUNT ON;
+    BEGIN TRY
+        SELECT TOP 1
+               c.CheckinId, c.MemberId, c.CheckinTime, c.CheckoutTime,
+               c.CreatedAt, c.UpdatedAt, c.IsDeleted, c.DeletedAt
+        FROM Checkins c
+        INNER JOIN Members m ON m.MemberId = c.MemberId
+        WHERE m.QRCode = @QRCode
+          AND m.IsDeleted = 0
+          AND c.IsDeleted = 0
+        ORDER BY c.CheckinTime DESC;
+    END TRY
+    BEGIN CATCH THROW; END CATCH
+END
+GO
+
+PRINT '  ✓ sp_Checkins_GetByQRCode created';
+GO
+
+-- sp_Checkins_Create
+CREATE PROCEDURE sp_Checkins_Create
+    @MemberId INT,
+    @CheckinTime DATETIME = NULL
+AS
+BEGIN
+    SET NOCOUNT ON;
+    BEGIN TRY
+        IF @CheckinTime IS NULL SET @CheckinTime = GETDATE();
+        INSERT INTO Checkins (MemberId, CheckinTime, CreatedAt, UpdatedAt, IsDeleted)
+        VALUES (@MemberId, @CheckinTime, GETDATE(), GETDATE(), 0);
+        SELECT SCOPE_IDENTITY() AS NewId;
+    END TRY
+    BEGIN CATCH THROW; END CATCH
+END
+GO
+
+PRINT '  ✓ sp_Checkins_Create created';
+GO
+
+-- sp_Checkins_Update
+CREATE PROCEDURE sp_Checkins_Update
+    @CheckinId INT,
+    @CheckoutTime DATETIME
+AS
+BEGIN
+    SET NOCOUNT ON;
+    BEGIN TRY
+        UPDATE Checkins
+        SET CheckoutTime = @CheckoutTime,
+            UpdatedAt = GETDATE()
+        WHERE CheckinId = @CheckinId AND IsDeleted = 0;
+        SELECT @@ROWCOUNT AS AffectedRows;
+    END TRY
+    BEGIN CATCH THROW; END CATCH
+END
+GO
+
+PRINT '  ✓ sp_Checkins_Update created';
+GO
+
+-- =============================================
+-- Memberships Procedures (10 total)
+-- =============================================
+
+-- sp_Memberships_GetAll
+CREATE PROCEDURE sp_Memberships_GetAll
+    @PageNumber INT = 1,
+    @PageSize INT = 10
+AS
+BEGIN
+    SET NOCOUNT ON;
+    BEGIN TRY
+        SELECT MembershipId, MemberId, PackageName, Price, StartDate, EndDate,
+               CreatedAt, UpdatedAt, IsDeleted, DeletedAt
+        FROM Memberships
+        WHERE IsDeleted = 0
+        ORDER BY CreatedAt DESC
+        OFFSET (@PageNumber - 1) * @PageSize ROWS
+        FETCH NEXT @PageSize ROWS ONLY;
+
+        SELECT COUNT(*) AS TotalCount FROM Memberships WHERE IsDeleted = 0;
+    END TRY
+    BEGIN CATCH THROW; END CATCH
+END
+GO
+
+PRINT '  ✓ sp_Memberships_GetAll created';
+GO
+
+-- sp_Memberships_GetById
+CREATE PROCEDURE sp_Memberships_GetById
+    @MembershipId INT
+AS
+BEGIN
+    SET NOCOUNT ON;
+    BEGIN TRY
+        SELECT MembershipId, MemberId, PackageName, Price, StartDate, EndDate,
+               CreatedAt, UpdatedAt, IsDeleted, DeletedAt
+        FROM Memberships
+        WHERE MembershipId = @MembershipId AND IsDeleted = 0;
+    END TRY
+    BEGIN CATCH THROW; END CATCH
+END
+GO
+
+PRINT '  ✓ sp_Memberships_GetById created';
+GO
+
+-- sp_Memberships_GetByMemberId
+CREATE PROCEDURE sp_Memberships_GetByMemberId
+    @MemberId INT
+AS
+BEGIN
+    SET NOCOUNT ON;
+    BEGIN TRY
+        SELECT MembershipId, MemberId, PackageName, Price, StartDate, EndDate,
+               CreatedAt, UpdatedAt, IsDeleted, DeletedAt
+        FROM Memberships
+        WHERE MemberId = @MemberId AND IsDeleted = 0
+        ORDER BY StartDate DESC;
+    END TRY
+    BEGIN CATCH THROW; END CATCH
+END
+GO
+
+PRINT '  ✓ sp_Memberships_GetByMemberId created';
+GO
+
+-- sp_Memberships_GetByIds
+CREATE PROCEDURE sp_Memberships_GetByIds
+    @MembershipIds NVARCHAR(MAX)
+AS
+BEGIN
+    SET NOCOUNT ON;
+    BEGIN TRY
+        SELECT MembershipId, MemberId, PackageName, Price, StartDate, EndDate,
+               CreatedAt, UpdatedAt, IsDeleted, DeletedAt
+        FROM Memberships
+        WHERE IsDeleted = 0
+          AND MembershipId IN (
+              SELECT CAST(value AS INT)
+              FROM STRING_SPLIT(@MembershipIds, N',')
+              WHERE LTRIM(RTRIM(value)) <> N''
+          );
+    END TRY
+    BEGIN CATCH THROW; END CATCH
+END
+GO
+
+PRINT '  ✓ sp_Memberships_GetByIds created';
+GO
+
+-- sp_Memberships_GetActiveMembership
+CREATE PROCEDURE sp_Memberships_GetActiveMembership
+    @MemberId INT
+AS
+BEGIN
+    SET NOCOUNT ON;
+    BEGIN TRY
+        SELECT TOP 1
+               MembershipId, MemberId, PackageName, Price, StartDate, EndDate,
+               CreatedAt, UpdatedAt, IsDeleted, DeletedAt
+        FROM Memberships
+        WHERE MemberId = @MemberId
+          AND IsDeleted = 0
+          AND StartDate <= GETDATE()
+          AND EndDate >= GETDATE()
+        ORDER BY EndDate DESC;
+    END TRY
+    BEGIN CATCH THROW; END CATCH
+END
+GO
+
+PRINT '  ✓ sp_Memberships_GetActiveMembership created';
+GO
+
+-- sp_Memberships_GetExpiringSoon
+CREATE PROCEDURE sp_Memberships_GetExpiringSoon
+    @DaysAhead INT = 7
+AS
+BEGIN
+    SET NOCOUNT ON;
+    BEGIN TRY
+        SELECT MembershipId, MemberId, PackageName, Price, StartDate, EndDate,
+               CreatedAt, UpdatedAt, IsDeleted, DeletedAt
+        FROM Memberships
+        WHERE IsDeleted = 0
+          AND EndDate >= GETDATE()
+          AND EndDate <= DATEADD(DAY, @DaysAhead, GETDATE())
+        ORDER BY EndDate ASC;
+    END TRY
+    BEGIN CATCH THROW; END CATCH
+END
+GO
+
+PRINT '  ✓ sp_Memberships_GetExpiringSoon created';
+GO
+
+-- sp_Memberships_GetActive
+CREATE PROCEDURE sp_Memberships_GetActive
+AS
+BEGIN
+    SET NOCOUNT ON;
+    BEGIN TRY
+        SELECT MembershipId, MemberId, PackageName, Price, StartDate, EndDate,
+               CreatedAt, UpdatedAt, IsDeleted, DeletedAt
+        FROM Memberships
+        WHERE IsDeleted = 0
+          AND StartDate <= GETDATE()
+          AND EndDate >= GETDATE()
+        ORDER BY EndDate ASC;
+    END TRY
+    BEGIN CATCH THROW; END CATCH
+END
+GO
+
+PRINT '  ✓ sp_Memberships_GetActive created';
+GO
+
+-- sp_Memberships_Create
+CREATE PROCEDURE sp_Memberships_Create
+    @MemberId INT,
+    @PackageName NVARCHAR(100),
+    @Price DECIMAL(18,2),
+    @StartDate DATETIME,
+    @EndDate DATETIME
+AS
+BEGIN
+    SET NOCOUNT ON;
+    BEGIN TRY
+        INSERT INTO Memberships (MemberId, PackageName, Price, StartDate, EndDate, CreatedAt, UpdatedAt, IsDeleted)
+        VALUES (@MemberId, @PackageName, @Price, @StartDate, @EndDate, GETDATE(), GETDATE(), 0);
+        SELECT SCOPE_IDENTITY() AS NewId;
+    END TRY
+    BEGIN CATCH THROW; END CATCH
+END
+GO
+
+PRINT '  ✓ sp_Memberships_Create created';
+GO
+
+-- sp_Memberships_Update
+CREATE PROCEDURE sp_Memberships_Update
+    @MembershipId INT,
+    @PackageName NVARCHAR(100),
+    @Price DECIMAL(18,2),
+    @StartDate DATETIME,
+    @EndDate DATETIME
+AS
+BEGIN
+    SET NOCOUNT ON;
+    BEGIN TRY
+        UPDATE Memberships
+        SET PackageName = @PackageName,
+            Price = @Price,
+            StartDate = @StartDate,
+            EndDate = @EndDate,
+            UpdatedAt = GETDATE()
+        WHERE MembershipId = @MembershipId AND IsDeleted = 0;
+        SELECT @@ROWCOUNT AS AffectedRows;
+    END TRY
+    BEGIN CATCH THROW; END CATCH
+END
+GO
+
+PRINT '  ✓ sp_Memberships_Update created';
+GO
+
+-- sp_Memberships_Delete
+CREATE PROCEDURE sp_Memberships_Delete
+    @MembershipId INT
+AS
+BEGIN
+    SET NOCOUNT ON;
+    BEGIN TRY
+        UPDATE Memberships
+        SET IsDeleted = 1,
+            DeletedAt = GETDATE(),
+            UpdatedAt = GETDATE()
+        WHERE MembershipId = @MembershipId AND IsDeleted = 0;
+        SELECT @@ROWCOUNT AS AffectedRows;
+    END TRY
+    BEGIN CATCH THROW; END CATCH
+END
+GO
+
+PRINT '  ✓ sp_Memberships_Delete created';
+GO
+
+-- =============================================
+-- Invoices Procedures (10 total)
+-- =============================================
+
+-- sp_Invoices_GetAll
+CREATE PROCEDURE sp_Invoices_GetAll
+    @PageNumber INT = 1,
+    @PageSize INT = 10,
+    @SearchTerm NVARCHAR(100) = NULL
+AS
+BEGIN
+    SET NOCOUNT ON;
+    BEGIN TRY
+        SELECT InvoiceId, MemberId, MembershipId, InvoiceDate, DueDate,
+               TotalAmount, Status, Description, CreatedAt, UpdatedAt, IsDeleted, DeletedAt
+        FROM Invoices
+        WHERE IsDeleted = 0
+          AND (@SearchTerm IS NULL OR Status LIKE N'%' + @SearchTerm + N'%'
+               OR Description LIKE N'%' + @SearchTerm + N'%')
+        ORDER BY InvoiceDate DESC
+        OFFSET (@PageNumber - 1) * @PageSize ROWS
+        FETCH NEXT @PageSize ROWS ONLY;
+
+        SELECT COUNT(*) AS TotalCount
+        FROM Invoices
+        WHERE IsDeleted = 0
+          AND (@SearchTerm IS NULL OR Status LIKE N'%' + @SearchTerm + N'%'
+               OR Description LIKE N'%' + @SearchTerm + N'%');
+    END TRY
+    BEGIN CATCH THROW; END CATCH
+END
+GO
+
+PRINT '  ✓ sp_Invoices_GetAll created';
+GO
+
+-- sp_Invoices_GetById
+CREATE PROCEDURE sp_Invoices_GetById
+    @InvoiceId INT
+AS
+BEGIN
+    SET NOCOUNT ON;
+    BEGIN TRY
+        SELECT InvoiceId, MemberId, MembershipId, InvoiceDate, DueDate,
+               TotalAmount, Status, Description, CreatedAt, UpdatedAt, IsDeleted, DeletedAt
+        FROM Invoices
+        WHERE InvoiceId = @InvoiceId AND IsDeleted = 0;
+    END TRY
+    BEGIN CATCH THROW; END CATCH
+END
+GO
+
+PRINT '  ✓ sp_Invoices_GetById created';
+GO
+
+-- sp_Invoices_GetByMemberId
+CREATE PROCEDURE sp_Invoices_GetByMemberId
+    @MemberId INT
+AS
+BEGIN
+    SET NOCOUNT ON;
+    BEGIN TRY
+        SELECT InvoiceId, MemberId, MembershipId, InvoiceDate, DueDate,
+               TotalAmount, Status, Description, CreatedAt, UpdatedAt, IsDeleted, DeletedAt
+        FROM Invoices
+        WHERE MemberId = @MemberId AND IsDeleted = 0
+        ORDER BY InvoiceDate DESC;
+    END TRY
+    BEGIN CATCH THROW; END CATCH
+END
+GO
+
+PRINT '  ✓ sp_Invoices_GetByMemberId created';
+GO
+
+-- sp_Invoices_GetByStatus
+CREATE PROCEDURE sp_Invoices_GetByStatus
+    @Status NVARCHAR(20)
+AS
+BEGIN
+    SET NOCOUNT ON;
+    BEGIN TRY
+        SELECT InvoiceId, MemberId, MembershipId, InvoiceDate, DueDate,
+               TotalAmount, Status, Description, CreatedAt, UpdatedAt, IsDeleted, DeletedAt
+        FROM Invoices
+        WHERE Status = @Status AND IsDeleted = 0
+        ORDER BY InvoiceDate DESC;
+    END TRY
+    BEGIN CATCH THROW; END CATCH
+END
+GO
+
+PRINT '  ✓ sp_Invoices_GetByStatus created';
+GO
+
+-- sp_Invoices_GetOverdue
+CREATE PROCEDURE sp_Invoices_GetOverdue
+AS
+BEGIN
+    SET NOCOUNT ON;
+    BEGIN TRY
+        SELECT InvoiceId, MemberId, MembershipId, InvoiceDate, DueDate,
+               TotalAmount, Status, Description, CreatedAt, UpdatedAt, IsDeleted, DeletedAt
+        FROM Invoices
+        WHERE IsDeleted = 0
+          AND Status = N'Pending'
+          AND DueDate < GETDATE()
+        ORDER BY DueDate ASC;
+    END TRY
+    BEGIN CATCH THROW; END CATCH
+END
+GO
+
+PRINT '  ✓ sp_Invoices_GetOverdue created';
+GO
+
+-- sp_Invoices_GetUnpaid
+CREATE PROCEDURE sp_Invoices_GetUnpaid
+AS
+BEGIN
+    SET NOCOUNT ON;
+    BEGIN TRY
+        SELECT InvoiceId, MemberId, MembershipId, InvoiceDate, DueDate,
+               TotalAmount, Status, Description, CreatedAt, UpdatedAt, IsDeleted, DeletedAt
+        FROM Invoices
+        WHERE IsDeleted = 0
+          AND Status IN (N'Unpaid', N'Pending')
+        ORDER BY DueDate ASC;
+    END TRY
+    BEGIN CATCH THROW; END CATCH
+END
+GO
+
+PRINT '  ✓ sp_Invoices_GetUnpaid created';
+GO
+
+-- sp_Invoices_GetTotalRevenue
+CREATE PROCEDURE sp_Invoices_GetTotalRevenue
+    @Month INT,
+    @Year INT
+AS
+BEGIN
+    SET NOCOUNT ON;
+    BEGIN TRY
+        SELECT ISNULL(SUM(TotalAmount), 0) AS TotalRevenue
+        FROM Invoices
+        WHERE IsDeleted = 0
+          AND Status = N'Paid'
+          AND MONTH(InvoiceDate) = @Month
+          AND YEAR(InvoiceDate) = @Year;
+    END TRY
+    BEGIN CATCH THROW; END CATCH
+END
+GO
+
+PRINT '  ✓ sp_Invoices_GetTotalRevenue created';
+GO
+
+-- sp_Invoices_Create
+CREATE PROCEDURE sp_Invoices_Create
+    @MemberId INT,
+    @MembershipId INT = NULL,
+    @InvoiceDate DATETIME = NULL,
+    @DueDate DATETIME = NULL,
+    @TotalAmount DECIMAL(18,2),
+    @Status NVARCHAR(20) = N'Pending',
+    @Description NVARCHAR(500) = NULL
+AS
+BEGIN
+    SET NOCOUNT ON;
+    BEGIN TRY
+        IF @InvoiceDate IS NULL SET @InvoiceDate = GETDATE();
+        INSERT INTO Invoices (MemberId, MembershipId, InvoiceDate, DueDate,
+                              TotalAmount, Status, Description, CreatedAt, UpdatedAt, IsDeleted)
+        VALUES (@MemberId, @MembershipId, @InvoiceDate, @DueDate,
+                @TotalAmount, @Status, @Description, GETDATE(), GETDATE(), 0);
+        SELECT SCOPE_IDENTITY() AS NewId;
+    END TRY
+    BEGIN CATCH THROW; END CATCH
+END
+GO
+
+PRINT '  ✓ sp_Invoices_Create created';
+GO
+
+-- sp_Invoices_Update
+CREATE PROCEDURE sp_Invoices_Update
+    @InvoiceId INT,
+    @Status NVARCHAR(20)
+AS
+BEGIN
+    SET NOCOUNT ON;
+    BEGIN TRY
+        UPDATE Invoices
+        SET Status = @Status,
+            UpdatedAt = GETDATE()
+        WHERE InvoiceId = @InvoiceId AND IsDeleted = 0;
+        SELECT @@ROWCOUNT AS AffectedRows;
+    END TRY
+    BEGIN CATCH THROW; END CATCH
+END
+GO
+
+PRINT '  ✓ sp_Invoices_Update created';
+GO
+
+-- sp_Invoices_Delete
+CREATE PROCEDURE sp_Invoices_Delete
+    @InvoiceId INT
+AS
+BEGIN
+    SET NOCOUNT ON;
+    BEGIN TRY
+        UPDATE Invoices
+        SET IsDeleted = 1,
+            DeletedAt = GETDATE(),
+            UpdatedAt = GETDATE()
+        WHERE InvoiceId = @InvoiceId AND IsDeleted = 0;
+        SELECT @@ROWCOUNT AS AffectedRows;
+    END TRY
+    BEGIN CATCH THROW; END CATCH
+END
+GO
+
+PRINT '  ✓ sp_Invoices_Delete created';
+GO
+
+-- =============================================
+-- Payments Procedures (8 total)
+-- =============================================
+
+-- sp_Payments_GetAll
+CREATE PROCEDURE sp_Payments_GetAll
+    @PageNumber INT = 1,
+    @PageSize INT = 10,
+    @SearchTerm NVARCHAR(100) = NULL
+AS
+BEGIN
+    SET NOCOUNT ON;
+    BEGIN TRY
+        SELECT PaymentId, InvoiceId, MemberId, Amount, PaymentMethod,
+               PaymentDate, TransactionId, Status, CreatedAt, UpdatedAt, IsDeleted, DeletedAt
+        FROM Payments
+        WHERE IsDeleted = 0
+          AND (@SearchTerm IS NULL OR PaymentMethod LIKE N'%' + @SearchTerm + N'%'
+               OR TransactionId LIKE N'%' + @SearchTerm + N'%')
+        ORDER BY PaymentDate DESC
+        OFFSET (@PageNumber - 1) * @PageSize ROWS
+        FETCH NEXT @PageSize ROWS ONLY;
+
+        SELECT COUNT(*) AS TotalCount
+        FROM Payments
+        WHERE IsDeleted = 0
+          AND (@SearchTerm IS NULL OR PaymentMethod LIKE N'%' + @SearchTerm + N'%'
+               OR TransactionId LIKE N'%' + @SearchTerm + N'%');
+    END TRY
+    BEGIN CATCH THROW; END CATCH
+END
+GO
+
+PRINT '  ✓ sp_Payments_GetAll created';
+GO
+
+-- sp_Payments_GetById
+CREATE PROCEDURE sp_Payments_GetById
+    @PaymentId INT
+AS
+BEGIN
+    SET NOCOUNT ON;
+    BEGIN TRY
+        SELECT PaymentId, InvoiceId, MemberId, Amount, PaymentMethod,
+               PaymentDate, TransactionId, Status, CreatedAt, UpdatedAt, IsDeleted, DeletedAt
+        FROM Payments
+        WHERE PaymentId = @PaymentId AND IsDeleted = 0;
+    END TRY
+    BEGIN CATCH THROW; END CATCH
+END
+GO
+
+PRINT '  ✓ sp_Payments_GetById created';
+GO
+
+-- sp_Payments_GetByInvoiceId
+CREATE PROCEDURE sp_Payments_GetByInvoiceId
+    @InvoiceId INT
+AS
+BEGIN
+    SET NOCOUNT ON;
+    BEGIN TRY
+        SELECT PaymentId, InvoiceId, MemberId, Amount, PaymentMethod,
+               PaymentDate, TransactionId, Status, CreatedAt, UpdatedAt, IsDeleted, DeletedAt
+        FROM Payments
+        WHERE InvoiceId = @InvoiceId AND IsDeleted = 0
+        ORDER BY PaymentDate DESC;
+    END TRY
+    BEGIN CATCH THROW; END CATCH
+END
+GO
+
+PRINT '  ✓ sp_Payments_GetByInvoiceId created';
+GO
+
+-- sp_Payments_GetByMemberId
+CREATE PROCEDURE sp_Payments_GetByMemberId
+    @MemberId INT
+AS
+BEGIN
+    SET NOCOUNT ON;
+    BEGIN TRY
+        SELECT PaymentId, InvoiceId, MemberId, Amount, PaymentMethod,
+               PaymentDate, TransactionId, Status, CreatedAt, UpdatedAt, IsDeleted, DeletedAt
+        FROM Payments
+        WHERE MemberId = @MemberId AND IsDeleted = 0
+        ORDER BY PaymentDate DESC;
+    END TRY
+    BEGIN CATCH THROW; END CATCH
+END
+GO
+
+PRINT '  ✓ sp_Payments_GetByMemberId created';
+GO
+
+-- sp_Payments_GetByStatus
+CREATE PROCEDURE sp_Payments_GetByStatus
+    @Status NVARCHAR(50)
+AS
+BEGIN
+    SET NOCOUNT ON;
+    BEGIN TRY
+        SELECT PaymentId, InvoiceId, MemberId, Amount, PaymentMethod,
+               PaymentDate, TransactionId, Status, CreatedAt, UpdatedAt, IsDeleted, DeletedAt
+        FROM Payments
+        WHERE Status = @Status AND IsDeleted = 0
+        ORDER BY PaymentDate DESC;
+    END TRY
+    BEGIN CATCH THROW; END CATCH
+END
+GO
+
+PRINT '  ✓ sp_Payments_GetByStatus created';
+GO
+
+-- sp_Payments_Create
+CREATE PROCEDURE sp_Payments_Create
+    @InvoiceId INT = NULL,
+    @MemberId INT,
+    @Amount DECIMAL(18,2),
+    @PaymentMethod NVARCHAR(50) = N'Cash',
+    @PaymentDate DATETIME = NULL,
+    @TransactionId NVARCHAR(100) = NULL,
+    @Status NVARCHAR(50) = N'Completed'
+AS
+BEGIN
+    SET NOCOUNT ON;
+    BEGIN TRY
+        IF @PaymentDate IS NULL SET @PaymentDate = GETDATE();
+        INSERT INTO Payments (InvoiceId, MemberId, Amount, PaymentMethod, PaymentDate,
+                              TransactionId, Status, CreatedAt, UpdatedAt, IsDeleted)
+        VALUES (@InvoiceId, @MemberId, @Amount, @PaymentMethod, @PaymentDate,
+                @TransactionId, @Status, GETDATE(), GETDATE(), 0);
+        SELECT SCOPE_IDENTITY() AS NewId;
+    END TRY
+    BEGIN CATCH THROW; END CATCH
+END
+GO
+
+PRINT '  ✓ sp_Payments_Create created';
+GO
+
+-- sp_Payments_Update
+CREATE PROCEDURE sp_Payments_Update
+    @PaymentId INT,
+    @Amount DECIMAL(18,2),
+    @PaymentDate DATETIME,
+    @PaymentMethod NVARCHAR(50)
+AS
+BEGIN
+    SET NOCOUNT ON;
+    BEGIN TRY
+        UPDATE Payments
+        SET Amount = @Amount,
+            PaymentDate = @PaymentDate,
+            PaymentMethod = @PaymentMethod,
+            UpdatedAt = GETDATE()
+        WHERE PaymentId = @PaymentId AND IsDeleted = 0;
+        SELECT @@ROWCOUNT AS AffectedRows;
+    END TRY
+    BEGIN CATCH THROW; END CATCH
+END
+GO
+
+PRINT '  ✓ sp_Payments_Update created';
+GO
+
+-- sp_Payments_Delete
+CREATE PROCEDURE sp_Payments_Delete
+    @PaymentId INT
+AS
+BEGIN
+    SET NOCOUNT ON;
+    BEGIN TRY
+        UPDATE Payments
+        SET IsDeleted = 1,
+            DeletedAt = GETDATE(),
+            UpdatedAt = GETDATE()
+        WHERE PaymentId = @PaymentId AND IsDeleted = 0;
+        SELECT @@ROWCOUNT AS AffectedRows;
+    END TRY
+    BEGIN CATCH THROW; END CATCH
+END
+GO
+
+PRINT '  ✓ sp_Payments_Delete created';
+GO
+
+-- =============================================
+-- Facilities Procedures (7 total)
+-- =============================================
+
+-- sp_Facilities_GetAll
+CREATE PROCEDURE sp_Facilities_GetAll
+    @PageNumber INT = 1,
+    @PageSize INT = 10,
+    @SearchTerm NVARCHAR(100) = NULL
+AS
+BEGIN
+    SET NOCOUNT ON;
+    BEGIN TRY
+        SELECT FacilityId, Name, Description, Status,
+               CreatedAt, UpdatedAt, IsDeleted, DeletedAt
+        FROM Facilities
+        WHERE IsDeleted = 0
+          AND (@SearchTerm IS NULL OR Name LIKE N'%' + @SearchTerm + N'%'
+               OR Description LIKE N'%' + @SearchTerm + N'%')
+        ORDER BY Name ASC
+        OFFSET (@PageNumber - 1) * @PageSize ROWS
+        FETCH NEXT @PageSize ROWS ONLY;
+
+        SELECT COUNT(*) AS TotalCount
+        FROM Facilities
+        WHERE IsDeleted = 0
+          AND (@SearchTerm IS NULL OR Name LIKE N'%' + @SearchTerm + N'%'
+               OR Description LIKE N'%' + @SearchTerm + N'%');
+    END TRY
+    BEGIN CATCH THROW; END CATCH
+END
+GO
+
+PRINT '  ✓ sp_Facilities_GetAll created';
+GO
+
+-- sp_Facilities_GetById
+CREATE PROCEDURE sp_Facilities_GetById
+    @FacilityId INT
+AS
+BEGIN
+    SET NOCOUNT ON;
+    BEGIN TRY
+        SELECT FacilityId, Name, Description, Status,
+               CreatedAt, UpdatedAt, IsDeleted, DeletedAt
+        FROM Facilities
+        WHERE FacilityId = @FacilityId AND IsDeleted = 0;
+    END TRY
+    BEGIN CATCH THROW; END CATCH
+END
+GO
+
+PRINT '  ✓ sp_Facilities_GetById created';
+GO
+
+-- sp_Facilities_GetByIds
+CREATE PROCEDURE sp_Facilities_GetByIds
+    @FacilityIds NVARCHAR(MAX)
+AS
+BEGIN
+    SET NOCOUNT ON;
+    BEGIN TRY
+        SELECT FacilityId, Name, Description, Status,
+               CreatedAt, UpdatedAt, IsDeleted, DeletedAt
+        FROM Facilities
+        WHERE IsDeleted = 0
+          AND FacilityId IN (
+              SELECT CAST(value AS INT)
+              FROM STRING_SPLIT(@FacilityIds, N',')
+              WHERE LTRIM(RTRIM(value)) <> N''
+          );
+    END TRY
+    BEGIN CATCH THROW; END CATCH
+END
+GO
+
+PRINT '  ✓ sp_Facilities_GetByIds created';
+GO
+
+-- sp_Facilities_GetActive
+CREATE PROCEDURE sp_Facilities_GetActive
+AS
+BEGIN
+    SET NOCOUNT ON;
+    BEGIN TRY
+        SELECT FacilityId, Name, Description, Status,
+               CreatedAt, UpdatedAt, IsDeleted, DeletedAt
+        FROM Facilities
+        WHERE IsDeleted = 0
+          AND Status = N'Available'
+        ORDER BY Name ASC;
+    END TRY
+    BEGIN CATCH THROW; END CATCH
+END
+GO
+
+PRINT '  ✓ sp_Facilities_GetActive created';
+GO
+
+-- sp_Facilities_Create
+CREATE PROCEDURE sp_Facilities_Create
+    @Name NVARCHAR(100),
+    @Description NVARCHAR(500) = NULL,
+    @Status NVARCHAR(20) = N'Available'
+AS
+BEGIN
+    SET NOCOUNT ON;
+    BEGIN TRY
+        INSERT INTO Facilities (Name, Description, Status, CreatedAt, UpdatedAt, IsDeleted)
+        VALUES (@Name, @Description, @Status, GETDATE(), GETDATE(), 0);
+        SELECT SCOPE_IDENTITY() AS NewId;
+    END TRY
+    BEGIN CATCH THROW; END CATCH
+END
+GO
+
+PRINT '  ✓ sp_Facilities_Create created';
+GO
+
+-- sp_Facilities_Update
+CREATE PROCEDURE sp_Facilities_Update
+    @FacilityId INT,
+    @Name NVARCHAR(100),
+    @Description NVARCHAR(500) = NULL,
+    @Status NVARCHAR(20)
+AS
+BEGIN
+    SET NOCOUNT ON;
+    BEGIN TRY
+        UPDATE Facilities
+        SET Name = @Name,
+            Description = @Description,
+            Status = @Status,
+            UpdatedAt = GETDATE()
+        WHERE FacilityId = @FacilityId AND IsDeleted = 0;
+        SELECT @@ROWCOUNT AS AffectedRows;
+    END TRY
+    BEGIN CATCH THROW; END CATCH
+END
+GO
+
+PRINT '  ✓ sp_Facilities_Update created';
+GO
+
+-- sp_Facilities_Delete
+CREATE PROCEDURE sp_Facilities_Delete
+    @FacilityId INT
+AS
+BEGIN
+    SET NOCOUNT ON;
+    BEGIN TRY
+        UPDATE Facilities
+        SET IsDeleted = 1,
+            DeletedAt = GETDATE(),
+            UpdatedAt = GETDATE()
+        WHERE FacilityId = @FacilityId AND IsDeleted = 0;
+        SELECT @@ROWCOUNT AS AffectedRows;
+    END TRY
+    BEGIN CATCH THROW; END CATCH
+END
+GO
+
+PRINT '  ✓ sp_Facilities_Delete created';
+GO
+
+-- =============================================
+-- Sessions Procedures (8 total)
+-- =============================================
+
+-- sp_Sessions_GetAll
+CREATE PROCEDURE sp_Sessions_GetAll
+    @PageNumber INT = 1,
+    @PageSize INT = 10,
+    @SearchTerm NVARCHAR(100) = NULL
+AS
+BEGIN
+    SET NOCOUNT ON;
+    BEGIN TRY
+        SELECT SessionId, ScheduleId, MemberId, RegistrationDate, Status,
+               CreatedAt, UpdatedAt, IsDeleted, DeletedAt
+        FROM Sessions
+        WHERE IsDeleted = 0
+          AND (@SearchTerm IS NULL OR Status LIKE N'%' + @SearchTerm + N'%')
+        ORDER BY RegistrationDate DESC
+        OFFSET (@PageNumber - 1) * @PageSize ROWS
+        FETCH NEXT @PageSize ROWS ONLY;
+
+        SELECT COUNT(*) AS TotalCount
+        FROM Sessions
+        WHERE IsDeleted = 0
+          AND (@SearchTerm IS NULL OR Status LIKE N'%' + @SearchTerm + N'%');
+    END TRY
+    BEGIN CATCH THROW; END CATCH
+END
+GO
+
+PRINT '  ✓ sp_Sessions_GetAll created';
+GO
+
+-- sp_Sessions_GetById
+CREATE PROCEDURE sp_Sessions_GetById
+    @SessionId INT
+AS
+BEGIN
+    SET NOCOUNT ON;
+    BEGIN TRY
+        SELECT SessionId, ScheduleId, MemberId, RegistrationDate, Status,
+               CreatedAt, UpdatedAt, IsDeleted, DeletedAt
+        FROM Sessions
+        WHERE SessionId = @SessionId AND IsDeleted = 0;
+    END TRY
+    BEGIN CATCH THROW; END CATCH
+END
+GO
+
+PRINT '  ✓ sp_Sessions_GetById created';
+GO
+
+-- sp_Sessions_GetByScheduleId
+CREATE PROCEDURE sp_Sessions_GetByScheduleId
+    @ScheduleId INT
+AS
+BEGIN
+    SET NOCOUNT ON;
+    BEGIN TRY
+        SELECT SessionId, ScheduleId, MemberId, RegistrationDate, Status,
+               CreatedAt, UpdatedAt, IsDeleted, DeletedAt
+        FROM Sessions
+        WHERE ScheduleId = @ScheduleId AND IsDeleted = 0
+        ORDER BY RegistrationDate ASC;
+    END TRY
+    BEGIN CATCH THROW; END CATCH
+END
+GO
+
+PRINT '  ✓ sp_Sessions_GetByScheduleId created';
+GO
+
+-- sp_Sessions_GetByMemberId
+CREATE PROCEDURE sp_Sessions_GetByMemberId
+    @MemberId INT
+AS
+BEGIN
+    SET NOCOUNT ON;
+    BEGIN TRY
+        SELECT SessionId, ScheduleId, MemberId, RegistrationDate, Status,
+               CreatedAt, UpdatedAt, IsDeleted, DeletedAt
+        FROM Sessions
+        WHERE MemberId = @MemberId AND IsDeleted = 0
+        ORDER BY RegistrationDate DESC;
+    END TRY
+    BEGIN CATCH THROW; END CATCH
+END
+GO
+
+PRINT '  ✓ sp_Sessions_GetByMemberId created';
+GO
+
+-- sp_Sessions_GetByStatus
+CREATE PROCEDURE sp_Sessions_GetByStatus
+    @Status NVARCHAR(20)
+AS
+BEGIN
+    SET NOCOUNT ON;
+    BEGIN TRY
+        SELECT SessionId, ScheduleId, MemberId, RegistrationDate, Status,
+               CreatedAt, UpdatedAt, IsDeleted, DeletedAt
+        FROM Sessions
+        WHERE Status = @Status AND IsDeleted = 0
+        ORDER BY RegistrationDate DESC;
+    END TRY
+    BEGIN CATCH THROW; END CATCH
+END
+GO
+
+PRINT '  ✓ sp_Sessions_GetByStatus created';
+GO
+
+-- sp_Sessions_Create
+CREATE PROCEDURE sp_Sessions_Create
+    @ScheduleId INT,
+    @MemberId INT,
+    @RegistrationDate DATETIME = NULL,
+    @Status NVARCHAR(20) = N'Registered'
+AS
+BEGIN
+    SET NOCOUNT ON;
+    BEGIN TRY
+        IF @RegistrationDate IS NULL SET @RegistrationDate = GETDATE();
+        INSERT INTO Sessions (ScheduleId, MemberId, RegistrationDate, Status, CreatedAt, UpdatedAt, IsDeleted)
+        VALUES (@ScheduleId, @MemberId, @RegistrationDate, @Status, GETDATE(), GETDATE(), 0);
+        SELECT SCOPE_IDENTITY() AS NewId;
+    END TRY
+    BEGIN CATCH THROW; END CATCH
+END
+GO
+
+PRINT '  ✓ sp_Sessions_Create created';
+GO
+
+-- sp_Sessions_Update
+CREATE PROCEDURE sp_Sessions_Update
+    @SessionId INT,
+    @Status NVARCHAR(20)
+AS
+BEGIN
+    SET NOCOUNT ON;
+    BEGIN TRY
+        UPDATE Sessions
+        SET Status = @Status,
+            UpdatedAt = GETDATE()
+        WHERE SessionId = @SessionId AND IsDeleted = 0;
+        SELECT @@ROWCOUNT AS AffectedRows;
+    END TRY
+    BEGIN CATCH THROW; END CATCH
+END
+GO
+
+PRINT '  ✓ sp_Sessions_Update created';
+GO
+
+-- sp_Sessions_Delete
+CREATE PROCEDURE sp_Sessions_Delete
+    @SessionId INT
+AS
+BEGIN
+    SET NOCOUNT ON;
+    BEGIN TRY
+        UPDATE Sessions
+        SET IsDeleted = 1,
+            DeletedAt = GETDATE(),
+            UpdatedAt = GETDATE()
+        WHERE SessionId = @SessionId AND IsDeleted = 0;
+        SELECT @@ROWCOUNT AS AffectedRows;
+    END TRY
+    BEGIN CATCH THROW; END CATCH
+END
+GO
+
+PRINT '  ✓ sp_Sessions_Delete created';
+GO
+
+-- =============================================
+-- MemberSchedulePreferences Procedures (6 total)
+-- =============================================
+
+-- sp_MemberSchedulePreferences_GetAll
+CREATE PROCEDURE sp_MemberSchedulePreferences_GetAll
+AS
+BEGIN
+    SET NOCOUNT ON;
+    BEGIN TRY
+        SELECT PreferenceId, MemberId, DayOfWeek, StartTime, EndTime, IsActive,
+               CreatedAt, UpdatedAt
+        FROM MemberSchedulePreferences
+        ORDER BY MemberId, DayOfWeek, StartTime;
+    END TRY
+    BEGIN CATCH THROW; END CATCH
+END
+GO
+
+PRINT '  ✓ sp_MemberSchedulePreferences_GetAll created';
+GO
+
+-- sp_MemberSchedulePreferences_GetById
+CREATE PROCEDURE sp_MemberSchedulePreferences_GetById
+    @PreferenceId INT
+AS
+BEGIN
+    SET NOCOUNT ON;
+    BEGIN TRY
+        SELECT PreferenceId, MemberId, DayOfWeek, StartTime, EndTime, IsActive,
+               CreatedAt, UpdatedAt
+        FROM MemberSchedulePreferences
+        WHERE PreferenceId = @PreferenceId;
+    END TRY
+    BEGIN CATCH THROW; END CATCH
+END
+GO
+
+PRINT '  ✓ sp_MemberSchedulePreferences_GetById created';
+GO
+
+-- sp_MemberSchedulePreferences_GetByMemberId
+CREATE PROCEDURE sp_MemberSchedulePreferences_GetByMemberId
+    @MemberId INT
+AS
+BEGIN
+    SET NOCOUNT ON;
+    BEGIN TRY
+        SELECT PreferenceId, MemberId, DayOfWeek, StartTime, EndTime, IsActive,
+               CreatedAt, UpdatedAt
+        FROM MemberSchedulePreferences
+        WHERE MemberId = @MemberId
+        ORDER BY DayOfWeek, StartTime;
+    END TRY
+    BEGIN CATCH THROW; END CATCH
+END
+GO
+
+PRINT '  ✓ sp_MemberSchedulePreferences_GetByMemberId created';
+GO
+
+-- sp_MemberSchedulePreferences_GetByDayOfWeek
+CREATE PROCEDURE sp_MemberSchedulePreferences_GetByDayOfWeek
+    @DayOfWeek INT
+AS
+BEGIN
+    SET NOCOUNT ON;
+    BEGIN TRY
+        SELECT PreferenceId, MemberId, DayOfWeek, StartTime, EndTime, IsActive,
+               CreatedAt, UpdatedAt
+        FROM MemberSchedulePreferences
+        WHERE DayOfWeek = @DayOfWeek AND IsActive = 1
+        ORDER BY StartTime;
+    END TRY
+    BEGIN CATCH THROW; END CATCH
+END
+GO
+
+PRINT '  ✓ sp_MemberSchedulePreferences_GetByDayOfWeek created';
+GO
+
+-- sp_MemberSchedulePreferences_Create
+CREATE PROCEDURE sp_MemberSchedulePreferences_Create
+    @MemberId INT,
+    @DayOfWeek INT,
+    @StartTime TIME,
+    @EndTime TIME,
+    @IsActive BIT = 1
+AS
+BEGIN
+    SET NOCOUNT ON;
+    BEGIN TRY
+        INSERT INTO MemberSchedulePreferences (MemberId, DayOfWeek, StartTime, EndTime, IsActive, CreatedAt, UpdatedAt)
+        VALUES (@MemberId, @DayOfWeek, @StartTime, @EndTime, @IsActive, GETDATE(), GETDATE());
+        SELECT SCOPE_IDENTITY() AS NewId;
+    END TRY
+    BEGIN CATCH THROW; END CATCH
+END
+GO
+
+PRINT '  ✓ sp_MemberSchedulePreferences_Create created';
+GO
+
+-- sp_MemberSchedulePreferences_Update
+CREATE PROCEDURE sp_MemberSchedulePreferences_Update
+    @PreferenceId INT,
+    @DayOfWeek INT,
+    @StartTime TIME,
+    @EndTime TIME,
+    @IsActive BIT
+AS
+BEGIN
+    SET NOCOUNT ON;
+    BEGIN TRY
+        UPDATE MemberSchedulePreferences
+        SET DayOfWeek = @DayOfWeek,
+            StartTime = @StartTime,
+            EndTime = @EndTime,
+            IsActive = @IsActive,
+            UpdatedAt = GETDATE()
+        WHERE PreferenceId = @PreferenceId;
+        SELECT @@ROWCOUNT AS AffectedRows;
+    END TRY
+    BEGIN CATCH THROW; END CATCH
+END
+GO
+
+PRINT '  ✓ sp_MemberSchedulePreferences_Update created';
+GO
+
+PRINT 'All stored procedures created successfully (97 total)';
 GO
 
 -- =============================================
@@ -767,7 +2927,7 @@ PRINT '';
 PRINT 'Database Summary:';
 PRINT '  Database: GymDb (Vietnamese_CI_AS collation)';
 PRINT '  Tables: 12 total';
-PRINT '  Stored Procedures: 2 (sp_AuditLog_Create, sp_AuditLog_GetByRecord)';
+PRINT '  Stored Procedures: 97 (Users:11, Members:9, Trainers:8, Schedules:10, Checkins:8, Memberships:10, Invoices:10, Payments:8, Facilities:7, Sessions:8, MemberSchedulePreferences:6, AuditLogs:2)';
 PRINT '  Indexes: All tables indexed properly';
 PRINT '';
 PRINT 'Seed Data Summary:';
