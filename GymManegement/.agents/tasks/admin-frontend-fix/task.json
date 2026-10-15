@@ -1,7 +1,0 @@
-{
-  "task_id": "task-admin-frontend",
-  "task_description": "Build admin frontend for gym management system with CRUD interfaces for members, trainers, packages, schedules, registrations, invoices, payments, and user role management",
-  "status": "pending",
-  "feature_order": ["FEAT-001", "FEAT-002", "FEAT-003", "FEAT-004"],
-  "blocked_reason": null
-}

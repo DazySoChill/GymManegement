@@ -362,3 +362,10 @@ MigrationBackup/
 # Fody - auto-generated XML schema
 FodyWeavers.xsd.agents/ 
 /GymManegement/📁_TÀI_LIỆU_BÁO_CÁO/.agents/tasks
+/Tai_Lieu_On_Tap
+/build_final_defense_word_doc.py
+/download_diagrams.py
+/generate_master_doc.py
+/generate_phase_1_2_doc.py
+/test_out.txt
+.agents/ 
