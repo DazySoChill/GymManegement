@@ -127,10 +127,5 @@ namespace GymManegement.Controllers
                 memberId = User.FindFirstValue("memberId")
             });
         }
-
-        /// <summary>Alias for /me - frontend compatibility</summary>
-        [HttpGet("profile")]
-        [Authorize]
-        public IActionResult GetProfile() => Me();
     }
 }

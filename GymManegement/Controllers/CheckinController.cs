@@ -8,7 +8,6 @@ namespace GymManegement.Controllers
 {
     [ApiController]
     [Route("api/[controller]")]
-    [Route("api/Checkins")] // Alias for frontend compatibility
     [Authorize]
     public class CheckinController : ControllerBase
     {
@@ -68,14 +67,5 @@ namespace GymManegement.Controllers
             return CreatedAtAction(nameof(GetById), new { id = result.CheckinId }, result);
         }
 
-        /// <summary>Check-in bằng QR Code (NFR requirement)</summary>
-        [HttpPost("qr")]
-        [AllowAnonymous]
-        public async Task<IActionResult> CheckinByQR([FromBody] QRCheckinRequest request)
-        {
-            if (!ModelState.IsValid) return BadRequest(ModelState);
-            var result = await _service.CheckinByQRAsync(request);
-            return Ok(result);
-        }
     }
 }

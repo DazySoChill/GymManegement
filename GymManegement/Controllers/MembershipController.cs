@@ -85,7 +85,7 @@ namespace GymManegement.Controllers
 
         [HttpDelete("{id:int}")]
         [Authorize(Roles = "SuperAdmin,Admin")]
-        public async Task<IActionResult> Delete(int id)
+        public async Task<IActionResult> Delete(int id) 
             => await _service.DeleteAsync(id) ? NoContent() : NotFound();
 
         /// <summary>Renew membership - creates new membership based on existing one</summary>

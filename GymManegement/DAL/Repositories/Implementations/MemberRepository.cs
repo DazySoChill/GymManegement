@@ -89,8 +89,7 @@ namespace GymManegement.DAL.Repositories.Implementations
 
         public async Task<IEnumerable<Member>> GetByStatusAsync(string status)
         {
-            // SQL2 không có Status column nữa
-            // Trả về empty list hoặc throw exception
+            // Trả về empty list hoặc throw exception do rebuild sql 
             throw new NotSupportedException("Status filtering is not supported in SQL2 schema.");
         }
 
