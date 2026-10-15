@@ -40,7 +40,6 @@ builder.Services.AddScoped<IAuthService,       AuthService>();
 builder.Services.AddScoped<IMemberSchedulePreferenceService, MemberSchedulePreferenceService>();
 
 
-builder.Services.AddScoped<IEmailService, EmailService>();
 
 
 // ── JWT Authentication ────────────────────────────────────────
