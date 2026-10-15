@@ -67,9 +67,8 @@ namespace GymManegement.Service.BUS.Implementations
             return entities.Select(ToResponse);
         }
 
-        /// <summary>
-        /// CreateAsync: Tạo Membership và AUTO CREATE Invoice
-        /// </summary>
+
+
         public async Task<MembershipResponse> CreateAsync(CreateMembershipRequest request)
         {
             // 1. Create Membership
